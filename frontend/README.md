@@ -56,11 +56,22 @@ npm run preview
 ```
 
 ## Next Steps:
-- Set up React Router
+- ✅ Set up React Router
 - Create authentication components
 - Build API service layer
 - Create layout components
 - Implement dashboard
+
+## Available Routes:
+- `/` - Home page (landing)
+- `/login` - Login page
+- `/register` - Registration page
+- `/dashboard` - Main dashboard (protected)
+- `/workouts` - Workout history (protected)
+- `/analytics` - Analytics & charts (protected)
+- `/program` - Training programs (protected)
+
+See [ROUTES.md](./src/ROUTES.md) for detailed route documentation.
 
 ## Dependencies Installed:
 - react: ^19.1.1
