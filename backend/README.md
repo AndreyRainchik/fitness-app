@@ -10,7 +10,8 @@
 
 ### Test Database:
 ```bash
-node src/test-db.js
+node src/test-db.js      # Test database connection
+node src/test-models.js  # Test all models (comprehensive)
 ```
 
 ### Installed Dependencies:
@@ -26,8 +27,15 @@ node src/test-db.js
 ```
 backend/
 ├── src/
-│   ├── config/       # Database configuration (next step)
-│   ├── models/       # Data models (next step)
+│   ├── config/       # Database configuration ✅
+│   ├── models/       # Data models ✅
+│   │   ├── User.js        # User authentication & profiles
+│   │   ├── Exercise.js    # Exercise library
+│   │   ├── Workout.js     # Workout sessions
+│   │   ├── Set.js         # Individual sets
+│   │   ├── Program.js     # Training programs
+│   │   ├── index.js       # Model exports
+│   │   └── README.md      # Models documentation
 │   ├── routes/       # API routes (next step)
 │   ├── middleware/   # Custom middleware (next step)
 │   ├── utils/        # Helper functions (next step)
