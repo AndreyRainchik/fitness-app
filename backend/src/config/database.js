@@ -172,6 +172,7 @@ function seedExercises() {
     
     // Pull Exercises
     { name: 'Pull-up', category: 'bodyweight', primary: 'Back', secondary: '["Biceps"]', compound: 1 },
+    {name: 'Machine-Assisted Pull-up', category: 'machine', primary: 'Back', secondary: '["Biceps"]', compound: 1 },
     { name: 'Chin-up', category: 'bodyweight', primary: 'Back', secondary: '["Biceps"]', compound: 1 },
     { name: 'Lat Pulldown', category: 'cable', primary: 'Back', secondary: '["Biceps"]', compound: 0 },
     { name: 'Cable Row', category: 'cable', primary: 'Back', secondary: '["Biceps"]', compound: 0 },
@@ -187,6 +188,7 @@ function seedExercises() {
     { name: 'Leg Curl', category: 'machine', primary: 'Hamstrings', secondary: '[]', compound: 0 },
     { name: 'Leg Extension', category: 'machine', primary: 'Quadriceps', secondary: '[]', compound: 0 },
     { name: 'Lunges', category: 'bodyweight', primary: 'Quadriceps', secondary: '["Glutes"]', compound: 1 },
+    { name: 'Barbell Calf Raise', category: 'barbell', primary: 'Calves', secondary: '[]', compound: 0 },
     
     // Arm Exercises
     { name: 'Barbell Curl', category: 'barbell', primary: 'Biceps', secondary: '[]', compound: 0 },
