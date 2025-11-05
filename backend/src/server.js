@@ -3,6 +3,11 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { initDatabase } from './config/database.js';
 
+// Import routes
+import authRoutes from './routes/auth.js';
+import exerciseRoutes from './routes/exercises.js';
+import workoutRoutes from './routes/workouts.js';
+
 // Load environment variables
 dotenv.config();
 
@@ -38,10 +43,18 @@ app.get('/api', (req, res) => {
     message: 'Fitness App API v1.0',
     endpoints: {
       health: '/health',
-      api: '/api'
+      api: '/api',
+      auth: '/api/auth',
+      exercises: '/api/exercises',
+      workouts: '/api/workouts'
     }
   });
 });
+
+// Mount API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/exercises', exerciseRoutes);
+app.use('/api/workouts', workoutRoutes);
 
 // 404 handler
 app.use((req, res) => {
