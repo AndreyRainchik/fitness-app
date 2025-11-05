@@ -57,10 +57,24 @@ npm run preview
 
 ## Next Steps:
 - ✅ Set up React Router
+- ✅ Create basic layout and navigation
 - Create authentication components
 - Build API service layer
-- Create layout components
-- Implement dashboard
+- Implement dashboard features
+
+## Layout & Navigation:
+The app uses a consistent layout system for authenticated pages:
+- **Header**: Blue navigation bar with logo, menu links, and logout
+- **Active Highlighting**: Current page highlighted in navigation
+- **Responsive**: Mobile-friendly hamburger menu (☰)
+- **Desktop**: Horizontal navigation bar
+- **Mobile**: Tap hamburger icon to reveal dropdown menu
+- **Footer**: Sticky footer at bottom of page
+
+All authenticated pages (Dashboard, Workouts, Analytics, Programs) use the Layout wrapper component.
+
+See [Layout Documentation](./src/components/Layout/README.md) for details.
+See [Mobile Menu Guide](./src/components/Layout/MOBILE-MENU.md) for mobile implementation.
 
 ## Available Routes:
 - `/` - Home page (landing)
@@ -71,7 +85,7 @@ npm run preview
 - `/analytics` - Analytics & charts (protected)
 - `/program` - Training programs (protected)
 
-See [ROUTES.md](./src/ROUTES.md) for detailed route documentation.
+See [ROUTES.md](./ROUTES.md) for detailed route documentation.
 
 ## Dependencies Installed:
 - react: ^19.1.1
