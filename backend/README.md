@@ -2,6 +2,17 @@
 
 ## Setup Complete ✅
 
+### Database Setup ✅
+- **SQLite database**: `fitness.db` (48KB)
+- **6 tables created**: users, exercises, workouts, sets, programs, program_lifts
+- **34 exercises seeded**: Common barbell, dumbbell, and bodyweight exercises
+- **Indexes created**: For optimized queries
+
+### Test Database:
+```bash
+node src/test-db.js
+```
+
 ### Installed Dependencies:
 - **express**: Web framework
 - **cors**: Cross-origin resource sharing
