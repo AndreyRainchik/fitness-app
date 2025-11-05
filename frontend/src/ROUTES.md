@@ -4,20 +4,32 @@
 
 ### Public Routes (No Authentication Required)
 
-| Route | Page | Description |
-|-------|------|-------------|
-| `/` | Home | Landing page with feature overview and CTA buttons |
-| `/login` | Login | User login form |
-| `/register` | Register | New user registration form |
+| Route | Page | Description | Redirect if logged in |
+|-------|------|-------------|----------------------|
+| `/` | Home | Landing page with feature overview and CTA buttons | No |
+| `/login` | Login | User login form | → `/dashboard` |
+| `/register` | Register | New user registration form | → `/dashboard` |
 
-### Protected Routes (Will Require Authentication)
+**Smart Redirects:**
+- Login and Register pages check if user is already authenticated
+- If already logged in, automatically redirect to Dashboard
+- Prevents confusion of seeing login form when already logged in
 
-| Route | Page | Description |
-|-------|------|-------------|
-| `/dashboard` | Dashboard | Main user dashboard with stats and quick actions |
-| `/workouts` | Workouts | Workout history and management |
-| `/analytics` | Analytics | Progress tracking and analysis |
-| `/program` | Program | Training program management (5/3/1, etc.) |
+### Protected Routes (Require Authentication)
+
+| Route | Page | Description | Redirect if not logged in |
+|-------|------|-------------|---------------------------|
+| `/dashboard` | Dashboard | Main user dashboard with stats and quick actions | → `/login` |
+| `/workouts` | Workouts | Workout history and management | → `/login` |
+| `/analytics` | Analytics | Progress tracking and analysis | → `/login` |
+| `/program` | Program | Training program management (5/3/1, etc.) | → `/login` |
+
+**Protection Mechanism:**
+- All protected routes wrapped in `<ProtectedRoute>` component
+- Checks `isAuthenticated` from AuthContext
+- Shows loading spinner while checking auth
+- Redirects to `/login` if not authenticated
+- Renders content if authenticated
 
 ### Special Routes
 

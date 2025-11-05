@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 function Register() {
   const navigate = useNavigate();
+  const { register, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -12,6 +14,13 @@ function Register() {
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleChange = (e) => {
     setFormData({
@@ -26,19 +35,22 @@ function Register() {
     setIsLoading(true);
 
     try {
-      // TODO: Connect to API
-      console.log('Registration submitted:', {
+      // Prepare data for API
+      const userData = {
         username: formData.username,
         email: formData.email,
-        bodyweight: formData.bodyweight,
-        units: formData.units
-      });
-      
-      // Temporary: Just show alert
-      // Will be replaced with actual API call
-      alert('Registration functionality will be connected to API in next step!');
-      // navigate('/dashboard');
-      
+        password: formData.password,
+        units: formData.units,
+      };
+
+      // Only include bodyweight if provided
+      if (formData.bodyweight) {
+        userData.bodyweight = parseFloat(formData.bodyweight);
+      }
+
+      await register(userData);
+      // Success! Navigate to dashboard
+      navigate('/dashboard');
     } catch (err) {
       setError(err.message || 'Failed to register');
     } finally {

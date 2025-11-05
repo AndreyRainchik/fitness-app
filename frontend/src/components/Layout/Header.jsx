@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 function Header() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Check if a nav link is active
@@ -63,12 +66,12 @@ function Header() {
           {/* Desktop User Menu */}
           <div className="hidden md:flex items-center space-x-4">
             <div className="text-white text-sm">
-              <span className="font-medium">Guest User</span>
+              <span className="font-medium">{user?.username || 'Guest User'}</span>
             </div>
             <button
               onClick={() => {
-                // TODO: Implement logout
-                alert('Logout functionality will be added with authentication!');
+                logout();
+                navigate('/login');
               }}
               className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg font-medium transition duration-200"
             >
@@ -131,12 +134,13 @@ function Header() {
             </nav>
             <div className="border-t border-gray-200 py-3 px-4">
               <div className="text-gray-700 text-sm mb-3">
-                <span className="font-medium">Guest User</span>
+                <span className="font-medium">{user?.username || 'Guest User'}</span>
               </div>
               <button
                 onClick={() => {
                   closeMobileMenu();
-                  alert('Logout functionality will be added with authentication!');
+                  logout();
+                  navigate('/login');
                 }}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition duration-200"
               >

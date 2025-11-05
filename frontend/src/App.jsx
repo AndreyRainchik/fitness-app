@@ -1,5 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Pages
 import Home from './pages/Home';
@@ -12,18 +14,35 @@ import Program from './pages/Program';
 
 function App() {
   return (
-    <Router>
-      <Routes>
+    <AuthProvider>
+      <Router>
+        <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         
-        {/* Protected Routes (will add auth later) */}
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/workouts" element={<Workouts />} />
-        <Route path="/analytics" element={<Analytics />} />
-        <Route path="/program" element={<Program />} />
+        {/* Protected Routes */}
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/workouts" element={
+          <ProtectedRoute>
+            <Workouts />
+          </ProtectedRoute>
+        } />
+        <Route path="/analytics" element={
+          <ProtectedRoute>
+            <Analytics />
+          </ProtectedRoute>
+        } />
+        <Route path="/program" element={
+          <ProtectedRoute>
+            <Program />
+          </ProtectedRoute>
+        } />
         
         {/* Catch-all route for 404 */}
         <Route path="*" element={
@@ -39,6 +58,7 @@ function App() {
         } />
       </Routes>
     </Router>
+    </AuthProvider>
   );
 }
 

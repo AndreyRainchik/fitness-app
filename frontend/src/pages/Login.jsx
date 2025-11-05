@@ -1,14 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 function Login() {
   const navigate = useNavigate();
+  const { login, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleChange = (e) => {
     setFormData({
@@ -23,14 +32,9 @@ function Login() {
     setIsLoading(true);
 
     try {
-      // TODO: Connect to API
-      console.log('Login submitted:', { email: formData.email });
-      
-      // Temporary: Just navigate to dashboard
-      // Will be replaced with actual API call
-      alert('Login functionality will be connected to API in next step!');
-      // navigate('/dashboard');
-      
+      await login(formData);
+      // Success! Navigate to dashboard
+      navigate('/dashboard');
     } catch (err) {
       setError(err.message || 'Failed to login');
     } finally {
