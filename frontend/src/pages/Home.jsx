@@ -56,16 +56,16 @@ function Home() {
             </div>
           </div>
 
-          <div className="flex gap-4 justify-center">
+          <div className="grid md:grid-cols-2 gap-6">
             <Link
               to="/register"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition duration-200"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition duration-200 text-center"
             >
               Get Started
             </Link>
             <Link
               to="/login"
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-lg text-lg transition duration-200"
+              className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-lg text-lg transition duration-200 text-center"
             >
               Sign In
             </Link>
