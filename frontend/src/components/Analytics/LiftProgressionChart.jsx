@@ -31,7 +31,8 @@ function LiftProgressionChart({ data, exerciseName }) {
     ...point,
     dateFormatted: new Date(point.date).toLocaleDateString('en-US', {
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
+      timeZone: 'UTC'
     })
   }));
 
@@ -51,7 +52,8 @@ function LiftProgressionChart({ data, exerciseName }) {
             {new Date(data.date).toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
-              year: 'numeric'
+              year: 'numeric',
+              timeZone: 'UTC'
             })}
           </p>
           <div className="space-y-1">
@@ -172,8 +174,8 @@ function LiftProgressionChart({ data, exerciseName }) {
       <div className="mt-4 pt-4 border-t border-gray-200">
         <p className="text-xs text-gray-500">
           Showing {data.length} data point{data.length !== 1 ? 's' : ''} from{' '}
-          {new Date(firstValue.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} to{' '}
-          {new Date(latestValue.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          {new Date(firstValue.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })} to{' '}
+          {new Date(latestValue.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}
         </p>
       </div>
     </div>

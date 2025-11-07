@@ -120,7 +120,8 @@ function StrengthScoreCard({ lift }) {
             {new Date(lift.recentPR.date).toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
-              year: 'numeric'
+              year: 'numeric',
+              timeZone: 'UTC'
             })}
           </p>
         </div>
