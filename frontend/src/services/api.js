@@ -1,16 +1,12 @@
-/**
- * API Service
- * Centralized service for making API calls to the backend
- */
-
-const API_BASE_URL = '/api'; // Proxied by Vite to http://localhost:3000
+// API Configuration
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 /**
- * Helper function to make API calls
+ * Generic API call helper
  */
 async function apiCall(endpoint, options = {}) {
   const token = localStorage.getItem('token');
-  
+
   const config = {
     headers: {
       'Content-Type': 'application/json',
@@ -303,9 +299,46 @@ export const profileAPI = {
   },
 };
 
+/**
+ * Analytics API calls
+ */
+export const analyticsAPI = {
+  /**
+   * Get lift progression data for a specific exercise
+   * @param {string} exerciseName - Name of exercise
+   * @param {number} weeks - Number of weeks to look back (default: 12)
+   */
+  getLiftProgression: async (exerciseName, weeks = 12) => {
+    return await apiCall(`/analytics/lift-progression/${encodeURIComponent(exerciseName)}?weeks=${weeks}`);
+  },
+
+  /**
+   * Get strength score for all main lifts
+   * @param {number} weeks - Number of weeks to analyze (default: 12)
+   */
+  getStrengthScore: async (weeks = 12) => {
+    return await apiCall(`/analytics/strength-score?weeks=${weeks}`);
+  },
+
+  /**
+   * Get symmetry analysis (balance between lifts)
+   */
+  getSymmetry: async () => {
+    return await apiCall('/analytics/symmetry');
+  },
+
+  /**
+   * Get dashboard summary stats
+   */
+  getDashboardSummary: async () => {
+    return await apiCall('/analytics/dashboard-summary');
+  },
+};
+
 export default {
   auth: authAPI,
   exercises: exercisesAPI,
   workouts: workoutsAPI,
   profile: profileAPI,
+  analytics: analyticsAPI,
 };
