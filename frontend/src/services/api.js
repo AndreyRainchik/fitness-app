@@ -210,8 +210,102 @@ export const workoutsAPI = {
   },
 };
 
+/**
+ * Profile API calls
+ */
+export const profileAPI = {
+  /**
+   * Get current user's full profile
+   */
+  getProfile: async () => {
+    return await apiCall('/profile');
+  },
+
+  /**
+   * Update user profile (username, units, sex, bodyweight)
+   */
+  updateProfile: async (updates) => {
+    return await apiCall('/profile', {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  /**
+   * Change password
+   */
+  changePassword: async (currentPassword, newPassword) => {
+    return await apiCall('/profile/password', {
+      method: 'PUT',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  },
+
+  /**
+   * Change email
+   */
+  changeEmail: async (email) => {
+    return await apiCall('/profile/email', {
+      method: 'PUT',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  /**
+   * Get bodyweight logs
+   */
+  getBodyweightLogs: async (filters = {}) => {
+    const params = new URLSearchParams(filters);
+    return await apiCall(`/profile/bodyweight?${params}`);
+  },
+
+  /**
+   * Get latest bodyweight
+   */
+  getLatestBodyweight: async () => {
+    return await apiCall('/profile/bodyweight/latest');
+  },
+
+  /**
+   * Add new bodyweight log
+   */
+  addBodyweightLog: async (weight, date, units) => {
+    return await apiCall('/profile/bodyweight', {
+      method: 'POST',
+      body: JSON.stringify({ weight, date, units }),
+    });
+  },
+
+  /**
+   * Update bodyweight log
+   */
+  updateBodyweightLog: async (id, updates) => {
+    return await apiCall(`/profile/bodyweight/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  /**
+   * Delete bodyweight log
+   */
+  deleteBodyweightLog: async (id) => {
+    return await apiCall(`/profile/bodyweight/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Get bodyweight trend
+   */
+  getBodyweightTrend: async (days = 30) => {
+    return await apiCall(`/profile/bodyweight/trend?days=${days}`);
+  },
+};
+
 export default {
   auth: authAPI,
   exercises: exercisesAPI,
   workouts: workoutsAPI,
+  profile: profileAPI,
 };

@@ -13,6 +13,7 @@ import Analytics from './pages/Analytics';
 import Program from './pages/Program';
 import NewWorkout from './pages/NewWorkout';
 import WorkoutDetail from './pages/WorkoutDetail';
+import Profile from './pages/Profile';
 
 function App() {
   return (
@@ -53,6 +54,11 @@ function App() {
         <Route path="/program" element={
           <ProtectedRoute>
             <Program />
+          </ProtectedRoute>
+        } />
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <Profile />
           </ProtectedRoute>
         } />
         

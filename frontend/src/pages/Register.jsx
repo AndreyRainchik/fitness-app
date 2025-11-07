@@ -10,7 +10,8 @@ function Register() {
     email: '',
     password: '',
     bodyweight: '',
-    units: 'lbs'
+    units: 'lbs',
+    sex: ''
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -46,6 +47,11 @@ function Register() {
       // Only include bodyweight if provided
       if (formData.bodyweight) {
         userData.bodyweight = parseFloat(formData.bodyweight);
+      }
+
+      // Only include sex if provided
+      if (formData.sex) {
+        userData.sex = formData.sex;
       }
 
       await register(userData);
@@ -120,6 +126,26 @@ function Register() {
               required
               minLength="6"
             />
+          </div>
+
+          <div>
+            <label htmlFor="sex" className="block text-sm font-medium text-gray-700 mb-2">
+              Sex (optional)
+            </label>
+            <select
+              id="sex"
+              name="sex"
+              value={formData.sex}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Prefer not to say</option>
+              <option value="M">Male</option>
+              <option value="F">Female</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Used for strength standards comparison
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
