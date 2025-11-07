@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { workoutsAPI } from '../services/api';
-import { exercisesAPI } from '../services/api';
+import { workoutsAPI, exercisesAPI } from '../services/api';
 import Layout from '../components/Layout/Layout';
 
 function NewWorkout() {
@@ -16,75 +15,150 @@ function NewWorkout() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const handleAddExercise = () => {
-    // For now, we'll add a placeholder
-    // Next step will be to add exercise search
-    setExercises([
-      ...exercises,
-      {
-        id: Date.now(),
-        exerciseName: '',
-        sets: []
-      }
-    ]);
-  };
+  // Autocomplete state (per focused input we store transient suggestions)
+  // We'll keep a map of localExerciseId -> { query, suggestions, isOpen, highlightedIndex }
+  const [acState, setAcState] = useState({}); // { [localId]: { query, suggestions, open, highlighted } }
 
+  const acDebounceTimers = useRef({});
+
+  // Helper: add a new exercise entry (local only)
+  const handleAddExercise = () => {
+    const localId = Date.now() + Math.floor(Math.random() * 1000);
+    setExercises((prev) => [
+      ...prev,
+      { id: localId, exerciseId: null, exerciseName: '', sets: [] },
+    ]);
+    // init acState for this id
+    setAcState((s) => ({ ...s, [localId]: { query: '', suggestions: [], open: false, highlighted: -1 } }));
+  };
   const handleRemoveExercise = (exerciseId) => {
     setExercises(exercises.filter(ex => ex.id !== exerciseId));
   };
 
-  const handleExerciseNameChange = (exerciseId, name) => {
-    setExercises(exercises.map(ex =>
-      ex.id === exerciseId ? { ...ex, exerciseName: name } : ex
-    ));
+  // When the exerciseName input changes, update exercises[] and trigger search debounced
+  const handleExerciseNameChange = (localId, name) => {
+    // update exercises
+    setExercises((prev) =>
+      prev.map((ex) => (ex.id === localId ? { ...ex, exerciseName: name, exerciseId: null } : ex))
+    );
+
+    // update autocomplete state
+    setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), query: name, open: false, highlighted: -1 } }));
+
+    // if less than 2 characters, skip search
+    if (!name || name.trim().length < 2) {
+      // clear suggestions
+      setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), suggestions: [], open: false, highlighted: -1 } }));
+      return;
+    }
+
+    // debounce and call exercisesAPI.search
+    if (acDebounceTimers.current[localId]) {
+      clearTimeout(acDebounceTimers.current[localId]);
+    }
+    acDebounceTimers.current[localId] = setTimeout(async () => {
+      try {
+        const res = await exercisesAPI.search(name.trim());
+        // API expected to return e.g. { exercises: [...] } or array — adapt to your backend shape.
+        // We'll normalize: if res.exercises exists, use it, else if res is array, use it.
+        const serverList = res?.exercises ?? res ?? [];
+        // Each item should have at least { id, name }
+        setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), suggestions: serverList, open: serverList.length > 0, highlighted: -1 } }));
+      } catch (err) {
+        // on error, clear suggestions; optionally show error toast
+        setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), suggestions: [], open: false, highlighted: -1 } }));
+      } finally {
+        delete acDebounceTimers.current[localId];
+      }
+    }, 250);
   };
 
-  const handleAddSet = (exerciseId) => {
-    setExercises(exercises.map(ex => {
-      if (ex.id === exerciseId) {
-        const setNumber = ex.sets.length + 1;
-        return {
-          ...ex,
-          sets: [
-            ...ex.sets,
-            {
-              id: Date.now(),
-              setNumber,
-              weight: '',
-              reps: '',
-              rpe: ''
+  // When user selects a suggestion
+  const handleSelectSuggestion = (localId, suggestion) => {
+    setExercises((prev) =>
+      prev.map((ex) => (ex.id === localId ? { ...ex, exerciseId: suggestion.id, exerciseName: suggestion.name } : ex))
+    );
+    setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), open: false, suggestions: [], highlighted: -1 } }));
+  };
+
+  // Keyboard handling for autocomplete
+  const handleKeyDown = (e, localId) => {
+    const state = acState[localId] || { suggestions: [], highlighted: -1, open: false };
+    const list = state.suggestions || [];
+    if (!state.open || list.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const next = Math.min(state.highlighted + 1, list.length - 1);
+      setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), highlighted: next } }));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prev = Math.max(state.highlighted - 1, 0);
+      setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), highlighted: prev } }));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const idx = state.highlighted >= 0 ? state.highlighted : 0;
+      const suggestion = list[idx];
+      if (suggestion) {
+        handleSelectSuggestion(localId, suggestion);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), open: false, highlighted: -1 } }));
+    }
+  };
+
+  // Add a set for an exercise
+  const handleAddSet = (localId) => {
+    setExercises((prev) =>
+      prev.map((ex) =>
+        ex.id === localId
+          ? {
+              ...ex,
+              sets: [
+                ...ex.sets,
+                {
+                  id: Date.now() + Math.floor(Math.random() * 1000),
+                  setNumber: ex.sets.length + 1,
+                  weight: '',
+                  reps: '',
+                  rpe: '',
+                  isWarmup: false,
+                },
+              ],
             }
-          ]
-        };
-      }
-      return ex;
-    }));
+          : ex
+      )
+    );
   };
 
-  const handleRemoveSet = (exerciseId, setId) => {
-    setExercises(exercises.map(ex => {
-      if (ex.id === exerciseId) {
-        const updatedSets = ex.sets
-          .filter(set => set.id !== setId)
-          .map((set, index) => ({ ...set, setNumber: index + 1 }));
-        return { ...ex, sets: updatedSets };
-      }
-      return ex;
-    }));
+  const handleRemoveSet = (localId, setId) => {
+    setExercises((prev) =>
+      prev.map((ex) =>
+        ex.id === localId
+          ? { ...ex, sets: ex.sets.filter((s) => s.id !== setId).map((s, i) => ({ ...s, setNumber: i + 1 })) }
+          : ex
+      )
+    );
   };
 
-  const handleSetChange = (exerciseId, setId, field, value) => {
-    setExercises(exercises.map(ex => {
-      if (ex.id === exerciseId) {
-        return {
-          ...ex,
-          sets: ex.sets.map(set =>
-            set.id === setId ? { ...set, [field]: value } : set
-          )
-        };
-      }
-      return ex;
-    }));
+  const handleSetChange = (localId, setId, field, value) => {
+    setExercises((prev) =>
+      prev.map((ex) =>
+        ex.id === localId
+          ? {
+              ...ex,
+              sets: ex.sets.map((s) => {
+                if (s.id !== setId) return s;
+                if (field === 'isWarmup') {
+                  return { ...s, isWarmup: value, rpe: value ? null : s.rpe };
+                }
+                return { ...s, [field]: value };
+              }),
+            }
+          : ex
+      )
+    );
   };
 
   const handleSaveWorkout = async () => {
@@ -116,6 +190,7 @@ function NewWorkout() {
     }
 
     setIsSaving(true);
+    let createdWorkout = null;
 
     try {
       // Create workout
@@ -126,202 +201,293 @@ function NewWorkout() {
       };
 
       const workout = await workoutsAPI.create(workoutData);
-      console.log(workout);
+      createdWorkout = workout;
 
       // Add all sets for all exercises
       for (const exercise of exercises) {
         console.log(exercise);
-        const exerciseSearch = await exercisesAPI.search(exercise.exerciseName);
-        console.log(exerciseSearch);
         for (const set of exercise.sets) {
-          await workoutsAPI.addSet(workout.workout.id, {
-            exercise_id: exerciseSearch.exercises[0].id,
-            set_number: set.setNumber,
-            weight: parseFloat(set.weight) || 0,
-            reps: parseInt(set.reps) || 0,
-            rpe: set.rpe ? parseInt(set.rpe) : null
-          });
+          if (set.rpe) {
+            await workoutsAPI.addSet(workout.workout.id, {
+              exercise_id: exercise.exerciseId,
+              set_number: set.setNumber,
+              weight: parseFloat(set.weight) || 0,
+              reps: parseInt(set.reps) || 0,
+              rpe: set.rpe ? parseInt(set.rpe) : null,
+              is_warmup: set.isWarmup
+            });
+          } else {
+            await workoutsAPI.addSet(workout.workout.id, {
+              exercise_id: exercise.exerciseId,
+              set_number: set.setNumber,
+              weight: parseFloat(set.weight) || 0,
+              reps: parseInt(set.reps) || 0,
+              is_warmup: set.isWarmup
+            });
+          }
         }
       }
 
       // Success! Navigate to workouts page
       navigate('/workouts');
     } catch (err) {
+      if (createdWorkout?.id) {
+        try {
+          await workoutsAPI.delete(createdWorkout.id);
+          console.warn('Rolled back workout', createdWorkout.id);
+        } catch (deleteErr) {
+          console.error('Rollback failed:', deleteErr);
+        }
+      }
       setError(err.message || 'Failed to save workout');
     } finally {
       setIsSaving(false);
     }
   };
 
+  // Helper to render suggestions list for a local exercise entry
+  const renderSuggestions = (localId) => {
+    const state = acState[localId] || { suggestions: [], open: false, highlighted: -1 };
+    if (!state.open || !state.suggestions || state.suggestions.length === 0) return null;
+
+    return (
+      <ul
+        role="listbox"
+        aria-label="Exercise suggestions"
+        className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-auto"
+      >
+        {state.suggestions.map((sug, idx) => {
+          const isHighlighted = idx === state.highlighted;
+          return (
+            <li
+              key={sug.id ?? `${sug.name}-${idx}`}
+              role="option"
+              aria-selected={isHighlighted}
+              onMouseDown={(e) => {
+                // onMouseDown so click happens before blur
+                e.preventDefault();
+                handleSelectSuggestion(localId, sug);
+              }}
+              className={`px-3 py-2 cursor-pointer ${isHighlighted ? 'bg-blue-100' : 'hover:bg-gray-50'}`}
+            >
+              <div className="flex justify-between items-center">
+                <div className="text-sm font-medium text-gray-900">{sug.name}</div>
+                {sug.primary_muscle_group && <div className="text-xs text-gray-500">{sug.primary_muscle_group}</div>}
+              </div>
+              {sug.equipment && <div className="text-xs text-gray-400 mt-1">{sug.equipment}</div>}
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
+
+  // Cleanup timers if component unmounts
+  useEffect(() => {
+    return () => {
+      Object.values(acDebounceTimers.current).forEach((t) => clearTimeout(t));
+      acDebounceTimers.current = {};
+    };
+  }, []);
+
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
-        <header className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Log Workout</h1>
-          <p className="text-gray-600">Track your training session</p>
+      <div className="max-w-4xl mx-auto py-8">
+        <header className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">New Workout</h1>
+          <p className="text-sm text-gray-600">Log your session</p>
         </header>
 
-        {error && (
-          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-            {error}
-          </div>
-        )}
+        {error && <div className="mb-4 text-red-600">{error}</div>}
 
-        {/* Workout Details */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Workout Details</h2>
-          
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Workout Name
-              </label>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="grid grid-cols-12 gap-4 items-center mb-6">
+            <div className="col-span-8">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Workout Name</label>
               <input
-                type="text"
                 value={workoutName}
                 onChange={(e) => setWorkoutName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., Upper Body Day"
+                className="w-full border rounded-md px-3 py-2"
+                placeholder="e.g., Upper Strength"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date
-              </label>
+            <div className="col-span-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
               <input
-                type="date"
                 value={workoutDate}
                 onChange={(e) => setWorkoutDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                type="date"
+                className="w-full border rounded-md px-3 py-2"
               />
             </div>
           </div>
-        </div>
 
-        {/* Exercises */}
-        <div className="space-y-6 mb-6">
-          {exercises.map((exercise, exerciseIndex) => (
-            <div key={exercise.id} className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900">
-                  Exercise {exerciseIndex + 1}
-                </h3>
-                <button
-                  onClick={() => handleRemoveExercise(exercise.id)}
-                  className="text-red-600 hover:text-red-700 font-medium"
-                >
-                  Remove
-                </button>
-              </div>
-
-              {/* Exercise Name */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Exercise Name
-                </label>
-                <input
-                  type="text"
-                  value={exercise.exerciseName}
-                  onChange={(e) => handleExerciseNameChange(exercise.id, e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="e.g., Bench Press, Squat"
-                />
-              </div>
-
-              {/* Sets */}
-              {exercise.sets.length > 0 && (
-                <div className="mb-4">
-                  <div className="grid grid-cols-12 gap-2 mb-2 text-sm font-medium text-gray-700">
-                    <div className="col-span-2">Set</div>
-                    <div className="col-span-3">Weight ({user?.units || 'lbs'})</div>
-                    <div className="col-span-3">Reps</div>
-                    <div className="col-span-3">RPE</div>
-                    <div className="col-span-1"></div>
+          {/* Exercise list */}
+          <div className="space-y-6">
+            {exercises.map((exercise) => (
+              <div key={exercise.id} className="bg-gray-50 border border-gray-100 rounded-md p-4 relative">
+                <div className="flex justify-between items-start mb-3">
+                  <div style={{ flex: 1 }}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Exercise</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={exercise.exerciseName}
+                        onChange={(e) => handleExerciseNameChange(exercise.id, e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, exercise.id)}
+                        onFocus={() => {
+                          // open suggestions if any
+                          const st = acState[exercise.id] || {};
+                          if (st.suggestions && st.suggestions.length > 0) {
+                            setAcState((s) => ({ ...s, [exercise.id]: { ...(s[exercise.id] || {}), open: true } }));
+                          }
+                        }}
+                        placeholder="Start typing exercise name..."
+                        aria-autocomplete="list"
+                        aria-controls={`ac-list-${exercise.id}`}
+                        aria-expanded={(acState[exercise.id] && acState[exercise.id].open) ? true : false}
+                        className="w-full border rounded-md px-3 py-2"
+                      />
+                      {/* Suggestions (absolute) */}
+                      <div className="mt-1">{renderSuggestions(exercise.id)}</div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">Tip: type at least 2 characters</div>
                   </div>
 
-                  {exercise.sets.map((set) => (
-                    <div key={set.id} className="grid grid-cols-12 gap-2 mb-2">
-                      <div className="col-span-2 flex items-center">
-                        <span className="text-gray-600">{set.setNumber}</span>
-                      </div>
-                      <div className="col-span-3">
-                        <input
-                          type="number"
-                          value={set.weight}
-                          onChange={(e) => handleSetChange(exercise.id, set.id, 'weight', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="185"
-                          step="0.5"
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <input
-                          type="number"
-                          value={set.reps}
-                          onChange={(e) => handleSetChange(exercise.id, set.id, 'reps', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="10"
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <input
-                          type="number"
-                          value={set.rpe}
-                          onChange={(e) => handleSetChange(exercise.id, set.id, 'rpe', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="8"
-                          min="1"
-                          max="10"
-                        />
-                      </div>
-                      <div className="col-span-1 flex items-center">
-                        <button
-                          onClick={() => handleRemoveSet(exercise.id, set.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                  <div className="ml-4 flex-shrink-0">
+                    <button
+                      onClick={() => handleRemoveExercise(exercise.id)}
+                      className="text-sm text-red-600 hover:underline"
+                      title="Remove exercise"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
-              )}
 
-              {/* Add Set Button */}
+                {/* Sets */}
+                {exercise.sets.length > 0 && (
+                  <div className="mb-4">
+                    <div className="grid grid-cols-12 gap-2 mb-2 text-sm font-medium text-gray-700">
+                      <div className="col-span-2">Set</div>
+                      <div className="col-span-3">Weight ({user?.units || 'lbs'})</div>
+                      <div className="col-span-3">Reps</div>
+                      <div className="col-span-3">RPE</div>
+                      <div className="col-span-1"></div>
+                    </div>
+
+                    {exercise.sets.map((set) => (
+                      <div key={set.id} className="grid grid-cols-12 gap-2 mb-2">
+                        <div className="col-span-2 flex items-center">
+                          <span className="text-gray-700">{set.setNumber}</span>
+                        </div>
+
+                        <div className="col-span-3">
+                          <input
+                            type="number"
+                            value={set.weight}
+                            onChange={(e) => handleSetChange(exercise.id, set.id, 'weight', e.target.value)}
+                            className="w-full border rounded-md px-2 py-1"
+                          />
+                        </div>
+
+                        <div className="col-span-3">
+                          <input
+                            type="number"
+                            value={set.reps}
+                            onChange={(e) => handleSetChange(exercise.id, set.id, 'reps', e.target.value)}
+                            className="w-full border rounded-md px-2 py-1"
+                          />
+                        </div>
+
+                        <div className="col-span-3 flex items-center gap-2">
+                          {/* RPE dropdown */}
+                          <select
+                            value={set.rpe ?? ''}
+                            onChange={(e) => handleSetChange(exercise.id, set.id, 'rpe', e.target.value)}
+                            disabled={set.isWarmup}
+                            className="w-20 border rounded-md px-2 py-1 bg-white"
+                          >
+                            <option value="">--</option>
+                            {[...Array(11)].map((_, i) => (
+                              <option key={i} value={i}>
+                                {i}
+                              </option>
+                            ))}
+                          </select>
+
+                          {/* Warm-up toggle */}
+                          <label className="flex items-center text-xs text-gray-600 gap-1">
+                            <input
+                              type="checkbox"
+                              checked={!!set.isWarmup}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                // update isWarmup and possibly clear RPE
+                                handleSetChange(exercise.id, set.id, 'isWarmup', checked);
+                                if (checked) {
+                                  handleSetChange(exercise.id, set.id, 'rpe', null);
+                                }
+                              }}
+                            />
+                            Warm-up
+                          </label>
+                        </div>
+
+                        <div className="col-span-1">
+                          <button
+                            onClick={() => handleRemoveSet(exercise.id, set.id)}
+                            className="text-sm text-red-600"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleAddSet(exercise.id)}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm"
+                  >
+                    + Add Set
+                  </button>
+                  <div className="text-sm text-gray-500 self-center">
+                    {exercise.sets.length} sets
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6">
+            <button
+              onClick={handleAddExercise}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 mb-6"
+            >
+              + Add Exercise
+            </button>
+
+            <div className="flex gap-4">
               <button
-                onClick={() => handleAddSet(exercise.id)}
-                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition duration-200"
+                onClick={handleSaveWorkout}
+                disabled={isSaving}
+                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-bold py-3 px-4 rounded-lg transition duration-200"
               >
-                + Add Set
+                {isSaving ? 'Saving...' : 'Save Workout'}
+              </button>
+
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-200"
+              >
+                Cancel
               </button>
             </div>
-          ))}
-        </div>
-
-        {/* Add Exercise Button */}
-        <button
-          onClick={handleAddExercise}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 mb-6"
-        >
-          + Add Exercise
-        </button>
-
-        {/* Action Buttons */}
-        <div className="flex gap-4">
-          <button
-            onClick={handleSaveWorkout}
-            disabled={isSaving}
-            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-bold py-3 px-4 rounded-lg transition duration-200"
-          >
-            {isSaving ? 'Saving...' : 'Save Workout'}
-          </button>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-200"
-          >
-            Cancel
-          </button>
+          </div>
         </div>
       </div>
     </Layout>
