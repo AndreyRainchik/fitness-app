@@ -9,16 +9,16 @@ class User {
   /**
    * Create a new user
    */
-  static async create({ email, password, username, bodyweight = null, units = 'kg' }) {
+  static async create({ email, password, username, bodyweight = null, units = 'kg', sex = null }) {
     try {
       // Hash password
       const password_hash = await bcrypt.hash(password, 10);
       
       // Insert user
       run(
-        `INSERT INTO users (email, password_hash, username, bodyweight, units)
-         VALUES (?, ?, ?, ?, ?)`,
-        [email, password_hash, username, bodyweight, units]
+        `INSERT INTO users (email, password_hash, username, bodyweight, units, sex)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [email, password_hash, username, bodyweight, units, sex]
       );
       
       // Get the created user
@@ -71,9 +71,9 @@ class User {
   }
   
   /**
-   * Update user profile
+   * Update user profile (basic info)
    */
-  static update(id, { username, bodyweight, units }) {
+  static update(id, { username, bodyweight, units, sex }) {
     const updates = [];
     const params = [];
     
@@ -88,6 +88,10 @@ class User {
     if (units !== undefined) {
       updates.push('units = ?');
       params.push(units);
+    }
+    if (sex !== undefined) {
+      updates.push('sex = ?');
+      params.push(sex);
     }
     
     if (updates.length === 0) {
@@ -104,6 +108,58 @@ class User {
   }
   
   /**
+   * Change user password
+   */
+  static async changePassword(id, currentPassword, newPassword) {
+    try {
+      // Get user with password hash
+      const user = get('SELECT * FROM users WHERE id = ?', [id]);
+      if (!user) {
+        throw new Error('User not found');
+      }
+      
+      // Verify current password
+      const isValid = await bcrypt.compare(currentPassword, user.password_hash);
+      if (!isValid) {
+        throw new Error('Current password is incorrect');
+      }
+      
+      // Hash new password
+      const newPasswordHash = await bcrypt.hash(newPassword, 10);
+      
+      // Update password
+      run(
+        'UPDATE users SET password_hash = ? WHERE id = ?',
+        [newPasswordHash, id]
+      );
+      
+      return { success: true, message: 'Password updated successfully' };
+    } catch (error) {
+      throw new Error(`Error changing password: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Change user email
+   */
+  static changeEmail(id, newEmail) {
+    try {
+      // Check if email already exists
+      const existingUser = this.findByEmail(newEmail);
+      if (existingUser && existingUser.id !== id) {
+        throw new Error('Email already in use');
+      }
+      
+      // Update email
+      run('UPDATE users SET email = ? WHERE id = ?', [newEmail, id]);
+      
+      return this.findById(id);
+    } catch (error) {
+      throw new Error(`Error changing email: ${error.message}`);
+    }
+  }
+  
+  /**
    * Delete user
    */
   static delete(id) {
@@ -115,7 +171,7 @@ class User {
    * Get all users (admin function)
    */
   static getAll() {
-    const users = all('SELECT id, email, username, bodyweight, units, created_at FROM users');
+    const users = all('SELECT id, email, username, bodyweight, units, sex, created_at FROM users');
     return users;
   }
 }

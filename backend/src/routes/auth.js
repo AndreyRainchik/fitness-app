@@ -16,7 +16,8 @@ router.post('/register',
     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
     body('username').notEmpty().withMessage('Username is required'),
     body('bodyweight').optional().isFloat({ min: 0 }).withMessage('Bodyweight must be a positive number'),
-    body('units').optional().isIn(['kg', 'lbs']).withMessage('Units must be kg or lbs')
+    body('units').optional().isIn(['kg', 'lbs']).withMessage('Units must be kg or lbs'),
+    body('sex').optional().isIn(['M', 'F']).withMessage('Sex must be M or F')
   ],
   async (req, res) => {
     // Check for validation errors
@@ -26,7 +27,7 @@ router.post('/register',
     }
     
     try {
-      const { email, password, username, bodyweight, units } = req.body;
+      const { email, password, username, bodyweight, units, sex } = req.body;
       
       // Check if user already exists
       const existingUser = User.findByEmail(email);
@@ -40,7 +41,8 @@ router.post('/register',
         password,
         username,
         bodyweight: bodyweight || null,
-        units: units || 'kg'
+        units: units || 'kg',
+        sex: sex || null
       });
       
       // Generate JWT token
@@ -133,7 +135,8 @@ router.put('/me',
   [
     body('username').optional().notEmpty().withMessage('Username cannot be empty'),
     body('bodyweight').optional().isFloat({ min: 0 }).withMessage('Bodyweight must be positive'),
-    body('units').optional().isIn(['kg', 'lbs']).withMessage('Units must be kg or lbs')
+    body('units').optional().isIn(['kg', 'lbs']).withMessage('Units must be kg or lbs'),
+    body('sex').optional().isIn(['M', 'F']).withMessage('Sex must be M or F')
   ],
   (req, res) => {
     const errors = validationResult(req);
@@ -142,8 +145,8 @@ router.put('/me',
     }
     
     try {
-      const { username, bodyweight, units } = req.body;
-      const user = User.update(req.user.id, { username, bodyweight, units });
+    const { username, bodyweight, units, sex } = req.body;
+    const user = User.update(req.user.id, { username, bodyweight, units, sex });
       
       res.json({
         message: 'Profile updated successfully',

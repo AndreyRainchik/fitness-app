@@ -8,13 +8,15 @@ import Exercise from './Exercise.js';
 import Workout from './Workout.js';
 import Set from './Set.js';
 import Program from './Program.js';
+import BodyweightLog from './BodyweightLog.js';
 
 export {
   User,
   Exercise,
   Workout,
   Set,
-  Program
+  Program,
+  BodyweightLog
 };
 
 export default {
@@ -22,5 +24,6 @@ export default {
   Exercise,
   Workout,
   Set,
-  Program
+  Program,
+  BodyweightLog
 };

@@ -55,7 +55,21 @@ function createTables() {
       username TEXT NOT NULL,
       bodyweight REAL,
       units TEXT DEFAULT 'kg' CHECK(units IN ('kg', 'lbs')),
+      sex TEXT CHECK(sex IN ('M', 'F')),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Bodyweight logs table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS bodyweight_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      date DATE NOT NULL,
+      weight REAL NOT NULL,
+      units TEXT DEFAULT 'lbs' CHECK(units IN ('kg', 'lbs')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
   
@@ -137,6 +151,7 @@ function createTables() {
   db.run('CREATE INDEX IF NOT EXISTS idx_workouts_user_date ON workouts(user_id, date)');
   db.run('CREATE INDEX IF NOT EXISTS idx_sets_workout ON sets(workout_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_sets_exercise ON sets(exercise_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_bodyweight_user_date ON bodyweight_logs(user_id, date)');
   
   console.log('✅ Tables created successfully');
 }
