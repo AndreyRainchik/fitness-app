@@ -59,10 +59,21 @@ npm run preview
 - ✅ Set up React Router
 - ✅ Create basic layout and navigation
 - ✅ Connect to backend API
-- Build workout logging features
-- Implement protected routes
+- ✅ Build workout logging features
+- Implement exercise search/autocomplete
 - Add analytics visualizations
 - Implement 5/3/1 programming
+- Add workout templates
+
+## Workout Logging:
+Users can now fully log their workouts:
+- **New Workout**: Create workout with multiple exercises and sets
+- **Track Details**: Record weight, reps, and RPE for each set
+- **Workout History**: View all past workouts with summaries
+- **Detailed View**: See full breakdown with volume calculations
+- **Delete**: Remove unwanted workouts
+
+See [Workout Logging Guide](./src/pages/WORKOUT-LOGGING.md) for full documentation.
 
 ## API Integration:
 The frontend is now connected to the backend API:
@@ -71,8 +82,10 @@ The frontend is now connected to the backend API:
 - **Auth Context**: Global authentication state
 - **API Service**: Centralized API calls
 - **Auto-login**: Persists session across page refreshes
+- **Protected Routes**: Authenticated pages redirect to login if not signed in
 
 See [API Integration Guide](./src/services/API-INTEGRATION.md) for full documentation.
+See [Protected Routes Guide](./src/components/PROTECTED-ROUTES.md) for route protection details.
 
 ### Testing Authentication:
 1. Start backend: `cd backend && npm start`

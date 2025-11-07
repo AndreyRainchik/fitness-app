@@ -20,6 +20,8 @@
 | Route | Page | Description | Redirect if not logged in |
 |-------|------|-------------|---------------------------|
 | `/dashboard` | Dashboard | Main user dashboard with stats and quick actions | → `/login` |
+| `/workout/new` | NewWorkout | Log a new workout session | → `/login` |
+| `/workout/:id` | WorkoutDetail | View detailed breakdown of a specific workout | → `/login` |
 | `/workouts` | Workouts | Workout history and management | → `/login` |
 | `/analytics` | Analytics | Progress tracking and analysis | → `/login` |
 | `/program` | Program | Training program management (5/3/1, etc.) | → `/login` |
