@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { profileAPI } from '../services/api';
 import ProfileInfo from '../components/Profile/ProfileInfo';
@@ -42,6 +43,15 @@ function Profile() {
   };
 
   if (isLoading) {
+    const { hash } = useLocation();
+    if (hash === "#bodyweight" && activeTab != 'bodyweight') {
+      console.log('setting bodyweight tab');
+      setActiveTab('bodyweight');
+      window.location.hash = '';
+      window.location.replace(''+ window.location);
+      history.replaceState(undefined, '', '#');
+    }
+    console.log(activeTab);
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">

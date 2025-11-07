@@ -42,10 +42,10 @@ function Dashboard() {
               ➕ New Workout
             </Link>
             <Link
-              to="/workouts"
+              to="/profile#bodyweight"
               className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-4 px-6 rounded-lg text-center transition duration-200"
             >
-              📋 View History
+              ⏲️ Add Bodyweight
             </Link>
             <Link
               to="/analytics"
