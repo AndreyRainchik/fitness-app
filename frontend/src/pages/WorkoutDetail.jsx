@@ -9,6 +9,7 @@ function WorkoutDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [workout, setWorkout] = useState(null);
+  const [prSummary, setPRSummary] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -23,8 +24,10 @@ function WorkoutDetail() {
   const fetchWorkout = async () => {
     try {
       setLoading(true);
-      const data = await workoutsAPI.getById(id);
+      // Call the new endpoint with PR detection
+      const data = await workoutsAPI.getByIdWithPRs(id);
       setWorkout(data.workout);
+      setPRSummary(data.prSummary || []);
     } catch (err) {
       setError(err.message || 'Failed to load workout');
     } finally {
@@ -130,6 +133,14 @@ function WorkoutDetail() {
     return grouped;
   };
 
+  const getTotalPRCount = () => {
+    let count = 0;
+    prSummary.forEach(exercise => {
+      count += exercise.volumePRs.length + exercise.oneRMPRs.length;
+    });
+    return count;
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -160,6 +171,7 @@ function WorkoutDetail() {
 
   const exerciseGroups = groupSetsByExercise(workout.sets || []);
   const totalVolume = workout.sets?.reduce((sum, set) => sum + (set.weight * set.reps), 0) || 0;
+  const totalPRs = getTotalPRCount();
 
   return (
     <Layout>
@@ -205,6 +217,55 @@ function WorkoutDetail() {
           </div>
         </div>
 
+        {/* PR Celebration Banner */}
+        {prSummary.length > 0 && totalPRs > 0 && (
+          <div className="bg-gradient-to-r from-pink-500 via-orange-400 to-purple-400 rounded-lg shadow-lg p-6 mb-8 text-white">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-5xl">🐹</span>
+              <div>
+                <h2 className="text-2xl font-bold">
+                  Congratulations! You hit {totalPRs} PR{totalPRs !== 1 ? 's' : ''} in this workout!
+                </h2>
+                <p className="text-white text-opacity-90">Personal Records achieved:</p>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              {prSummary.map((exercise, idx) => (
+                <div key={idx} className="bg-white bg-opacity-20 rounded-lg p-4">
+                  <h3 className="font-bold text-lg mb-2">{exercise.exerciseName}</h3>
+                  <div className="space-y-1 text-sm">
+                    {exercise.volumePRs.map((pr, prIdx) => (
+                      <div key={`vol-${prIdx}`} className="flex items-center gap-2">
+                        <span className="text-xl">🏆</span>
+                        <span>
+                          Set {pr.setNumber}: {pr.weight} {user?.units || 'lbs'} × {pr.reps} reps
+                          <span className="font-bold ml-2">Volume PR!</span>
+                          <span className="ml-1 text-white text-opacity-80">
+                            ({pr.volume.toLocaleString()} {user?.units || 'lbs'} total)
+                          </span>
+                        </span>
+                      </div>
+                    ))}
+                    {exercise.oneRMPRs.map((pr, prIdx) => (
+                      <div key={`1rm-${prIdx}`} className="flex items-center gap-2">
+                        <span className="text-xl">🏆</span>
+                        <span>
+                          Set {pr.setNumber}: {pr.weight} {user?.units || 'lbs'} × {pr.reps} reps
+                          <span className="font-bold ml-2">1RM PR!</span>
+                          <span className="ml-1 text-white text-opacity-80">
+                            (Est. {pr.estimated1RM} {user?.units || 'lbs'})
+                          </span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Summary Stats */}
         <div className="grid md:grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
@@ -245,24 +306,51 @@ function WorkoutDetail() {
                       <th className="text-left py-2 px-3 text-sm font-medium text-gray-700">Reps</th>
                       <th className="text-left py-2 px-3 text-sm font-medium text-gray-700">RPE</th>
                       <th className="text-left py-2 px-3 text-sm font-medium text-gray-700">Volume</th>
+                      <th className="text-left py-2 px-3 text-sm font-medium text-gray-700"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {group.sets.sort((a, b) => a.set_number - b.set_number).map((set) => (
-                      <tr key={set.id} className="border-b last:border-0 hover:bg-gray-50">
-                        <td className="py-3 px-3 text-gray-900">{set.set_number}</td>
-                        <td className="py-3 px-3 text-gray-900 font-medium">{set.weight}</td>
-                        <td className="py-3 px-3 text-gray-900 font-medium">{set.reps}</td>
-                        <td className="py-3 px-3 text-gray-900">
-                          {set.is_warmup === 1 ? (
-                            <span className="text-green-600 font-bold text-lg">W</span>
-                          ) : (
-                            set.rpe || '-'
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-gray-600">{set.weight * set.reps}</td>
-                      </tr>
-                    ))}
+                    {group.sets.sort((a, b) => a.set_number - b.set_number).map((set) => {
+                      const hasPR = set.isVolumePR || set.is1RMPR;
+                      const rowClass = hasPR 
+                        ? "border-b last:border-0 bg-green-50 hover:bg-green-100" 
+                        : "border-b last:border-0 hover:bg-gray-50";
+                      
+                      return (
+                        <tr key={set.id} className={rowClass}>
+                          <td className="py-3 px-3 text-gray-900">{set.set_number}</td>
+                          <td className="py-3 px-3 text-gray-900 font-medium">{set.weight}</td>
+                          <td className="py-3 px-3 text-gray-900 font-medium">{set.reps}</td>
+                          <td className="py-3 px-3 text-gray-900">
+                            {set.is_warmup === 1 ? (
+                              <span className="text-green-600 font-bold text-lg">W</span>
+                            ) : (
+                              set.rpe || '-'
+                            )}
+                          </td>
+                          <td className="py-3 px-3 text-gray-600">{set.weight * set.reps}</td>
+                          <td className="py-3 px-3">
+                            {hasPR && (
+                              <div className="flex flex-col gap-1 text-xs">
+                                {set.isVolumePR && (
+                                  <span className="inline-flex items-center px-2 py-1 bg-yellow-100 text-yellow-800 rounded font-semibold">
+                                    🏆 Volume PR
+                                  </span>
+                                )}
+                                {set.is1RMPR && (
+                                  <span className="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-800 rounded font-semibold">
+                                    🏆 1RM PR
+                                    <span className="ml-1 text-gray-600">
+                                      ({set.estimated1RM} {user?.units || 'lbs'})
+                                    </span>
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 font-bold">
@@ -270,6 +358,7 @@ function WorkoutDetail() {
                       <td className="py-3 px-3 text-gray-900">
                         {group.sets.reduce((sum, set) => sum + (set.weight * set.reps), 0).toLocaleString()}
                       </td>
+                      <td></td>
                     </tr>
                   </tfoot>
                 </table>
@@ -277,6 +366,14 @@ function WorkoutDetail() {
             </div>
           ))}
         </div>
+
+        {/* Workout Notes */}
+        {workout.notes && (
+          <div className="mt-6 bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Workout Notes</h3>
+            <p className="text-gray-700 whitespace-pre-wrap">{workout.notes}</p>
+          </div>
+        )}
 
         {/* No Sets Message */}
         {workout.sets?.length === 0 && (

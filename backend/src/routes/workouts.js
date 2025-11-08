@@ -2,6 +2,8 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import { Workout, Set } from '../models/index.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { all } from '../config/database.js';
+import { estimate1RM } from '../utils/strengthCalculations.js';
 
 const router = express.Router();
 
@@ -55,6 +57,211 @@ router.get('/:id', (req, res) => {
     res.status(500).json({ error: 'Failed to get workout' });
   }
 });
+
+/**
+ * GET /api/workouts/:id/with-prs
+ * Get a specific workout with PR detection for each set
+ * 
+ * Returns workout with additional PR flags on each set:
+ * - isVolumePR: boolean - true if this set has the highest volume (weight × reps)
+ * - is1RMPR: boolean - true if this set has the highest estimated 1RM
+ * - estimated1RM: number - calculated 1RM for this set
+ */
+router.get('/:id/with-prs', (req, res) => {
+  try {
+    const { id } = req.params;
+    const workout = Workout.getWithDetails(id);
+    
+    if (!workout) {
+      return res.status(404).json({ error: 'Workout not found' });
+    }
+    
+    // Ensure user owns this workout
+    if (workout.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // If no sets, return workout as-is
+    if (!workout.sets || workout.sets.length === 0) {
+      return res.json({ workout, prSummary: [] });
+    }
+    
+    // Detect PRs for each set
+    const setsWithPRs = detectPRsForWorkout(workout, req.user.id);
+    
+    // Create PR summary for celebration banner
+    const prSummary = createPRSummary(setsWithPRs);
+    
+    // Return workout with enhanced sets
+    res.json({
+      workout: {
+        ...workout,
+        sets: setsWithPRs
+      },
+      prSummary
+    });
+    
+  } catch (error) {
+    console.error('Get workout with PRs error:', error);
+    res.status(500).json({ error: 'Failed to get workout with PRs' });
+  }
+});
+
+/**
+ * UPDATED: Helper function to detect PRs for all sets in a workout
+ * Now properly identifies only the BEST set(s) per exercise as PRs
+ * Handles ties correctly (multiple sets with same best value)
+ */
+function detectPRsForWorkout(workout, userId) {
+  // First, group sets by exercise to find the best in THIS workout
+  const exerciseGroups = {};
+  
+  workout.sets.forEach(set => {
+    if (!exerciseGroups[set.exercise_id]) {
+      exerciseGroups[set.exercise_id] = [];
+    }
+    exerciseGroups[set.exercise_id].push(set);
+  });
+  
+  // For each exercise, determine which sets are PRs
+  const prFlags = {}; // Store PR decisions by set ID
+  
+  Object.entries(exerciseGroups).forEach(([exerciseId, sets]) => {
+    // Skip warmup sets
+    const workingSets = sets.filter(s => s.is_warmup !== 1);
+    
+    if (workingSets.length === 0) {
+      // Mark all warmup sets as non-PRs
+      sets.forEach(set => {
+        prFlags[set.id] = {
+          isVolumePR: false,
+          is1RMPR: false,
+          estimated1RM: 0
+        };
+      });
+      return;
+    }
+    
+    // Calculate metrics for all working sets in this workout
+    const setsWithMetrics = workingSets.map(set => ({
+      ...set,
+      volume: set.weight * set.reps,
+      estimated1RM: estimate1RM(set.weight, set.reps)
+    }));
+    
+    // Find the best volume and best 1RM in THIS workout
+    const bestVolume = Math.max(...setsWithMetrics.map(s => s.volume));
+    const best1RM = Math.max(...setsWithMetrics.map(s => s.estimated1RM));
+    
+    // Get historical data for this exercise
+    const previousSets = all(
+      `SELECT s.weight, s.reps
+       FROM sets s
+       INNER JOIN workouts w ON s.workout_id = w.id
+       WHERE w.user_id = ?
+         AND s.exercise_id = ?
+         AND s.workout_id != ?
+         AND s.is_warmup = 0
+       ORDER BY w.date DESC`,
+      [userId, exerciseId, workout.id]
+    );
+    
+    // Calculate historical bests
+    let historicalBestVolume = 0;
+    let historicalBest1RM = 0;
+    
+    previousSets.forEach(prevSet => {
+      const prevVolume = prevSet.weight * prevSet.reps;
+      const prev1RM = estimate1RM(prevSet.weight, prevSet.reps);
+      
+      if (prevVolume > historicalBestVolume) {
+        historicalBestVolume = prevVolume;
+      }
+      if (prev1RM > historicalBest1RM) {
+        historicalBest1RM = prev1RM;
+      }
+    });
+    
+    // Determine if the bests in this workout are PRs
+    const isVolumePR = previousSets.length === 0 || bestVolume > historicalBestVolume;
+    const is1RMPR = previousSets.length === 0 || best1RM > historicalBest1RM;
+    
+    // Mark all sets for this exercise
+    setsWithMetrics.forEach(set => {
+      prFlags[set.id] = {
+        // Only mark as PR if this set matches the best value AND it's a PR
+        isVolumePR: isVolumePR && set.volume === bestVolume,
+        is1RMPR: is1RMPR && set.estimated1RM === best1RM,
+        estimated1RM: Math.round(set.estimated1RM * 10) / 10
+      };
+    });
+    
+    // Mark warmup sets as non-PRs
+    sets.filter(s => s.is_warmup === 1).forEach(set => {
+      prFlags[set.id] = {
+        isVolumePR: false,
+        is1RMPR: false,
+        estimated1RM: 0
+      };
+    });
+  });
+  
+  // Apply flags to all sets
+  return workout.sets.map(set => ({
+    ...set,
+    ...(prFlags[set.id] || {
+      isVolumePR: false,
+      is1RMPR: false,
+      estimated1RM: 0
+    })
+  }));
+}
+
+
+/**
+ * Helper function to create PR summary for celebration banner
+ */
+function createPRSummary(sets) {
+  const prSets = sets.filter(set => set.isVolumePR || set.is1RMPR);
+  
+  if (prSets.length === 0) {
+    return [];
+  }
+  
+  // Group PRs by exercise
+  const prsByExercise = {};
+  
+  prSets.forEach(set => {
+    if (!prsByExercise[set.exercise_name]) {
+      prsByExercise[set.exercise_name] = {
+        exerciseName: set.exercise_name,
+        volumePRs: [],
+        oneRMPRs: []
+      };
+    }
+    
+    if (set.isVolumePR) {
+      prsByExercise[set.exercise_name].volumePRs.push({
+        weight: set.weight,
+        reps: set.reps,
+        volume: set.weight * set.reps,
+        setNumber: set.set_number
+      });
+    }
+    
+    if (set.is1RMPR) {
+      prsByExercise[set.exercise_name].oneRMPRs.push({
+        weight: set.weight,
+        reps: set.reps,
+        estimated1RM: set.estimated1RM,
+        setNumber: set.set_number
+      });
+    }
+  });
+  
+  // Convert to array format
+  return Object.values(prsByExercise);
+}
 
 /**
  * POST /api/workouts

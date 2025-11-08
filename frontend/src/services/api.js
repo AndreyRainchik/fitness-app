@@ -146,6 +146,14 @@ export const workoutsAPI = {
   getById: async (id) => {
     return await apiCall(`/workouts/${id}`);
   },
+  
+  /**
+   * Get workout by ID with PR detection
+   * Returns workout with PR flags and summary
+   */
+  getByIdWithPRs: async (id) => {
+    return await apiCall(`/workouts/${id}/with-prs`);
+  },
 
   /**
    * Create new workout
