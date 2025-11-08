@@ -631,4 +631,102 @@ router.get('/dashboard-summary', authenticateToken, (req, res) => {
   }
 });
 
+/**
+ * GET /api/analytics/muscle-groups-weekly
+ * 
+ * Returns set counts per muscle group for a specific week
+ * Query params: date (ISO date string for any day in target week)
+ * 
+ * Response format:
+ * {
+ *   weekStart: '2025-11-03',
+ *   weekEnd: '2025-11-09',
+ *   muscleGroups: [
+ *     { muscleGroup: 'Chest', setCount: 12 },
+ *     { muscleGroup: 'Back', setCount: 8 }
+ *   ],
+ *   totalSets: 20
+ * }
+ */
+router.get('/muscle-groups-weekly', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { date } = req.query;
+    
+    // Parse the date or use current date
+    const targetDate = date ? new Date(date) : new Date();
+    
+    // Calculate start of week (Sunday) and end of week (Saturday)
+    const dayOfWeek = targetDate.getDay();
+    const startOfWeek = new Date(targetDate);
+    startOfWeek.setDate(targetDate.getDate() - dayOfWeek);
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+    
+    const startDateStr = startOfWeek.toISOString().split('T')[0];
+    const endDateStr = endOfWeek.toISOString().split('T')[0];
+    
+    // Query to get all sets with exercise info for the week
+    const rows = all(
+      `SELECT 
+        e.primary_muscle_group,
+        e.secondary_muscle_groups,
+        s.id as set_id
+       FROM sets s
+       JOIN exercises e ON s.exercise_id = e.id
+       JOIN workouts w ON s.workout_id = w.id
+       WHERE w.user_id = ?
+         AND w.date >= ?
+         AND w.date <= ?
+         AND s.is_warmup = 0`,
+      [userId, startDateStr, endDateStr]
+    );
+    
+    // Aggregate muscle group counts
+    const muscleGroupCounts = {};
+    
+    rows.forEach(row => {
+      // Count primary muscle
+      if (row.primary_muscle_group) {
+        muscleGroupCounts[row.primary_muscle_group] = 
+          (muscleGroupCounts[row.primary_muscle_group] || 0) + 1;
+      }
+      
+      // Count secondary muscles (if any)
+      if (row.secondary_muscle_groups) {
+        const secondaryMuscles = row.secondary_muscle_groups.split(',').map(m => m.trim().replaceAll('\"','').replaceAll('[','').replaceAll(']',''));
+        secondaryMuscles.forEach(muscle => {
+          if (muscle) {
+            // Secondary muscles count as 0.5 sets
+            muscleGroupCounts[muscle] = 
+              (muscleGroupCounts[muscle] || 0) + 0.5;
+          }
+        });
+      }
+    });
+    console.log(muscleGroupCounts);
+
+    
+    // Convert to array format
+    const muscleGroups = Object.keys(muscleGroupCounts).map(muscle => ({
+      muscleGroup: muscle,
+      setCount: Math.round(muscleGroupCounts[muscle])
+    }));
+    
+    res.json({
+      weekStart: startDateStr,
+      weekEnd: endDateStr,
+      muscleGroups,
+      totalSets: muscleGroups.reduce((sum, m) => sum + m.setCount, 0)
+    });
+    
+  } catch (error) {
+    console.error('Error fetching weekly muscle groups:', error);
+    res.status(500).json({ error: 'Failed to fetch muscle group data' });
+  }
+});
+
 export default router;

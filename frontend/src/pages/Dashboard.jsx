@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Layout from '../components/Layout/Layout';
 import { analyticsAPI, workoutsAPI } from '../services/api';
 import WilksProgressChart from '../components/Dashboard/WilksProgressChart';
+import MuscleGroupHeatmap from '../components/Analytics/MuscleGroupHeatmap';
 
 function Dashboard() {
   const [dashboardData, setDashboardData] = useState(null);
@@ -10,6 +11,7 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showWilksChart, setShowWilksChart] = useState(false);
+  const [showMuscleMap, setShowMuscleMap] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -147,12 +149,12 @@ function Dashboard() {
           >
             📊 Analytics
           </button>
-          <Link
-            to="/program"
+          <button
+            onClick={() => setShowMuscleMap(!showMuscleMap)}
             className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-4 px-6 rounded-lg text-center transition duration-200"
           >
-            📅 Programs
-          </Link>
+            👤 Visualize
+          </button>
         </div>
       </div>
 
@@ -160,6 +162,13 @@ function Dashboard() {
       {showWilksChart && (
         <div className="mb-8 animate-fadeIn">
           <WilksProgressChart weeks={12} />
+        </div>
+      )}
+
+      {/* Muscle Group Heatmap (Toggleable) - ADD THIS SECTION */}
+      {showMuscleMap && (
+        <div className="mb-8 animate-fadeIn">
+          <MuscleGroupHeatmap />
         </div>
       )}
 

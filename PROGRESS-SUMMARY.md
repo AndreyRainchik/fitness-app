@@ -531,7 +531,7 @@ Security Tab:
 - [ ] Rest timer between sets
 - [x] Exercise PR tracking
 - [ ] Workout notes/comments
-- [ ] Export bodyweight data (CSV)
+- [ ] Export workout data (CSV)
 
 ### Medium Term
 - [x] Analytics dashboard with charts
@@ -548,7 +548,6 @@ Security Tab:
 - [ ] Custom program builder
 - [ ] Social features (share workouts)
 - [ ] Mobile app (React Native)
-- [ ] Offline mode
 
 ---
 

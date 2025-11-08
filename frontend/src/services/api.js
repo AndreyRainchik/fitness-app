@@ -333,6 +333,15 @@ export const analyticsAPI = {
   getDashboardSummary: async () => {
     return await apiCall('/analytics/dashboard-summary');
   },
+
+  /**
+   * Get muscle groups worked in a specific week
+   * @param {string} date - ISO date string for any day in the target week
+   */
+  getMuscleGroupsWeekly: async (date = null) => {
+    const params = date ? `?date=${date}` : '';
+    return await apiCall(`/analytics/muscle-groups-weekly${params}`);
+  },
 };
 
 export default {
