@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { workoutsAPI, exercisesAPI } from '../services/api';
+import { workoutsAPI, exercisesAPI, templatesAPI } from '../services/api';
 import Layout from '../components/Layout/Layout';
 
 function NewWorkout() {
@@ -14,6 +14,11 @@ function NewWorkout() {
   const [exercises, setExercises] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+  
+  // Template selection
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
 
   // Autocomplete state (per focused input we store transient suggestions)
   // We'll keep a map of localExerciseId -> { query, suggestions, isOpen, highlightedIndex }
@@ -181,6 +186,59 @@ function NewWorkout() {
     );
   };
 
+  const loadTemplates = async () => {
+    setLoadingTemplates(true);
+    try {
+      const data = await templatesAPI.getAll();
+      setTemplates(data.templates);
+      setShowTemplateSelector(true);
+    } catch (err) {
+      alert('Failed to load templates: ' + err.message);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  const loadFromTemplate = async (templateId) => {
+    try {
+      const data = await templatesAPI.getById(templateId);
+      const template = data.template;
+      
+      // Set workout name from template
+      setWorkoutName(template.name);
+      
+      // Group sets by exercise
+      const exerciseGroups = {};
+      template.sets.forEach(set => {
+        if (!exerciseGroups[set.exercise_id]) {
+          const localId = `template-${set.exercise_id}-${Date.now()}`;
+          exerciseGroups[set.exercise_id] = {
+            id: localId,
+            exerciseId: set.exercise_id,
+            exerciseName: set.exercise_name,
+            sets: []
+          };
+        }
+        exerciseGroups[set.exercise_id].sets.push({
+          id: Date.now() + Math.floor(Math.random() * 10000),
+          setNumber: set.set_number,
+          weight: set.weight.toString(),
+          reps: set.reps.toString(),
+          rpe: set.rpe?.toString() || '',
+          isWarmup: set.is_warmup === 1
+        });
+      });
+      
+      setExercises(Object.values(exerciseGroups));
+      setShowTemplateSelector(false);
+      
+      // Show success message
+      alert(`Loaded template: ${template.name}`);
+    } catch (err) {
+      alert('Failed to load template: ' + err.message);
+    }
+  };
+
   const handleSaveWorkout = async () => {
     setError('');
 
@@ -313,9 +371,26 @@ function NewWorkout() {
   return (
     <Layout>
       <div className="max-w-4xl mx-auto py-8">
-        <header className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">New Workout</h1>
-          <p className="text-sm text-gray-600">Log your session</p>
+        <header className="mb-6 flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">New Workout</h1>
+            <p className="text-sm text-gray-600">Log your session</p>
+          </div>
+          <div className="flex gap-3">
+            <Link
+              to="/templates"
+              className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-200"
+            >
+              View Templates
+            </Link>
+            <button
+              onClick={loadTemplates}
+              disabled={loadingTemplates}
+              className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
+            >
+              {loadingTemplates ? 'Loading...' : 'Start from Template'}
+            </button>
+          </div>
         </header>
 
         {error && <div className="mb-4 text-red-600">{error}</div>}
@@ -509,6 +584,68 @@ function NewWorkout() {
             </div>
           </div>
         </div>
+
+        {/* Template Selector Modal */}
+        {showTemplateSelector && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-gray-900">Choose a Template</h2>
+                <button
+                  onClick={() => setShowTemplateSelector(false)}
+                  className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
+                >
+                  ×
+                </button>
+              </div>
+              
+              {templates.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-600 mb-4">No templates saved yet</p>
+                  <Link
+                    to="/workouts"
+                    onClick={() => setShowTemplateSelector(false)}
+                    className="text-blue-600 hover:text-blue-700 font-semibold"
+                  >
+                    Save a workout as a template first
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {templates.map((template) => (
+                    <div
+                      key={template.id}
+                      className="border border-gray-200 rounded-lg p-4 hover:border-purple-500 hover:bg-purple-50 cursor-pointer transition"
+                      onClick={() => loadFromTemplate(template.id)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <h3 className="font-bold text-gray-900">{template.name}</h3>
+                          {template.description && (
+                            <p className="text-sm text-gray-600 mt-1">{template.description}</p>
+                          )}
+                          <div className="flex gap-4 mt-2 text-sm text-gray-500">
+                            <span>{template.exercise_count} exercises</span>
+                            <span>{template.total_sets} sets</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            loadFromTemplate(template.id);
+                          }}
+                          className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-1 px-3 rounded text-sm"
+                        >
+                          Use
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );

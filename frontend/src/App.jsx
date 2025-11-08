@@ -15,6 +15,8 @@ import NewWorkout from './pages/NewWorkout';
 import EditWorkout from './pages/EditWorkout';
 import WorkoutDetail from './pages/WorkoutDetail';
 import Profile from './pages/Profile';
+import Templates from './pages/Templates';
+import TemplateDetail from './pages/TemplateDetail';
 
 function App() {
   return (
@@ -50,6 +52,16 @@ function App() {
         <Route path="/workouts" element={
           <ProtectedRoute>
             <Workouts />
+          </ProtectedRoute>
+        } />
+        <Route path="/templates" element={
+          <ProtectedRoute>
+            <Templates />
+          </ProtectedRoute>
+        } />
+        <Route path="/templates/:id" element={
+          <ProtectedRoute>
+            <TemplateDetail />
           </ProtectedRoute>
         } />
         <Route path="/analytics" element={

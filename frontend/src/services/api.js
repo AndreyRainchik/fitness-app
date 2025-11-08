@@ -333,14 +333,102 @@ export const analyticsAPI = {
   getDashboardSummary: async () => {
     return await apiCall('/analytics/dashboard-summary');
   },
+};
+
+/**
+ * Templates API calls
+ */
+export const templatesAPI = {
+  /**
+   * Get all templates
+   */
+  getAll: async () => {
+    return await apiCall('/templates');
+  },
 
   /**
-   * Get muscle groups worked in a specific week
-   * @param {string} date - ISO date string for any day in the target week
+   * Get template by ID with all sets
    */
-  getMuscleGroupsWeekly: async (date = null) => {
-    const params = date ? `?date=${date}` : '';
-    return await apiCall(`/analytics/muscle-groups-weekly${params}`);
+  getById: async (id) => {
+    return await apiCall(`/templates/${id}`);
+  },
+
+  /**
+   * Create new empty template
+   */
+  create: async (templateData) => {
+    return await apiCall('/templates', {
+      method: 'POST',
+      body: JSON.stringify(templateData),
+    });
+  },
+
+  /**
+   * Create template from existing workout
+   */
+  createFromWorkout: async (workoutId, templateData) => {
+    return await apiCall(`/templates/from-workout/${workoutId}`, {
+      method: 'POST',
+      body: JSON.stringify(templateData),
+    });
+  },
+
+  /**
+   * Start a new workout from template
+   */
+  startWorkout: async (templateId, date) => {
+    return await apiCall(`/templates/${templateId}/start`, {
+      method: 'POST',
+      body: JSON.stringify({ date }),
+    });
+  },
+
+  /**
+   * Update template
+   */
+  update: async (id, updates) => {
+    return await apiCall(`/templates/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  /**
+   * Delete template
+   */
+  delete: async (id) => {
+    return await apiCall(`/templates/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Add set to template
+   */
+  addSet: async (templateId, setData) => {
+    return await apiCall(`/templates/${templateId}/sets`, {
+      method: 'POST',
+      body: JSON.stringify(setData),
+    });
+  },
+
+  /**
+   * Update template set
+   */
+  updateSet: async (setId, updates) => {
+    return await apiCall(`/templates/sets/${setId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  /**
+   * Delete template set
+   */
+  deleteSet: async (setId) => {
+    return await apiCall(`/templates/sets/${setId}`, {
+      method: 'DELETE',
+    });
   },
 };
 
@@ -350,4 +438,5 @@ export default {
   workouts: workoutsAPI,
   profile: profileAPI,
   analytics: analyticsAPI,
+  templates: templatesAPI,
 };

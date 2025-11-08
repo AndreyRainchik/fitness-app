@@ -9,6 +9,7 @@ import Workout from './Workout.js';
 import Set from './Set.js';
 import Program from './Program.js';
 import BodyweightLog from './BodyweightLog.js';
+import { WorkoutTemplate, TemplateSet } from './WorkoutTemplate.js';
 
 export {
   User,
@@ -16,7 +17,9 @@ export {
   Workout,
   Set,
   Program,
-  BodyweightLog
+  BodyweightLog,
+  WorkoutTemplate,
+  TemplateSet
 };
 
 export default {
@@ -25,5 +28,7 @@ export default {
   Workout,
   Set,
   Program,
-  BodyweightLog
+  BodyweightLog,
+  WorkoutTemplate,
+  TemplateSet
 };

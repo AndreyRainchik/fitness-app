@@ -147,11 +147,43 @@ function createTables() {
     )
   `);
   
+  // Workout templates table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS workout_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  
+  // Template sets table (mirrors sets table but for templates)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS template_sets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      template_id INTEGER NOT NULL,
+      exercise_id INTEGER NOT NULL,
+      set_number INTEGER NOT NULL,
+      reps INTEGER NOT NULL,
+      weight REAL NOT NULL,
+      rpe REAL,
+      is_warmup INTEGER DEFAULT 0,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (template_id) REFERENCES workout_templates(id) ON DELETE CASCADE,
+      FOREIGN KEY (exercise_id) REFERENCES exercises(id)
+    )
+  `);
+  
   // Create indexes for better query performance
   db.run('CREATE INDEX IF NOT EXISTS idx_workouts_user_date ON workouts(user_id, date)');
   db.run('CREATE INDEX IF NOT EXISTS idx_sets_workout ON sets(workout_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_sets_exercise ON sets(exercise_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_bodyweight_user_date ON bodyweight_logs(user_id, date)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_templates_user ON workout_templates(user_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_template_sets_template ON template_sets(template_id)');
   
   console.log('✅ Tables created successfully');
 }

@@ -263,24 +263,43 @@ function EditWorkout() {
           if (set.existingSetId) {
             // Update existing set
             setsToKeep.add(set.existingSetId);
-            await workoutsAPI.updateSet(set.existingSetId, {
-              set_number: set.setNumber,
-              weight: parseFloat(set.weight) || 0,
-              reps: parseInt(set.reps) || 0,
-              rpe: set.rpe ? parseInt(set.rpe) : null,
-              is_warmup: set.isWarmup
-            });
+            if (set.rpe) {
+                await workoutsAPI.updateSet(set.existingSetId, {
+                    set_number: set.setNumber,
+                    weight: parseFloat(set.weight) || 0,
+                    reps: parseInt(set.reps) || 0,
+                    rpe: set.rpe ? parseInt(set.rpe) : null,
+                    is_warmup: set.isWarmup
+                });
+            } else {
+                await workoutsAPI.updateSet(set.existingSetId, {
+                    set_number: set.setNumber,
+                    weight: parseFloat(set.weight) || 0,
+                    reps: parseInt(set.reps) || 0,
+                    is_warmup: set.isWarmup
+                });
+            }
           } else {
-            // Create new set
-            const newSet = await workoutsAPI.addSet(id, {
-              exercise_id: exercise.exerciseId,
-              set_number: set.setNumber,
-              weight: parseFloat(set.weight) || 0,
-              reps: parseInt(set.reps) || 0,
-              rpe: set.rpe ? parseInt(set.rpe) : null,
-              is_warmup: set.isWarmup
-            });
-            setsToKeep.add(newSet.set.id);
+            if (set.rpe) {
+                const newSet = await workoutsAPI.addSet(id, {
+                    exercise_id: exercise.exerciseId,
+                    set_number: set.setNumber,
+                    weight: parseFloat(set.weight) || 0,
+                    reps: parseInt(set.reps) || 0,
+                    rpe: set.rpe ? parseInt(set.rpe) : null,
+                    is_warmup: set.isWarmup
+                });
+                setsToKeep.add(newSet.set.id);
+            } else {
+                const newSet = await workoutsAPI.addSet(id, {
+                    exercise_id: exercise.exerciseId,
+                    set_number: set.setNumber,
+                    weight: parseFloat(set.weight) || 0,
+                    reps: parseInt(set.reps) || 0,
+                    is_warmup: set.isWarmup
+                });
+                setsToKeep.add(newSet.set.id);
+            }
           }
         }
       }

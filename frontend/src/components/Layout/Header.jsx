@@ -82,6 +82,9 @@ function Header() {
             <Link to="/workouts" className={navLinkClass('/workouts')}>
               Workouts
             </Link>
+            <Link to="/templates" className={navLinkClass('/templates')}>
+              Templates
+            </Link>
             <Link to="/analytics" className={navLinkClass('/analytics')}>
               Analytics
             </Link>
@@ -181,6 +184,13 @@ function Header() {
                 onClick={closeMobileMenu}
               >
                 Workouts
+              </Link>
+              <Link 
+                to="/templates" 
+                className={mobileNavLinkClass('/templates')}
+                onClick={closeMobileMenu}
+              >
+                Templates
               </Link>
               <Link 
                 to="/analytics" 

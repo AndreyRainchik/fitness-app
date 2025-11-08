@@ -9,6 +9,7 @@ import exerciseRoutes from './routes/exercises.js';
 import workoutRoutes from './routes/workouts.js';
 import profileRoutes from './routes/profile.js';
 import analyticsRoutes from './routes/analytics.js';
+import templateRoutes from './routes/templates.js';
 
 // Load environment variables
 dotenv.config();
@@ -50,7 +51,8 @@ app.get('/api', (req, res) => {
       exercises: '/api/exercises',
       workouts: '/api/workouts',
       profile: '/api/profile',
-      analytics: '/api/analytics'
+      analytics: '/api/analytics',
+      templates: '/api/templates'
     }
   });
 });
@@ -61,6 +63,7 @@ app.use('/api/exercises', exerciseRoutes);
 app.use('/api/workouts', workoutRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/templates', templateRoutes);
 
 // 404 handler
 app.use((req, res) => {

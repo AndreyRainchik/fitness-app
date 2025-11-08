@@ -1,89 +1,54 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { workoutsAPI, templatesAPI } from '../services/api';
+import { templatesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout/Layout';
 
-function WorkoutDetail() {
+function TemplateDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [workout, setWorkout] = useState(null);
+  const [template, setTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [templateName, setTemplateName] = useState('');
-  const [templateDescription, setTemplateDescription] = useState('');
-  const [savingTemplate, setSavingTemplate] = useState(false);
 
   useEffect(() => {
-    fetchWorkout();
+    fetchTemplate();
   }, [id]);
 
-  const fetchWorkout = async () => {
+  const fetchTemplate = async () => {
     try {
       setLoading(true);
-      const data = await workoutsAPI.getById(id);
-      setWorkout(data.workout);
+      const data = await templatesAPI.getById(id);
+      setTemplate(data.template);
     } catch (err) {
-      setError(err.message || 'Failed to load workout');
+      setError(err.message || 'Failed to load template');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this workout?')) {
+    if (!window.confirm('Are you sure you want to delete this template?')) {
       return;
     }
 
     try {
-      await workoutsAPI.delete(id);
-      navigate('/workouts');
+      await templatesAPI.delete(id);
+      navigate('/templates');
     } catch (err) {
-      alert('Failed to delete workout: ' + err.message);
+      alert('Failed to delete template: ' + err.message);
     }
   };
 
-  const handleSaveAsTemplate = async (e) => {
-    e.preventDefault();
-    
-    if (!templateName.trim()) {
-      alert('Please enter a template name');
-      return;
-    }
-
-    setSavingTemplate(true);
+  const handleStartWorkout = async () => {
     try {
-      await templatesAPI.createFromWorkout(id, {
-        name: templateName,
-        description: templateDescription
-      });
-      
-      setShowTemplateModal(false);
-      setTemplateName('');
-      setTemplateDescription('');
-      
-      // Show success message
-      if (window.confirm('Template saved successfully! Would you like to view your templates?')) {
-        navigate('/templates');
-      }
+      const today = new Date().toISOString().split('T')[0];
+      const result = await templatesAPI.startWorkout(id, today);
+      navigate(`/workout/${result.workoutId}`);
     } catch (err) {
-      alert('Failed to save template: ' + err.message);
-    } finally {
-      setSavingTemplate(false);
+      alert('Failed to start workout: ' + err.message);
     }
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      timeZone: 'UTC'
-    });
   };
 
   const groupSetsByExercise = (sets) => {
@@ -135,31 +100,31 @@ function WorkoutDetail() {
       <Layout>
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Loading workout...</p>
+          <p className="mt-4 text-gray-600">Loading template...</p>
         </div>
       </Layout>
     );
   }
 
-  if (error || !workout) {
+  if (error || !template) {
     return (
       <Layout>
         <div className="bg-white rounded-lg shadow p-12 text-center">
-          <p className="text-xl text-red-600 mb-4">Failed to load workout</p>
+          <p className="text-xl text-red-600 mb-4">Failed to load template</p>
           <p className="text-gray-600 mb-6">{error}</p>
           <Link
-            to="/workouts"
+            to="/templates"
             className="text-blue-600 hover:text-blue-700 font-semibold"
           >
-            ← Back to Workouts
+            ← Back to Templates
           </Link>
         </div>
       </Layout>
     );
   }
 
-  const exerciseGroups = groupSetsByExercise(workout.sets || []);
-  const totalVolume = workout.sets?.reduce((sum, set) => sum + (set.weight * set.reps), 0) || 0;
+  const exerciseGroups = groupSetsByExercise(template.sets || []);
+  const totalVolume = template.sets?.reduce((sum, set) => sum + (set.weight * set.reps), 0) || 0;
 
   return (
     <Layout>
@@ -167,39 +132,35 @@ function WorkoutDetail() {
         {/* Header */}
         <div className="mb-6">
           <Link
-            to="/workouts"
+            to="/templates"
             className="text-blue-600 hover:text-blue-700 font-medium mb-4 inline-block"
           >
-            ← Back to Workouts
+            ← Back to Templates
           </Link>
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                {workout.name}
+                {template.name}
               </h1>
-              <p className="text-gray-600">
-                {formatDate(workout.date)}
-                {workout.duration > 0 && ` • ${workout.duration} minutes`}
+              {template.description && (
+                <p className="text-gray-600 mb-2">{template.description}</p>
+              )}
+              <p className="text-sm text-gray-500">
+                Template • {exerciseGroups.length} exercises • {template.sets?.length || 0} sets
               </p>
             </div>
             <div className="flex gap-3">
               <button
-                onClick={() => setShowTemplateModal(true)}
-                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
+                onClick={handleStartWorkout}
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
               >
-                Save as Template
+                Start Workout
               </button>
-              <Link
-                to={`/workouts/${id}/edit`}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
-              >
-                Edit Workout
-              </Link>
               <button
                 onClick={handleDelete}
                 className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
               >
-                Delete Workout
+                Delete
               </button>
             </div>
           </div>
@@ -222,7 +183,7 @@ function WorkoutDetail() {
           <div className="bg-white rounded-lg shadow p-6">
             <p className="text-sm text-gray-600 mb-1">Total Sets</p>
             <p className="text-3xl font-bold text-orange-600">
-              {workout.sets?.length || 0}
+              {template.sets?.length || 0}
             </p>
           </div>
         </div>
@@ -273,65 +234,9 @@ function WorkoutDetail() {
         </div>
 
         {/* No Sets Message */}
-        {workout.sets?.length === 0 && (
+        {template.sets?.length === 0 && (
           <div className="bg-white rounded-lg shadow p-12 text-center">
-            <p className="text-xl text-gray-600">No sets logged for this workout</p>
-          </div>
-        )}
-
-        {/* Save as Template Modal */}
-        {showTemplateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Save as Template</h2>
-              <form onSubmit={handleSaveAsTemplate}>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Template Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={templateName}
-                    onChange={(e) => setTemplateName(e.target.value)}
-                    placeholder="e.g., Upper Body A"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    required
-                  />
-                </div>
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description (optional)
-                  </label>
-                  <textarea
-                    value={templateDescription}
-                    onChange={(e) => setTemplateDescription(e.target.value)}
-                    placeholder="e.g., Chest and back focus"
-                    rows="3"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    type="submit"
-                    disabled={savingTemplate}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
-                  >
-                    {savingTemplate ? 'Saving...' : 'Save Template'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowTemplateModal(false);
-                      setTemplateName('');
-                      setTemplateDescription('');
-                    }}
-                    className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-200"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
+            <p className="text-xl text-gray-600">No sets in this template</p>
           </div>
         )}
       </div>
@@ -339,4 +244,4 @@ function WorkoutDetail() {
   );
 }
 
-export default WorkoutDetail;
+export default TemplateDetail;
