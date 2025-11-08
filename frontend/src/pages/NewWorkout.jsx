@@ -205,7 +205,6 @@ function NewWorkout() {
 
       // Add all sets for all exercises
       for (const exercise of exercises) {
-        console.log(exercise);
         for (const set of exercise.sets) {
           if (set.rpe) {
             await workoutsAPI.addSet(workout.workout.id, {

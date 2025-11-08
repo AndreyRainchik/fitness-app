@@ -707,8 +707,6 @@ router.get('/muscle-groups-weekly', authenticateToken, (req, res) => {
         });
       }
     });
-    console.log(muscleGroupCounts);
-
     
     // Convert to array format
     const muscleGroups = Object.keys(muscleGroupCounts).map(muscle => ({
