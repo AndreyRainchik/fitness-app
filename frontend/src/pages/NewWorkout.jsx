@@ -207,19 +207,40 @@ function NewWorkout() {
       // Set workout name from template
       setWorkoutName(template.name);
       
-      // Group sets by exercise
-      const exerciseGroups = {};
-      template.sets.forEach(set => {
-        if (!exerciseGroups[set.exercise_id]) {
-          const localId = `template-${set.exercise_id}-${Date.now()}`;
-          exerciseGroups[set.exercise_id] = {
+      // Sort sets by ID to maintain order
+      const sortedSets = [...template.sets].sort((a, b) => a.id - b.id);
+      
+      // Group sets by exercise, BUT detect set_number resets for multiple instances
+      const exerciseBlocks = [];
+      let currentBlock = null;
+      let lastSetNumber = 0;
+      
+      sortedSets.forEach(set => {
+        // Start new block if:
+        // 1. No current block
+        // 2. Exercise changes
+        // 3. Set number resets (indicates new instance of same exercise)
+        const setNumberReset = currentBlock && 
+                              currentBlock.exerciseId === set.exercise_id && 
+                              set.set_number <= lastSetNumber;
+        
+        if (!currentBlock || 
+            currentBlock.exerciseId !== set.exercise_id || 
+            setNumberReset) {
+          if (currentBlock) {
+            exerciseBlocks.push(currentBlock);
+          }
+          const localId = `template-${set.exercise_id}-${Date.now()}-${Math.random()}`;
+          currentBlock = {
             id: localId,
             exerciseId: set.exercise_id,
             exerciseName: set.exercise_name,
             sets: []
           };
+          lastSetNumber = 0;
         }
-        exerciseGroups[set.exercise_id].sets.push({
+        
+        currentBlock.sets.push({
           id: Date.now() + Math.floor(Math.random() * 10000),
           setNumber: set.set_number,
           weight: set.weight.toString(),
@@ -227,9 +248,15 @@ function NewWorkout() {
           rpe: set.rpe?.toString() || '',
           isWarmup: set.is_warmup === 1
         });
+        lastSetNumber = set.set_number;
       });
       
-      setExercises(Object.values(exerciseGroups));
+      // Push the last block
+      if (currentBlock) {
+        exerciseBlocks.push(currentBlock);
+      }
+      
+      setExercises(exerciseBlocks);
       setShowTemplateSelector(false);
       
       // Show success message

@@ -83,7 +83,7 @@ class WorkoutTemplate {
       FROM template_sets ts
       JOIN exercises e ON ts.exercise_id = e.id
       WHERE ts.template_id = ?
-      ORDER BY ts.exercise_id, ts.set_number
+      ORDER BY ts.id
     `);
     
     stmt.bind([id]);
