@@ -214,7 +214,13 @@ function TemplateDetail() {
                         <td className="py-3 px-3 text-gray-900">{set.set_number}</td>
                         <td className="py-3 px-3 text-gray-900 font-medium">{set.weight}</td>
                         <td className="py-3 px-3 text-gray-900 font-medium">{set.reps}</td>
-                        <td className="py-3 px-3 text-gray-900">{set.rpe || '-'}</td>
+                        <td className="py-3 px-3 text-gray-900">
+                          {set.is_warmup === 1 ? (
+                            <span className="text-green-600 font-bold text-lg">W</span>
+                          ) : (
+                            set.rpe || '-'
+                          )}
+                        </td>
                         <td className="py-3 px-3 text-gray-600">{set.weight * set.reps}</td>
                       </tr>
                     ))}

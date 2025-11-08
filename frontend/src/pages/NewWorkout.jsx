@@ -333,8 +333,8 @@ function NewWorkout() {
         }
       }
 
-      // Success! Navigate to workouts page
-      navigate('/workouts');
+      // Success! Navigate to workout page
+      navigate(`/workout/{workout.workout.id}`);
     } catch (err) {
       if (createdWorkout?.id) {
         try {
