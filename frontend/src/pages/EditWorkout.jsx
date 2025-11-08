@@ -1,71 +1,105 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsAPI, exercisesAPI } from '../services/api';
 import Layout from '../components/Layout/Layout';
 
-function NewWorkout() {
+function EditWorkout() {
+  const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  
+  const [loading, setLoading] = useState(true);
   const [workoutName, setWorkoutName] = useState('');
-  const [workoutDate, setWorkoutDate] = useState(
-    new Date().toISOString().split('T')[0]
-  );
+  const [workoutDate, setWorkoutDate] = useState('');
   const [exercises, setExercises] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
-  // Autocomplete state (per focused input we store transient suggestions)
-  // We'll keep a map of localExerciseId -> { query, suggestions, isOpen, highlightedIndex }
-  const [acState, setAcState] = useState({}); // { [localId]: { query, suggestions, open, highlighted } }
-
+  // Autocomplete state
+  const [acState, setAcState] = useState({});
   const acDebounceTimers = useRef({});
 
-  // Helper: add a new exercise entry (local only)
+  // Load existing workout data
+  useEffect(() => {
+    fetchWorkout();
+  }, [id]);
+
+  const fetchWorkout = async () => {
+    try {
+      setLoading(true);
+      const data = await workoutsAPI.getById(id);
+      const workout = data.workout;
+      
+      setWorkoutName(workout.name || '');
+      setWorkoutDate(workout.date);
+
+      // Group sets by exercise
+      const exerciseGroups = {};
+      workout.sets.forEach(set => {
+        if (!exerciseGroups[set.exercise_id]) {
+          exerciseGroups[set.exercise_id] = {
+            id: `existing-${set.exercise_id}-${Date.now()}`,
+            exerciseId: set.exercise_id,
+            exerciseName: set.exercise_name,
+            sets: []
+          };
+        }
+        exerciseGroups[set.exercise_id].sets.push({
+          id: set.id, // Keep the original set ID
+          existingSetId: set.id, // Track this is an existing set
+          setNumber: set.set_number,
+          weight: set.weight.toString(),
+          reps: set.reps.toString(),
+          rpe: set.rpe?.toString() || '',
+          isWarmup: set.is_warmup === 1
+        });
+      });
+
+      setExercises(Object.values(exerciseGroups));
+    } catch (err) {
+      setError(err.message || 'Failed to load workout');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper: add a new exercise entry
   const handleAddExercise = () => {
     const localId = Date.now() + Math.floor(Math.random() * 1000);
     setExercises((prev) => [
       ...prev,
       { id: localId, exerciseId: null, exerciseName: '', sets: [] },
     ]);
-    // init acState for this id
     setAcState((s) => ({ ...s, [localId]: { query: '', suggestions: [], open: false, highlighted: -1 } }));
   };
+
   const handleRemoveExercise = (exerciseId) => {
     setExercises(exercises.filter(ex => ex.id !== exerciseId));
   };
 
-  // When the exerciseName input changes, update exercises[] and trigger search debounced
+  // Exercise name change with autocomplete
   const handleExerciseNameChange = (localId, name) => {
-    // update exercises
     setExercises((prev) =>
       prev.map((ex) => (ex.id === localId ? { ...ex, exerciseName: name, exerciseId: null } : ex))
     );
 
-    // update autocomplete state
     setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), query: name, open: false, highlighted: -1 } }));
 
-    // if less than 2 characters, skip search
     if (!name || name.trim().length < 2) {
-      // clear suggestions
       setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), suggestions: [], open: false, highlighted: -1 } }));
       return;
     }
 
-    // debounce and call exercisesAPI.search
     if (acDebounceTimers.current[localId]) {
       clearTimeout(acDebounceTimers.current[localId]);
     }
     acDebounceTimers.current[localId] = setTimeout(async () => {
       try {
         const res = await exercisesAPI.search(name.trim());
-        // API expected to return e.g. { exercises: [...] } or array — adapt to your backend shape.
-        // We'll normalize: if res.exercises exists, use it, else if res is array, use it.
         const serverList = res?.exercises ?? res ?? [];
-        // Each item should have at least { id, name }
         setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), suggestions: serverList, open: serverList.length > 0, highlighted: -1 } }));
       } catch (err) {
-        // on error, clear suggestions; optionally show error toast
         setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), suggestions: [], open: false, highlighted: -1 } }));
       } finally {
         delete acDebounceTimers.current[localId];
@@ -73,7 +107,6 @@ function NewWorkout() {
     }, 250);
   };
 
-  // When user selects a suggestion
   const handleSelectSuggestion = (localId, suggestion) => {
     setExercises((prev) =>
       prev.map((ex) => {
@@ -90,6 +123,7 @@ function NewWorkout() {
               reps: '',
               rpe: '',
               isWarmup: false,
+              // No existingSetId - this is a new set
             }];
           }
           
@@ -101,7 +135,6 @@ function NewWorkout() {
     setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), open: false, suggestions: [], highlighted: -1 } }));
   };
 
-  // Keyboard handling for autocomplete
   const handleKeyDown = (e, localId) => {
     const state = acState[localId] || { suggestions: [], highlighted: -1, open: false };
     const list = state.suggestions || [];
@@ -144,6 +177,7 @@ function NewWorkout() {
                   reps: '',
                   rpe: '',
                   isWarmup: false,
+                  // No existingSetId - this is a new set
                 },
               ],
             }
@@ -195,14 +229,12 @@ function NewWorkout() {
       return;
     }
 
-    // Check that all exercises have names
     const hasEmptyExercise = exercises.some(ex => !ex.exerciseName.trim());
     if (hasEmptyExercise) {
       setError('Please enter names for all exercises');
       return;
     }
 
-    // Check that all exercises have at least one set
     const hasExerciseWithoutSets = exercises.some(ex => ex.sets.length === 0);
     if (hasExerciseWithoutSets) {
       setError('Each exercise must have at least one set');
@@ -210,26 +242,28 @@ function NewWorkout() {
     }
 
     setIsSaving(true);
-    let createdWorkout = null;
 
     try {
-      // Create workout
-      const workoutData = {
+      // Update workout metadata
+      await workoutsAPI.update(id, {
         name: workoutName,
-        date: workoutDate,
-        duration: 0 // We can add a timer later
-      };
+        date: workoutDate
+      });
 
-      const workout = await workoutsAPI.create(workoutData);
-      createdWorkout = workout;
+      // Get all current set IDs from the workout
+      const currentWorkout = await workoutsAPI.getById(id);
+      const existingSetIds = currentWorkout.workout.sets.map(s => s.id);
 
-      // Add all sets for all exercises
+      // Track which sets to keep
+      const setsToKeep = new Set();
+
+      // Process all exercises and sets
       for (const exercise of exercises) {
-        console.log(exercise);
         for (const set of exercise.sets) {
-          if (set.rpe) {
-            await workoutsAPI.addSet(workout.workout.id, {
-              exercise_id: exercise.exerciseId,
+          if (set.existingSetId) {
+            // Update existing set
+            setsToKeep.add(set.existingSetId);
+            await workoutsAPI.updateSet(set.existingSetId, {
               set_number: set.setNumber,
               weight: parseFloat(set.weight) || 0,
               reps: parseInt(set.reps) || 0,
@@ -237,35 +271,36 @@ function NewWorkout() {
               is_warmup: set.isWarmup
             });
           } else {
-            await workoutsAPI.addSet(workout.workout.id, {
+            // Create new set
+            const newSet = await workoutsAPI.addSet(id, {
               exercise_id: exercise.exerciseId,
               set_number: set.setNumber,
               weight: parseFloat(set.weight) || 0,
               reps: parseInt(set.reps) || 0,
+              rpe: set.rpe ? parseInt(set.rpe) : null,
               is_warmup: set.isWarmup
             });
+            setsToKeep.add(newSet.set.id);
           }
         }
       }
 
-      // Success! Navigate to workouts page
-      navigate('/workouts');
-    } catch (err) {
-      if (createdWorkout?.id) {
-        try {
-          await workoutsAPI.delete(createdWorkout.id);
-          console.warn('Rolled back workout', createdWorkout.id);
-        } catch (deleteErr) {
-          console.error('Rollback failed:', deleteErr);
+      // Delete sets that were removed
+      for (const existingId of existingSetIds) {
+        if (!setsToKeep.has(existingId)) {
+          await workoutsAPI.deleteSet(existingId);
         }
       }
-      setError(err.message || 'Failed to save workout');
+
+      // Success! Navigate to workout detail page
+      navigate(`/workout/${id}`);
+    } catch (err) {
+      setError(err.message || 'Failed to update workout');
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Helper to render suggestions list for a local exercise entry
   const renderSuggestions = (localId) => {
     const state = acState[localId] || { suggestions: [], open: false, highlighted: -1 };
     if (!state.open || !state.suggestions || state.suggestions.length === 0) return null;
@@ -284,7 +319,6 @@ function NewWorkout() {
               role="option"
               aria-selected={isHighlighted}
               onMouseDown={(e) => {
-                // onMouseDown so click happens before blur
                 e.preventDefault();
                 handleSelectSuggestion(localId, sug);
               }}
@@ -302,7 +336,6 @@ function NewWorkout() {
     );
   };
 
-  // Cleanup timers if component unmounts
   useEffect(() => {
     return () => {
       Object.values(acDebounceTimers.current).forEach((t) => clearTimeout(t));
@@ -310,15 +343,26 @@ function NewWorkout() {
     };
   }, []);
 
+  if (loading) {
+    return (
+      <Layout>
+        <div className="bg-white rounded-lg shadow p-12 text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-gray-600">Loading workout...</p>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="max-w-4xl mx-auto py-8">
         <header className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">New Workout</h1>
-          <p className="text-sm text-gray-600">Log your session</p>
+          <h1 className="text-3xl font-bold text-gray-900">Edit Workout</h1>
+          <p className="text-sm text-gray-600">Update your workout session</p>
         </header>
 
-        {error && <div className="mb-4 text-red-600">{error}</div>}
+        {error && <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">{error}</div>}
 
         <div className="bg-white rounded-lg shadow p-6">
           <div className="grid grid-cols-12 gap-4 items-center mb-6">
@@ -357,7 +401,6 @@ function NewWorkout() {
                         onChange={(e) => handleExerciseNameChange(exercise.id, e.target.value)}
                         onKeyDown={(e) => handleKeyDown(e, exercise.id)}
                         onFocus={() => {
-                          // open suggestions if any
                           const st = acState[exercise.id] || {};
                           if (st.suggestions && st.suggestions.length > 0) {
                             setAcState((s) => ({ ...s, [exercise.id]: { ...(s[exercise.id] || {}), open: true } }));
@@ -369,7 +412,6 @@ function NewWorkout() {
                         aria-expanded={(acState[exercise.id] && acState[exercise.id].open) ? true : false}
                         className="w-full border rounded-md px-3 py-2"
                       />
-                      {/* Suggestions (absolute) */}
                       <div className="mt-1">{renderSuggestions(exercise.id)}</div>
                     </div>
                     <div className="text-xs text-gray-500 mt-1">Tip: type at least 2 characters</div>
@@ -422,7 +464,6 @@ function NewWorkout() {
                         </div>
 
                         <div className="col-span-3 flex items-center gap-2">
-                          {/* RPE dropdown */}
                           <select
                             value={set.rpe ?? ''}
                             onChange={(e) => handleSetChange(exercise.id, set.id, 'rpe', e.target.value)}
@@ -437,14 +478,12 @@ function NewWorkout() {
                             ))}
                           </select>
 
-                          {/* Warm-up toggle */}
                           <label className="flex items-center text-xs text-gray-600 gap-1">
                             <input
                               type="checkbox"
                               checked={!!set.isWarmup}
                               onChange={(e) => {
                                 const checked = e.target.checked;
-                                // update isWarmup and possibly clear RPE
                                 handleSetChange(exercise.id, set.id, 'isWarmup', checked);
                                 if (checked) {
                                   handleSetChange(exercise.id, set.id, 'rpe', null);
@@ -497,11 +536,11 @@ function NewWorkout() {
                 disabled={isSaving}
                 className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-bold py-3 px-4 rounded-lg transition duration-200"
               >
-                {isSaving ? 'Saving...' : 'Save Workout'}
+                {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
 
               <button
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate(`/workout/${id}`)}
                 className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-200"
               >
                 Cancel
@@ -514,4 +553,4 @@ function NewWorkout() {
   );
 }
 
-export default NewWorkout;
+export default EditWorkout;

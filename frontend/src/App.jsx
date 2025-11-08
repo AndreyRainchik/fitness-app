@@ -12,6 +12,7 @@ import Workouts from './pages/Workouts';
 import Analytics from './pages/Analytics';
 import Program from './pages/Program';
 import NewWorkout from './pages/NewWorkout';
+import EditWorkout from './pages/EditWorkout';
 import WorkoutDetail from './pages/WorkoutDetail';
 import Profile from './pages/Profile';
 
@@ -34,6 +35,11 @@ function App() {
         <Route path="/workout/new" element={
           <ProtectedRoute>
             <NewWorkout />
+          </ProtectedRoute>
+        } />
+        <Route path="/workouts/:id/edit" element={
+          <ProtectedRoute>
+            <EditWorkout />
           </ProtectedRoute>
         } />
         <Route path="/workout/:id" element={

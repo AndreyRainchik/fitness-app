@@ -115,12 +115,20 @@ function WorkoutDetail() {
                 {workout.duration > 0 && ` • ${workout.duration} minutes`}
               </p>
             </div>
-            <button
-              onClick={handleDelete}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
-            >
-              Delete Workout
-            </button>
+            <div className="flex gap-3">
+              <Link
+                to={`/workouts/${id}/edit`}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
+              >
+                Edit Workout
+              </Link>
+              <button
+                onClick={handleDelete}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
+              >
+                Delete Workout
+              </button>
+            </div>
           </div>
         </div>
 
