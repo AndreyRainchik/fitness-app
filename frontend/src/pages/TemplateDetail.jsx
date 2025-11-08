@@ -41,14 +41,14 @@ function TemplateDetail() {
     }
   };
 
-  const handleStartWorkout = async () => {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const result = await templatesAPI.startWorkout(id, today);
-      navigate(`/workout/${result.workoutId}`);
-    } catch (err) {
-      alert('Failed to start workout: ' + err.message);
-    }
+  const handleStartWorkout = () => {
+    // Navigate to ActiveWorkout with template data
+    navigate('/workout/active', {
+      state: { 
+        template: template,
+        fromTemplate: true
+      }
+    });
   };
 
   const groupSetsByExercise = (sets) => {

@@ -17,6 +17,7 @@ import WorkoutDetail from './pages/WorkoutDetail';
 import Profile from './pages/Profile';
 import Templates from './pages/Templates';
 import TemplateDetail from './pages/TemplateDetail';
+import ActiveWorkout from './pages/ActiveWorkout';
 
 function App() {
   return (
@@ -37,6 +38,11 @@ function App() {
         <Route path="/workout/new" element={
           <ProtectedRoute>
             <NewWorkout />
+          </ProtectedRoute>
+        } />
+        <Route path="/workout/active" element={
+          <ProtectedRoute>
+            <ActiveWorkout />
           </ProtectedRoute>
         } />
         <Route path="/workouts/:id/edit" element={

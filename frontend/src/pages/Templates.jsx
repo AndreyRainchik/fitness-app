@@ -40,11 +40,19 @@ function Templates() {
 
   const handleStartWorkout = async (templateId) => {
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const result = await templatesAPI.startWorkout(templateId, today);
-      navigate(`/workout/${result.workoutId}`);
+      // Load the full template data
+      const data = await templatesAPI.getById(templateId);
+      const template = data.template;
+      
+      // Navigate to ActiveWorkout with template data
+      navigate('/workout/active', {
+        state: { 
+          template: template,
+          fromTemplate: true
+        }
+      });
     } catch (err) {
-      alert('Failed to start workout: ' + err.message);
+      alert('Failed to load template: ' + err.message);
     }
   };
 

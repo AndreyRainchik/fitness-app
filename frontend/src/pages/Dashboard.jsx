@@ -132,7 +132,7 @@ function Dashboard() {
         <h2 className="text-2xl font-bold text-gray-900 mb-4">Quick Actions</h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link
-            to="/workout/new"
+            to="/workout/active"
             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-6 rounded-lg text-center transition duration-200"
           >
             ➕ New Workout
@@ -189,7 +189,7 @@ function Dashboard() {
             <p className="text-lg">No workouts yet!</p>
             <p className="text-sm mt-2">Start your first workout to see your progress here.</p>
             <Link
-              to="/workout/new"
+              to="/workout/active"
               className="inline-block mt-4 text-blue-600 hover:text-blue-700 font-semibold"
             >
               Log Your First Workout →

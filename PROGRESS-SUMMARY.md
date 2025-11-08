@@ -526,8 +526,8 @@ Security Tab:
 
 ### Short Term
 - [x] Exercise autocomplete in workout logging
-- [ ] Edit existing workouts
-- [ ] Workout templates
+- [x] Edit existing workouts
+- [x] Workout templates
 - [ ] Rest timer between sets
 - [x] Exercise PR tracking
 - [ ] Workout notes/comments
@@ -535,9 +535,9 @@ Security Tab:
 
 ### Medium Term
 - [x] Analytics dashboard with charts
-- [ ] Muscle group visualization (Hevy-style)
+- [x] Muscle group visualization (Hevy-style)
 - [x] Volume & progress tracking charts
-- [ ] Weekly muscle breakdown
+- [x] Weekly muscle breakdown
 - [x] Workout frequency analysis
 
 ### Long Term
