@@ -12,34 +12,45 @@ function RestTimer({ duration = 180, isActive, onComplete, onSkip }) {
   const [secondsLeft, setSecondsLeft] = useState(duration);
   const intervalRef = useRef(null);
   const audioRef = useRef(null);
+  const endTimeRef = useRef(null); // Store the target end time
 
   // Reset timer when it becomes active
   useEffect(() => {
     if (isActive) {
       setSecondsLeft(duration);
+      // Set the target end time (current time + duration in milliseconds)
+      endTimeRef.current = Date.now() + (duration * 1000);
+    } else {
+      endTimeRef.current = null;
     }
   }, [isActive, duration]);
 
   useEffect(() => {
-    if (isActive && secondsLeft > 0) {
+    if (isActive && secondsLeft > 0 && endTimeRef.current) {
       intervalRef.current = setInterval(() => {
-        setSecondsLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(intervalRef.current);
-            // Play completion sound (optional - can be disabled)
-            if (audioRef.current) {
-              audioRef.current.play().catch(() => {
-                // Ignore autoplay errors
-              });
-            }
-            if (onComplete) {
-              onComplete();
-            }
-            return 0;
+        // Calculate remaining time based on actual time elapsed
+        const now = Date.now();
+        const remaining = Math.max(0, Math.ceil((endTimeRef.current - now) / 1000));
+        
+        setSecondsLeft(remaining);
+        
+        // Check if timer completed
+        if (remaining <= 0) {
+          clearInterval(intervalRef.current);
+          endTimeRef.current = null;
+          
+          // Play completion sound (optional - can be disabled)
+          if (audioRef.current) {
+            audioRef.current.play().catch(() => {
+              // Ignore autoplay errors
+            });
           }
-          return prev - 1;
-        });
-      }, 1000);
+          
+          if (onComplete) {
+            onComplete();
+          }
+        }
+      }, 100); // Check more frequently (every 100ms) for accuracy
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -67,6 +78,7 @@ function RestTimer({ duration = 180, isActive, onComplete, onSkip }) {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
+    endTimeRef.current = null;
     setSecondsLeft(0);
     if (onSkip) {
       onSkip();
