@@ -73,7 +73,16 @@ function Home() {
         </div>
 
         <div className="text-center text-white text-sm opacity-75">
-          <p>Built with React, Node.js, and dedication to your gains 💪</p>
+          <p>Built with React, Node.js, and dedication to your gains 💪 by{' '}
+              <a 
+                href="https://github.com/AndreyRainchik/fitness-app" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-white text-sm hover:text-blue-700 font-medium transition-colors underline"
+              >
+                Andrey Rainchik
+              </a>
+            </p>
         </div>
       </div>
     </div>

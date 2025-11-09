@@ -91,7 +91,7 @@ const MuscleGroupHeatmap = () => {
     const start = new Date(weekStart);
     const end = new Date(weekEnd);
     
-    const options = { month: 'short', day: 'numeric' };
+    const options = { month: 'short', day: 'numeric', timeZone: 'UTC' };
     return `${start.toLocaleDateString('en-US', options)} - ${end.toLocaleDateString('en-US', options)}`;
   };
 
