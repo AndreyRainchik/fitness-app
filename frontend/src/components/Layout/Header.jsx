@@ -85,11 +85,14 @@ function Header() {
             <Link to="/templates" className={navLinkClass('/templates')}>
               Templates
             </Link>
+            <Link to="/programs" className={navLinkClass('/programs')}>
+              Programs
+            </Link>
+            <Link to="/current-week" className={navLinkClass('/current-week')}>
+              This Week
+            </Link>
             <Link to="/analytics" className={navLinkClass('/analytics')}>
               Analytics
-            </Link>
-            <Link to="/program" className={navLinkClass('/program')}>
-              Programs
             </Link>
           </nav>
 
@@ -193,18 +196,25 @@ function Header() {
                 Templates
               </Link>
               <Link 
+                to="/programs" 
+                className={mobileNavLinkClass('/programs')}
+                onClick={closeMobileMenu}
+              >
+                Programs
+              </Link>
+              <Link 
+                to="/current-week" 
+                className={mobileNavLinkClass('/current-week')}
+                onClick={closeMobileMenu}
+              >
+                This Week
+              </Link>
+              <Link 
                 to="/analytics" 
                 className={mobileNavLinkClass('/analytics')}
                 onClick={closeMobileMenu}
               >
                 Analytics
-              </Link>
-              <Link 
-                to="/program" 
-                className={mobileNavLinkClass('/program')}
-                onClick={closeMobileMenu}
-              >
-                Programs
               </Link>
             </nav>
             <div className="border-t border-gray-200 py-3 px-4">

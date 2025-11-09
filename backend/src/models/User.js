@@ -73,7 +73,7 @@ class User {
   /**
    * Update user profile (basic info)
    */
-  static update(id, { username, bodyweight, units, sex }) {
+  static update(id, { username, bodyweight, units, sex, plate_inventory, bar_weight }) {
     const updates = [];
     const params = [];
     
@@ -92,6 +92,14 @@ class User {
     if (sex !== undefined) {
       updates.push('sex = ?');
       params.push(sex);
+    }
+    if (plate_inventory !== undefined) {
+      updates.push('plate_inventory = ?');
+      params.push(typeof plate_inventory === 'string' ? plate_inventory : JSON.stringify(plate_inventory));
+    }
+    if (bar_weight !== undefined) {
+      updates.push('bar_weight = ?');
+      params.push(bar_weight);
     }
     
     if (updates.length === 0) {
@@ -173,6 +181,142 @@ class User {
   static getAll() {
     const users = all('SELECT id, email, username, bodyweight, units, sex, created_at FROM users');
     return users;
+  }
+  
+  /**
+   * Get default plate inventory based on units
+   */
+  static getDefaultPlateInventory(units = 'lbs') {
+    if (units === 'kg') {
+      return {
+        bar_weight: 20,
+        plates: {
+          '25': 4,    // 25 kg plates (pairs)
+          '20': 4,
+          '15': 2,
+          '10': 4,
+          '5': 4,
+          '2.5': 4,
+          '1.25': 4,
+          '0.5': 2,
+          '0.25': 2
+        }
+      };
+    } else {
+      return {
+        bar_weight: 45,
+        plates: {
+          '45': 4,    // 45 lb plates (pairs)
+          '25': 4,
+          '10': 4,
+          '5': 4,
+          '2.5': 4,
+          '1': 2,
+          '0.75': 2,
+          '0.5': 2,
+          '0.25': 2
+        }
+      };
+    }
+  }
+  
+  /**
+   * Get user's plate inventory
+   * Returns default if not set
+   */
+  static getPlateInventory(id) {
+    const user = get('SELECT plate_inventory, bar_weight, units FROM users WHERE id = ?', [id]);
+    if (!user) {
+      return null;
+    }
+    
+    // If plate_inventory is not set, return defaults
+    if (!user.plate_inventory) {
+      return this.getDefaultPlateInventory(user.units);
+    }
+    
+    try {
+      const inventory = JSON.parse(user.plate_inventory);
+      // Ensure bar_weight is included
+      if (!inventory.bar_weight && user.bar_weight) {
+        inventory.bar_weight = user.bar_weight;
+      } else if (!inventory.bar_weight) {
+        inventory.bar_weight = user.units === 'kg' ? 20 : 45;
+      }
+      return inventory;
+    } catch (error) {
+      console.error('Error parsing plate inventory:', error);
+      return this.getDefaultPlateInventory(user.units);
+    }
+  }
+  
+  /**
+   * Update user's plate inventory
+   */
+  static updatePlateInventory(id, plateInventory) {
+    try {
+      // Validate and stringify the inventory
+      const inventoryString = JSON.stringify(plateInventory);
+      
+      // Extract bar_weight if present
+      const barWeight = plateInventory.bar_weight || null;
+      
+      // Update both plate_inventory and bar_weight
+      run(
+        'UPDATE users SET plate_inventory = ?, bar_weight = ? WHERE id = ?',
+        [inventoryString, barWeight, id]
+      );
+      
+      return this.getPlateInventory(id);
+    } catch (error) {
+      throw new Error(`Error updating plate inventory: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Calculate plates needed for a target weight
+   * Returns array of plates per side
+   */
+  static calculatePlatesNeeded(targetWeight, plateInventory) {
+    const barWeight = plateInventory.bar_weight || 45;
+    const availablePlates = plateInventory.plates || {};
+    
+    // Calculate weight needed on each side
+    let weightPerSide = (targetWeight - barWeight) / 2;
+    
+    if (weightPerSide <= 0) {
+      return { plates: [], per_side: 0, total: barWeight };
+    }
+    
+    // Sort plates by weight (descending)
+    const plateSizes = Object.keys(availablePlates)
+      .map(p => parseFloat(p))
+      .sort((a, b) => b - a);
+    
+    const platesUsed = [];
+    let remainingWeight = weightPerSide;
+    
+    // Greedy algorithm: use largest plates first
+    for (const plateSize of plateSizes) {
+      const available = availablePlates[plateSize.toString()] || 0;
+      let count = 0;
+      
+      while (remainingWeight >= plateSize && count < available) {
+        platesUsed.push(plateSize);
+        remainingWeight -= plateSize;
+        count++;
+      }
+    }
+    
+    // Round remaining weight to nearest 0.25
+    remainingWeight = Math.round(remainingWeight * 4) / 4;
+    
+    return {
+      plates: platesUsed,
+      per_side: weightPerSide,
+      total: barWeight + (platesUsed.reduce((sum, p) => sum + p, 0) * 2),
+      exact: remainingWeight < 0.01 // Whether we achieved exact weight
+    };
   }
 }
 

@@ -56,6 +56,8 @@ function createTables() {
       bodyweight REAL,
       units TEXT DEFAULT 'kg' CHECK(units IN ('kg', 'lbs')),
       sex TEXT CHECK(sex IN ('M', 'F')),
+      plate_inventory TEXT,
+      bar_weight REAL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);

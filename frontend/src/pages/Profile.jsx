@@ -6,6 +6,7 @@ import ProfileInfo from '../components/Profile/ProfileInfo';
 import BodyweightChart from '../components/Profile/BodyweightChart';
 import BodyweightLog from '../components/Profile/BodyweightLog';
 import SecuritySettings from '../components/Profile/SecuritySettings';
+import PlateInventory from '../components/PlateCalculator/PlateInventory.jsx';
 import Layout from '../components/Layout/Layout';
 
 function Profile() {
@@ -138,6 +139,16 @@ function Profile() {
                 >
                   Security
                 </button>
+                <button
+                  onClick={() => setActiveTab('plates')}
+                  className={`px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-medium border-b-2 transition whitespace-nowrap ${
+                    activeTab === 'plates'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Plates
+                </button>
               </nav>
             </div>
           </div>
@@ -163,6 +174,10 @@ function Profile() {
                 currentEmail={profile.email}
                 onEmailUpdate={handleProfileUpdate}
               />
+            )}
+
+            {activeTab === 'plates' && (
+              <PlateInventory />
             )}
           </div>
         </div>

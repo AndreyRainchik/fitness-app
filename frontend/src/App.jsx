@@ -10,7 +10,8 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Workouts from './pages/Workouts';
 import Analytics from './pages/Analytics';
-import Program from './pages/Program';
+import Programs from './pages/Programs';
+import CurrentWeek from './pages/CurrentWeek';
 import NewWorkout from './pages/NewWorkout';
 import EditWorkout from './pages/EditWorkout';
 import WorkoutDetail from './pages/WorkoutDetail';
@@ -75,9 +76,19 @@ function App() {
             <Analytics />
           </ProtectedRoute>
         } />
-        <Route path="/program" element={
+        <Route path="/programs" element={
           <ProtectedRoute>
-            <Program />
+            <Programs />
+          </ProtectedRoute>
+        } />
+        <Route path="/programs/:programId" element={
+          <ProtectedRoute>
+            <CurrentWeek />
+          </ProtectedRoute>
+        } />
+        <Route path="/current-week" element={
+          <ProtectedRoute>
+            <CurrentWeek />
           </ProtectedRoute>
         } />
         <Route path="/profile" element={

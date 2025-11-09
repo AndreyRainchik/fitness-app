@@ -305,6 +305,33 @@ export const profileAPI = {
   getBodyweightTrend: async (days = 30) => {
     return await apiCall(`/profile/bodyweight/trend?days=${days}`);
   },
+
+  /**
+   * Get plate inventory configuration
+   */
+  getPlateInventory: async () => {
+    return await apiCall('/profile/plate-inventory');
+  },
+
+  /**
+   * Update plate inventory configuration
+   */
+  updatePlateInventory: async (inventory) => {
+    return await apiCall('/profile/plate-inventory', {
+      method: 'PUT',
+      body: JSON.stringify(inventory),
+    });
+  },
+
+  /**
+   * Calculate plates needed for a target weight
+   */
+  calculatePlates: async (targetWeight) => {
+    return await apiCall('/profile/calculate-plates', {
+      method: 'POST',
+      body: JSON.stringify({ target_weight: targetWeight }),
+    });
+  },
 };
 
 /**
@@ -449,6 +476,106 @@ export const templatesAPI = {
   },
 };
 
+/**
+ * Programs API calls
+ */
+export const programsAPI = {
+  /**
+   * Get all programs for the user
+   */
+  getAll: async () => {
+    return await apiCall('/programs');
+  },
+
+  /**
+   * Get active program
+   */
+  getActive: async () => {
+    return await apiCall('/programs/active');
+  },
+
+  /**
+   * Get program by ID with all lifts
+   */
+  getById: async (id) => {
+    return await apiCall(`/programs/${id}`);
+  },
+
+  /**
+   * Get current week's workout for a program
+   */
+  getCurrentWeek: async (id) => {
+    return await apiCall(`/programs/${id}/current-week`);
+  },
+
+  /**
+   * Create new program
+   */
+  create: async (programData) => {
+    return await apiCall('/programs', {
+      method: 'POST',
+      body: JSON.stringify(programData),
+    });
+  },
+
+  /**
+   * Update program
+   */
+  update: async (id, updates) => {
+    return await apiCall(`/programs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  /**
+   * Delete program
+   */
+  delete: async (id) => {
+    return await apiCall(`/programs/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Advance to next week
+   */
+  advanceWeek: async (id) => {
+    return await apiCall(`/programs/${id}/advance-week`, {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Add lift to program
+   */
+  addLift: async (id, liftData) => {
+    return await apiCall(`/programs/${id}/lifts`, {
+      method: 'POST',
+      body: JSON.stringify(liftData),
+    });
+  },
+
+  /**
+   * Update lift training max
+   */
+  updateLift: async (id, exerciseId, trainingMax) => {
+    return await apiCall(`/programs/${id}/lifts/${exerciseId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ training_max: trainingMax }),
+    });
+  },
+
+  /**
+   * Remove lift from program
+   */
+  removeLift: async (id, exerciseId) => {
+    return await apiCall(`/programs/${id}/lifts/${exerciseId}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 export default {
   auth: authAPI,
   exercises: exercisesAPI,
@@ -456,4 +583,5 @@ export default {
   profile: profileAPI,
   analytics: analyticsAPI,
   templates: templatesAPI,
+  programs: programsAPI,
 };

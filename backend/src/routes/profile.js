@@ -294,4 +294,70 @@ router.get('/bodyweight/trend', (req, res) => {
   }
 });
 
+/**
+ * GET /api/profile/plate-inventory
+ * Get user's plate inventory configuration
+ */
+router.get('/plate-inventory', (req, res) => {
+  try {
+    const inventory = User.getPlateInventory(req.user.id);
+    
+    if (!inventory) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json(inventory);
+  } catch (error) {
+    console.error('Get plate inventory error:', error);
+    res.status(500).json({ error: 'Failed to get plate inventory' });
+  }
+});
+
+/**
+ * PUT /api/profile/plate-inventory
+ * Update user's plate inventory configuration
+ */
+router.put('/plate-inventory', (req, res) => {
+  try {
+    const { bar_weight, plates } = req.body;
+    
+    if (!plates || typeof plates !== 'object') {
+      return res.status(400).json({ error: 'Plates configuration is required' });
+    }
+    
+    const inventory = {
+      bar_weight: bar_weight || 45,
+      plates: plates
+    };
+    
+    const updated = User.updatePlateInventory(req.user.id, inventory);
+    res.json(updated);
+  } catch (error) {
+    console.error('Update plate inventory error:', error);
+    res.status(500).json({ error: 'Failed to update plate inventory' });
+  }
+});
+
+/**
+ * POST /api/profile/calculate-plates
+ * Calculate plates needed for a target weight
+ */
+router.post('/calculate-plates', (req, res) => {
+  try {
+    const { target_weight } = req.body;
+    
+    if (!target_weight || target_weight <= 0) {
+      return res.status(400).json({ error: 'Valid target weight is required' });
+    }
+    
+    const inventory = User.getPlateInventory(req.user.id);
+    const result = User.calculatePlatesNeeded(target_weight, inventory);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Calculate plates error:', error);
+    res.status(500).json({ error: 'Failed to calculate plates' });
+  }
+});
+
 export default router;
