@@ -76,50 +76,73 @@ const CurrentWeek = () => {
   };
 
   /**
-   * NEW: Start a workout for a specific lift
+   * Start a workout for a specific lift
    * Converts the lift's sets into a template format and navigates to ActiveWorkout
    */
   const handleStartWorkout = (lift) => {
-    // Create a template-like structure from the lift data
     const templateSets = [];
     let setId = 1;
 
-    // Add main sets (5/3/1 sets)
-    if (lift.main_sets) {
-      lift.main_sets.forEach((set) => {
-        templateSets.push({
-          id: setId++,
-          exercise_id: lift.exercise_id,
-          exercise_name: lift.exercise_name,
-          set_number: set.set_number,
-          weight: set.weight,
-          reps: set.reps,
-          rpe: null,
-          is_warmup: 0
+    // For 5/3/1 programs
+    if (workout.program_type === '531') {
+      // Add main sets (5/3/1 sets)
+      if (lift.main_sets) {
+        lift.main_sets.forEach((set) => {
+          templateSets.push({
+            id: setId++,
+            exercise_id: lift.exercise_id,
+            exercise_name: lift.exercise_name,
+            set_number: set.set_number,
+            weight: set.weight,
+            reps: set.reps,
+            rpe: null,
+            is_warmup: 0
+          });
         });
-      });
+      }
+
+      // Add BBB accessory sets
+      if (lift.accessory_sets && lift.accessory_sets.length > 0) {
+        const bbbSet = lift.accessory_sets[0]; // All 5 sets use same weight/reps
+        for (let i = 1; i <= 5; i++) {
+          templateSets.push({
+            id: setId++,
+            exercise_id: lift.exercise_id,
+            exercise_name: lift.exercise_name,
+            set_number: lift.main_sets.length + i, // Continue numbering after main sets
+            weight: bbbSet.weight,
+            reps: bbbSet.reps,
+            rpe: null,
+            is_warmup: 0
+          });
+        }
+      }
     }
 
-    // Add BBB accessory sets
-    if (lift.accessory_sets && lift.accessory_sets.length > 0) {
-      const bbbSet = lift.accessory_sets[0]; // All 5 sets use same weight/reps
-      for (let i = 1; i <= 5; i++) {
-        templateSets.push({
-          id: setId++,
-          exercise_id: lift.exercise_id,
-          exercise_name: lift.exercise_name,
-          set_number: lift.main_sets.length + i, // Continue numbering after main sets
-          weight: bbbSet.weight,
-          reps: bbbSet.reps,
-          rpe: null,
-          is_warmup: 0
+    // For Starting Strength programs
+    if (workout.program_type === 'starting_strength') {
+      // Add working sets
+      if (lift.sets) {
+        lift.sets.forEach((set) => {
+          templateSets.push({
+            id: setId++,
+            exercise_id: lift.exercise_id,
+            exercise_name: lift.exercise_name,
+            set_number: set.set_number,
+            weight: set.weight,
+            reps: set.reps,
+            rpe: null,
+            is_warmup: 0
+          });
         });
       }
     }
 
     // Create template object
     const template = {
-      name: `${lift.exercise_name} - Week ${workout.week}`,
+      name: workout.program_type === '531' 
+        ? `${lift.exercise_name} - Week ${workout.week}`
+        : `${lift.exercise_name} - ${workout.workout_type}`,
       sets: templateSets
     };
 
@@ -174,7 +197,12 @@ const CurrentWeek = () => {
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{workout.program_name}</h1>
               <p className="mt-2 text-sm sm:text-base text-gray-600">
-                Week {workout.week} ({getWeekName(workout.week)}) · Cycle {workout.cycle}
+                {workout.program_type === '531' && (
+                  <>Week {workout.week} ({getWeekName(workout.week)}) · Cycle {workout.cycle}</>
+                )}
+                {workout.program_type === 'starting_strength' && (
+                  <>{workout.workout_type} · Session {workout.session_number}</>
+                )}
               </p>
             </div>
             <button
@@ -182,7 +210,7 @@ const CurrentWeek = () => {
               disabled={advancing}
               className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
             >
-              {advancing ? 'Advancing...' : 'Complete Week'}
+              {advancing ? 'Advancing...' : workout.program_type === 'starting_strength' ? 'Complete Session' : 'Complete Week'}
             </button>
           </div>
         </div>
@@ -201,10 +229,21 @@ const CurrentWeek = () => {
         )}
 
         {/* Week Info */}
-        {workout.week === 4 && (
+        {workout.program_type === '531' && workout.week === 4 && (
           <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
             <p className="text-amber-800 font-medium">
               🔄 Deload Week - Recovery and preparation for next cycle
+            </p>
+          </div>
+        )}
+        
+        {workout.program_type === 'starting_strength' && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-blue-800 font-medium">
+              💪 {workout.workout_type} - Linear Progression
+            </p>
+            <p className="text-sm text-blue-700 mt-1">
+              Weights will automatically increase after you complete this session
             </p>
           </div>
         )}
@@ -218,7 +257,10 @@ const CurrentWeek = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div>
                     <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{lift.exercise_name}</h2>
-                    <p className="text-sm text-gray-600">Training Max: {lift.training_max} lbs</p>
+                    <p className="text-sm text-gray-600">
+                      {workout.program_type === '531' && `Training Max: ${lift.training_max} lbs`}
+                      {workout.program_type === 'starting_strength' && `Current Weight: ${lift.current_weight} lbs`}
+                    </p>
                   </div>
                   {/* Start Workout Button */}
                   <button
@@ -230,68 +272,113 @@ const CurrentWeek = () => {
                 </div>
               </div>
 
-              {/* Main Sets */}
-              <div className="p-4 sm:p-6">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Main Sets (5/3/1)</h3>
-                <div className="space-y-4">
-                  {lift.main_sets && lift.main_sets.map((set, setIndex) => (
-                    <div key={setIndex} className="border border-gray-200 rounded-lg p-3 sm:p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="text-base sm:text-lg font-bold text-gray-900">
-                            Set {set.set_number}:
-                          </span>
-                          <span className="text-base sm:text-lg font-bold text-blue-600">
-                            {set.weight} lbs
-                          </span>
-                          <span className="text-sm sm:text-base text-gray-600">
-                            × {set.reps}{set.is_amrap ? '+' : ''} reps
-                          </span>
-                          <span className="text-xs sm:text-sm text-gray-500">
-                            ({set.percentage}% TM)
-                          </span>
+              {/* 5/3/1 Program Content */}
+              {workout.program_type === '531' && (
+                <>
+                  {/* Main Sets */}
+                  <div className="p-4 sm:p-6">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Main Sets (5/3/1)</h3>
+                    <div className="space-y-4">
+                      {lift.main_sets && lift.main_sets.map((set, setIndex) => (
+                        <div key={setIndex} className="border border-gray-200 rounded-lg p-3 sm:p-4">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="text-base sm:text-lg font-bold text-gray-900">
+                                Set {set.set_number}:
+                              </span>
+                              <span className="text-base sm:text-lg font-bold text-blue-600">
+                                {set.weight} lbs
+                              </span>
+                              <span className="text-sm sm:text-base text-gray-600">
+                                × {set.reps}{set.is_amrap ? '+' : ''} reps
+                              </span>
+                              <span className="text-xs sm:text-sm text-gray-500">
+                                ({set.percentage}% TM)
+                              </span>
+                            </div>
+                            {set.is_amrap && (
+                              <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded self-start">
+                                AMRAP
+                              </span>
+                            )}
+                          </div>
+                          {/* Plate Calculator */}
+                          <PlateCalculator targetWeight={set.weight} />
                         </div>
-                        {set.is_amrap && (
-                          <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded self-start">
-                            AMRAP
-                          </span>
-                        )}
-                      </div>
-                      {/* Plate Calculator */}
-                      <PlateCalculator targetWeight={set.weight} />
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
-              {/* BBB Accessory Sets */}
-              {lift.accessory_sets && lift.accessory_sets.length > 0 && (
-                <div className="px-4 sm:px-6 pb-4 sm:pb-6">
+                  {/* BBB Accessory Sets */}
+                  {lift.accessory_sets && lift.accessory_sets.length > 0 && (
+                    <div className="px-4 sm:px-6 pb-4 sm:pb-6">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
+                        Boring But Big (BBB) Accessory
+                      </h3>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                        <div className="mb-2">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="text-base sm:text-lg font-bold text-gray-900">
+                              5 sets:
+                            </span>
+                            <span className="text-base sm:text-lg font-bold text-blue-600">
+                              {lift.accessory_sets[0].weight} lbs
+                            </span>
+                            <span className="text-sm sm:text-base text-gray-600">
+                              × {lift.accessory_sets[0].reps} reps
+                            </span>
+                            <span className="text-xs sm:text-sm text-gray-500">
+                              ({lift.accessory_sets[0].percentage}% TM)
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-xs sm:text-sm text-gray-600 mb-3">
+                          Same weight for all 5 sets. Rest 1-2 minutes between sets.
+                        </p>
+                        {/* Plate Calculator */}
+                        <PlateCalculator targetWeight={lift.accessory_sets[0].weight} />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Starting Strength Program Content */}
+              {workout.program_type === 'starting_strength' && lift.sets && (
+                <div className="p-4 sm:p-6">
                   <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
-                    Boring But Big (BBB) Accessory
+                    Working Sets
                   </h3>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                  <div className="border border-gray-200 rounded-lg p-3 sm:p-4">
                     <div className="mb-2">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="text-base sm:text-lg font-bold text-gray-900">
-                          5 sets:
+                          {lift.sets.length} × {lift.sets[0].reps}:
                         </span>
                         <span className="text-base sm:text-lg font-bold text-blue-600">
-                          {lift.accessory_sets[0].weight} lbs
+                          {lift.sets[0].weight} lbs
                         </span>
-                        <span className="text-sm sm:text-base text-gray-600">
-                          × {lift.accessory_sets[0].reps} reps
-                        </span>
-                        <span className="text-xs sm:text-sm text-gray-500">
-                          ({lift.accessory_sets[0].percentage}% TM)
+                        <span className="text-sm text-gray-600">
+                          ({lift.sets.length} sets of {lift.sets[0].reps} reps)
                         </span>
                       </div>
                     </div>
                     <p className="text-xs sm:text-sm text-gray-600 mb-3">
-                      Same weight for all 5 sets. Rest 1-2 minutes between sets.
+                      Same weight for all sets. Rest 3-5 minutes between sets.
                     </p>
                     {/* Plate Calculator */}
-                    <PlateCalculator targetWeight={lift.accessory_sets[0].weight} />
+                    <PlateCalculator targetWeight={lift.sets[0].weight} />
+                  </div>
+                  
+                  {/* Next Session Info */}
+                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-xs sm:text-sm text-green-800">
+                      <strong>Next session:</strong> {' '}
+                      {lift.exercise_name === 'Barbell Squat' || lift.exercise_name === 'Barbell Deadlift' 
+                        ? `${lift.sets[0].weight + 10} lbs (+10 lbs)`
+                        : `${lift.sets[0].weight + 5} lbs (+5 lbs)`
+                      }
+                    </p>
                   </div>
                 </div>
               )}
@@ -302,22 +389,38 @@ const CurrentWeek = () => {
         {/* Training Notes */}
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6">
           <h3 className="text-base sm:text-lg font-semibold text-blue-900 mb-3">💡 Training Notes</h3>
-          <ul className="space-y-2 text-xs sm:text-sm text-blue-800">
-            {workout.week !== 4 ? (
-              <>
-                <li>• <strong>AMRAP sets:</strong> Push for as many quality reps as possible</li>
-                <li>• <strong>Main sets:</strong> Rest 3-5 minutes between sets</li>
-                <li>• <strong>BBB sets:</strong> Rest 1-2 minutes, focus on form and volume</li>
-                <li>• <strong>Week {workout.week} target:</strong> {workout.week === 1 ? '8-10+ reps on AMRAP' : workout.week === 2 ? '5-7+ reps on AMRAP' : '3-5+ reps on AMRAP'}</li>
-              </>
-            ) : (
-              <>
-                <li>• <strong>Deload week:</strong> Focus on recovery, not max effort</li>
-                <li>• <strong>Purpose:</strong> Allows body to recover before next cycle</li>
-                <li>• <strong>Next week:</strong> Cycle {workout.cycle + 1} begins!</li>
-              </>
-            )}
-          </ul>
+          
+          {/* 5/3/1 Notes */}
+          {workout.program_type === '531' && (
+            <ul className="space-y-2 text-xs sm:text-sm text-blue-800">
+              {workout.week !== 4 ? (
+                <>
+                  <li>• <strong>AMRAP sets:</strong> Push for as many quality reps as possible</li>
+                  <li>• <strong>Main sets:</strong> Rest 3-5 minutes between sets</li>
+                  <li>• <strong>BBB sets:</strong> Rest 1-2 minutes, focus on form and volume</li>
+                  <li>• <strong>Week {workout.week} target:</strong> {workout.week === 1 ? '8-10+ reps on AMRAP' : workout.week === 2 ? '5-7+ reps on AMRAP' : '3-5+ reps on AMRAP'}</li>
+                </>
+              ) : (
+                <>
+                  <li>• <strong>Deload week:</strong> Focus on recovery, not max effort</li>
+                  <li>• <strong>Purpose:</strong> Allows body to recover before next cycle</li>
+                  <li>• <strong>Next week:</strong> Cycle {workout.cycle + 1} begins!</li>
+                </>
+              )}
+            </ul>
+          )}
+          
+          {/* Starting Strength Notes */}
+          {workout.program_type === 'starting_strength' && (
+            <ul className="space-y-2 text-xs sm:text-sm text-blue-800">
+              <li>• <strong>Linear Progression:</strong> Add weight every session - program does this automatically</li>
+              <li>• <strong>Rest periods:</strong> 3-5 minutes between sets for best recovery</li>
+              <li>• <strong>Form first:</strong> Only increase weight if you can maintain good form for all reps</li>
+              <li>• <strong>Warmup:</strong> Always start with empty bar and work up to working weight</li>
+              <li>• <strong>Frequency:</strong> Train 3x per week (e.g., Monday, Wednesday, Friday)</li>
+              <li>• <strong>Progression:</strong> Squat/Deadlift +10 lbs · Bench/Press +5 lbs per session</li>
+            </ul>
+          )}
         </div>
       </div>
     </Layout>

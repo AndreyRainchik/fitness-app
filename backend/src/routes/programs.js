@@ -124,8 +124,9 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Name and type are required' });
     }
     
-    if (type !== '531' && type !== 'custom') {
-      return res.status(400).json({ error: 'Type must be "531" or "custom"' });
+    // Updated to accept starting_strength
+    if (type !== '531' && type !== 'starting_strength' && type !== 'custom') {
+      return res.status(400).json({ error: 'Type must be "531", "starting_strength", or "custom"' });
     }
     
     // Create program
@@ -135,11 +136,12 @@ router.post('/', authenticateToken, async (req, res) => {
       type,
       start_date: start_date || new Date().toISOString().split('T')[0],
       current_week: 1,
-      current_cycle: 1,
+      current_cycle: 1, // For Starting Strength, 1 = Workout A, 2 = Workout B
       is_active: is_active !== undefined ? is_active : 1
     });
     
     // Add lifts if provided
+    // For Starting Strength, training_max is actually the current working weight
     if (lifts && Array.isArray(lifts)) {
       for (const lift of lifts) {
         if (lift.exercise_id && lift.training_max) {
@@ -220,7 +222,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 
 /**
  * @route   POST /api/programs/:id/advance-week
- * @desc    Advance program to the next week
+ * @desc    Advance program to the next week/session
  * @access  Private
  */
 router.post('/:id/advance-week', authenticateToken, async (req, res) => {
@@ -284,7 +286,7 @@ router.post('/:id/lifts', authenticateToken, async (req, res) => {
 
 /**
  * @route   PUT /api/programs/:id/lifts/:exercise_id
- * @desc    Update a lift's training max
+ * @desc    Update a lift's training max/current weight
  * @access  Private
  */
 router.put('/:id/lifts/:exercise_id', authenticateToken, async (req, res) => {

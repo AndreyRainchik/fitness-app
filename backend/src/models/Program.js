@@ -2,7 +2,7 @@ import { get, all, run } from '../config/database.js';
 
 /**
  * Program Model
- * Handles training program management (5/3/1, custom programs, etc.)
+ * Handles training program management (5/3/1, Starting Strength, custom programs, etc.)
  */
 class Program {
   /**
@@ -148,7 +148,7 @@ class Program {
   }
   
   /**
-   * Update training max for a lift
+   * Update training max for a lift (or current weight for Starting Strength)
    */
   static updateLift(program_id, exercise_id, training_max) {
     run(
@@ -189,7 +189,7 @@ class Program {
   }
   
   /**
-   * Advance to next week
+   * Advance to next session/week
    */
   static advanceWeek(id) {
     const program = this.findById(id);
@@ -207,6 +207,38 @@ class Program {
         newWeek = 1;
         newCycle += 1;
       }
+    }
+    
+    // For Starting Strength, current_week is session count
+    // current_cycle toggles between 1 (Workout A) and 2 (Workout B)
+    if (program.type === 'starting_strength') {
+      // Toggle between Workout A (cycle 1) and Workout B (cycle 2)
+      newCycle = program.current_cycle === 1 ? 2 : 1;
+      
+      // Increment weights for each lift
+      const lifts = all(
+        'SELECT * FROM program_lifts WHERE program_id = ?',
+        [id]
+      );
+      
+      lifts.forEach(lift => {
+        // Get exercise to determine weight increment
+        const exercise = get('SELECT * FROM exercises WHERE id = ?', [lift.exercise_id]);
+        
+        if (exercise) {
+          let increment = 5; // Default: upper body
+          
+          // Determine increment based on exercise
+          const lowerBodyExercises = ['Barbell Squat', 'Barbell Deadlift', 'Power Clean'];
+          if (lowerBodyExercises.includes(exercise.name)) {
+            increment = 10;
+          }
+          
+          // Update the weight (stored in training_max for Starting Strength)
+          const newWeight = lift.training_max + increment;
+          this.updateLift(id, lift.exercise_id, newWeight);
+        }
+      });
     }
     
     return this.update(id, {
@@ -291,6 +323,50 @@ class Program {
   }
   
   /**
+   * Generate Starting Strength workout sets
+   * @param {string} exerciseName - Name of the exercise
+   * @param {number} currentWeight - Current working weight
+   * @returns {Array} Array of set objects
+   */
+  static generateStartingStrengthSets(exerciseName, currentWeight) {
+    const sets = [];
+    
+    // Deadlift is 1 set of 5 reps
+    if (exerciseName === 'Barbell Deadlift') {
+      sets.push({
+        set_number: 1,
+        weight: currentWeight,
+        reps: 5,
+        is_warmup: false
+      });
+    }
+    // Power Clean is 5 sets of 3 reps
+    else if (exerciseName === 'Power Clean') {
+      for (let i = 1; i <= 5; i++) {
+        sets.push({
+          set_number: i,
+          weight: currentWeight,
+          reps: 3,
+          is_warmup: false
+        });
+      }
+    }
+    // All other lifts are 3 sets of 5 reps
+    else {
+      for (let i = 1; i <= 3; i++) {
+        sets.push({
+          set_number: i,
+          weight: currentWeight,
+          reps: 5,
+          is_warmup: false
+        });
+      }
+    }
+    
+    return sets;
+  }
+  
+  /**
    * Get the current week's workout for a program
    * @param {number} id - Program ID
    * @returns {Object} Complete workout with all lifts and their sets
@@ -304,6 +380,7 @@ class Program {
     const workout = {
       program_id: program.id,
       program_name: program.name,
+      program_type: program.type,
       week: program.current_week,
       cycle: program.current_cycle,
       lifts: []
@@ -323,6 +400,39 @@ class Program {
           accessory_sets: bbbSets
         });
       });
+    }
+    
+    // For Starting Strength program
+    if (program.type === 'starting_strength') {
+      // Determine which workout (A or B)
+      const isWorkoutA = program.current_cycle === 1;
+      
+      // Workout A: Squat, Bench, Deadlift
+      // Workout B: Squat, OHP, Deadlift (or Power Clean)
+      const workoutExercises = isWorkoutA
+        ? ['Barbell Squat', 'Barbell Bench Press', 'Barbell Deadlift']
+        : ['Barbell Squat', 'Barbell Overhead Press', 'Barbell Deadlift'];
+      
+      // Filter lifts to only include those in current workout
+      const workoutLifts = program.lifts.filter(lift => 
+        workoutExercises.includes(lift.exercise_name)
+      );
+      
+      workoutLifts.forEach(lift => {
+        // For Starting Strength, training_max is actually current working weight
+        const sets = this.generateStartingStrengthSets(lift.exercise_name, lift.training_max);
+        
+        workout.lifts.push({
+          exercise_id: lift.exercise_id,
+          exercise_name: lift.exercise_name,
+          current_weight: lift.training_max, // Using training_max field to store current weight
+          sets: sets
+        });
+      });
+      
+      // Add workout type label
+      workout.workout_type = isWorkoutA ? 'Workout A' : 'Workout B';
+      workout.session_number = program.current_week;
     }
     
     return workout;

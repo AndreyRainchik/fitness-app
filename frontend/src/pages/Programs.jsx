@@ -26,7 +26,7 @@ const PROGRAM_TYPES = {
     name: 'Starting Strength',
     shortName: 'SS',
     description: 'Simple linear progression for novice lifters with focus on basic barbell movements',
-    available: false,
+    available: true,
     badge: { bg: 'bg-green-100', text: 'text-green-800' }
   },
   'nsuns': {
@@ -355,8 +355,164 @@ const Programs = () => {
                 </div>
               )}
 
+              {/* Starting Strength Configuration */}
+              {selectedProgramType === 'starting_strength' && PROGRAM_TYPES['starting_strength'].available && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Starting Weights
+                  </label>
+                  <p className="text-xs text-gray-600 mb-4">
+                    Enter your current working weight for each lift. The program will auto-progress each session.
+                  </p>
+                  <div className="space-y-4">
+                    {/* Squat */}
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Squat *
+                        </label>
+                        <select
+                          value={selectedLifts[0]?.exercise_id || ''}
+                          onChange={(e) => handleLiftChange(0, 'exercise_id', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required
+                        >
+                          <option value="">Select Squat...</option>
+                          {exercises.filter(ex => ex.name.includes('Squat')).map(ex => (
+                            <option key={ex.id} value={ex.id}>{ex.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="w-full sm:w-40">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Weight (lbs)
+                        </label>
+                        <input
+                          type="number"
+                          value={selectedLifts[0]?.training_max || ''}
+                          onChange={(e) => handleLiftChange(0, 'training_max', e.target.value)}
+                          placeholder="0"
+                          step="5"
+                          min="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {/* Bench Press */}
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Bench Press *
+                        </label>
+                        <select
+                          value={selectedLifts[1]?.exercise_id || ''}
+                          onChange={(e) => handleLiftChange(1, 'exercise_id', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required
+                        >
+                          <option value="">Select Bench...</option>
+                          {exercises.filter(ex => ex.name.includes('Bench')).map(ex => (
+                            <option key={ex.id} value={ex.id}>{ex.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="w-full sm:w-40">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Weight (lbs)
+                        </label>
+                        <input
+                          type="number"
+                          value={selectedLifts[1]?.training_max || ''}
+                          onChange={(e) => handleLiftChange(1, 'training_max', e.target.value)}
+                          placeholder="0"
+                          step="5"
+                          min="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {/* Overhead Press */}
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Overhead Press *
+                        </label>
+                        <select
+                          value={selectedLifts[2]?.exercise_id || ''}
+                          onChange={(e) => handleLiftChange(2, 'exercise_id', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required
+                        >
+                          <option value="">Select OHP...</option>
+                          {exercises.filter(ex => ex.name.includes('Overhead Press')).map(ex => (
+                            <option key={ex.id} value={ex.id}>{ex.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="w-full sm:w-40">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Weight (lbs)
+                        </label>
+                        <input
+                          type="number"
+                          value={selectedLifts[2]?.training_max || ''}
+                          onChange={(e) => handleLiftChange(2, 'training_max', e.target.value)}
+                          placeholder="0"
+                          step="5"
+                          min="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {/* Deadlift */}
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Deadlift *
+                        </label>
+                        <select
+                          value={selectedLifts[3]?.exercise_id || ''}
+                          onChange={(e) => handleLiftChange(3, 'exercise_id', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required
+                        >
+                          <option value="">Select Deadlift...</option>
+                          {exercises.filter(ex => ex.name.includes('Deadlift')).map(ex => (
+                            <option key={ex.id} value={ex.id}>{ex.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="w-full sm:w-40">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Weight (lbs)
+                        </label>
+                        <input
+                          type="number"
+                          value={selectedLifts[3]?.training_max || ''}
+                          onChange={(e) => handleLiftChange(3, 'training_max', e.target.value)}
+                          placeholder="0"
+                          step="5"
+                          min="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-xs text-gray-500">
+                    💡 Weights auto-increase: +10 lbs for squat/deadlift, +5 lbs for bench/press per session
+                  </p>
+                </div>
+              )}
+
               {/* Placeholder for future program types */}
-              {selectedProgramType !== '531' && (
+              {selectedProgramType !== '531' && selectedProgramType !== 'starting_strength' && (
                 <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
                   <p className="text-sm text-gray-600">
                     Configuration for {PROGRAM_TYPES[selectedProgramType]?.name} will be available soon.

@@ -126,7 +126,7 @@ function createTables() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       name TEXT NOT NULL,
-      type TEXT CHECK(type IN ('531', 'custom')),
+      type TEXT CHECK(type IN ('531', 'starting_strength', 'custom')),
       start_date DATE NOT NULL,
       current_week INTEGER DEFAULT 1,
       current_cycle INTEGER DEFAULT 1,
