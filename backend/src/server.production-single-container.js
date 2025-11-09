@@ -99,6 +99,27 @@ if (NODE_ENV === 'production') {
 }
 
 // ============================================================================
+// PWA FILE HANDLING - Special headers for service worker and manifest
+// ============================================================================
+
+// Service Worker - must be served with no cache and correct MIME type
+app.get('/sw.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Service-Worker-Allowed', '/');
+  res.sendFile(path.join(__dirname, '..', 'public', 'sw.js'));
+});
+
+// Manifest - serve with correct MIME type and short cache
+app.get('/manifest.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/manifest+json; charset=UTF-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 hour cache
+  res.sendFile(path.join(__dirname, '..', 'public', 'manifest.json'));
+});
+
+// ============================================================================
 // HEALTH CHECK ROUTES (no rate limiting)
 // ============================================================================
 
@@ -116,6 +137,7 @@ app.get('/api', (req, res) => {
     environment: NODE_ENV,
     timestamp: new Date().toISOString(),
     deployment: 'single-container',
+    pwa_enabled: true,
     endpoints: {
       health: '/api/health',
       auth: '/api/auth',
@@ -154,6 +176,12 @@ app.use(express.static(publicPath, {
   maxAge: '1y', // Cache static assets for 1 year
   etag: true,
   lastModified: true,
+  setHeaders: (res, filePath) => {
+    // Additional PWA-specific headers for certain file types
+    if (filePath.endsWith('.webmanifest') || filePath.endsWith('manifest.json')) {
+      res.setHeader('Content-Type', 'application/manifest+json; charset=UTF-8');
+    }
+  }
 }));
 
 // ============================================================================
@@ -204,6 +232,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`📁 Serving frontend from: ${publicPath}`);
   logger.info(`🔗 Application available at: http://localhost:${PORT}`);
   logger.info(`📡 API available at: http://localhost:${PORT}/api`);
+  logger.info(`📱 PWA enabled with service worker support`);
 });
 
 // ============================================================================

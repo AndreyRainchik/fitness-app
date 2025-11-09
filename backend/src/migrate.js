@@ -24,7 +24,7 @@ async function migrate() {
     const SQL = await initSqlJs();
     
     // Load existing database
-    const dbPath = path.join(__dirname, '../', process.env.DB_PATH || 'fitness.db');
+    const dbPath = path.join(__dirname, '../', process.env.DATABASE_PATH || 'fitness.db');
     
     if (!fs.existsSync(dbPath)) {
       console.error('❌ Database file not found at:', dbPath);

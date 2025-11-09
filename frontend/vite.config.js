@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt', 'icons/*.png'],
+      includeAssets: ['favicon.ico', 'robots.txt', 'icons/*.png', 'splash/*.png'],
       
       manifest: {
         name: 'Fitness Tracker - Training Programs & Analytics',
@@ -18,46 +18,55 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait-primary',
         start_url: '/',
+        scope: '/',
         icons: [
           {
             src: '/icons/icon-72x72.png',
             sizes: '72x72',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           },
           {
             src: '/icons/icon-96x96.png',
             sizes: '96x96',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           },
           {
             src: '/icons/icon-128x128.png',
             sizes: '128x128',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           },
           {
             src: '/icons/icon-144x144.png',
             sizes: '144x144',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           },
           {
             src: '/icons/icon-152x152.png',
             sizes: '152x152',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           },
           {
             src: '/icons/icon-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           },
           {
             src: '/icons/icon-384x384.png',
             sizes: '384x384',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           },
           {
             src: '/icons/icon-512x512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ],
         shortcuts: [
@@ -84,6 +93,33 @@ export default defineConfig({
                 sizes: '96x96'
               }
             ]
+          },
+          {
+            name: 'Analytics',
+            short_name: 'Stats',
+            description: 'View workout analytics',
+            url: '/analytics',
+            icons: [
+              {
+                src: '/icons/shortcut-analytics.png',
+                sizes: '96x96'
+              }
+            ]
+          }
+        ],
+        categories: ['fitness', 'health', 'lifestyle', 'sports'],
+        screenshots: [
+          {
+            src: '/screenshots/dashboard.png',
+            sizes: '1280x720',
+            type: 'image/png',
+            label: 'Dashboard with workout analytics'
+          },
+          {
+            src: '/screenshots/active-workout.png',
+            sizes: '1280x720',
+            type: 'image/png',
+            label: 'Real-time workout tracking'
           }
         ]
       },
@@ -154,13 +190,13 @@ export default defineConfig({
         // Clean up old caches
         cleanupOutdatedCaches: true,
         
-        // Don't cache these paths
+        // Offline page fallback
         navigateFallback: null,
         navigateFallbackDenylist: [/^\/api\//]
       },
       
       devOptions: {
-        enabled: true, // Enable in development for testing
+        enabled: false, // Enable in development for testing
         type: 'module'
       }
     })

@@ -4,3 +4,4 @@
 backend/fitness.db
 *.backup*
 dev-dist/
+.env*

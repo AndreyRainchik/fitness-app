@@ -2,6 +2,7 @@ import initSqlJs from 'sql.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import logger from './logger.config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,11 +18,15 @@ export async function initDatabase() {
     // Initialize sql.js
     SQL = await initSqlJs();
     
-    const dbPath = path.join(__dirname, '../../', process.env.DB_PATH || 'fitness.db');
-    
+    var dbPath = path.join(__dirname, '../../', 'fitness.db');
+    if(process.env.DATABASE_PATH) {
+      dbPath = process.env.DATABASE_PATH
+    } 
+
     // Check if database file exists
     if (fs.existsSync(dbPath)) {
       console.log('📂 Loading existing database...');
+      logger.info(`🔄 Saving database to ${dbPath}`);
       const buffer = fs.readFileSync(dbPath);
       db = new SQL.Database(buffer);
     } else {
@@ -275,7 +280,10 @@ export function saveDatabase() {
   }
   
   try {
-    const dbPath = path.join(__dirname, '../../', process.env.DB_PATH || 'fitness.db');
+    var dbPath = path.join(__dirname, '../../', 'fitness.db');
+    if(process.env.DATABASE_PATH) {
+      dbPath = process.env.DATABASE_PATH
+    } 
     const data = db.export();
     fs.writeFileSync(dbPath, data);
   } catch (error) {

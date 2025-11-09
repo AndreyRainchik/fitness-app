@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import { User } from '../models/index.js';
 import { authenticateToken } from '../middleware/auth.js';
+import logger from '../config/logger.config.js';
 
 const router = express.Router();
 
@@ -44,6 +45,13 @@ router.post('/register',
         units: units || 'kg',
         sex: sex || null
       });
+
+      logger.info('😃 User registered successfully', {
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        timestamp: new Date().toISOString()
+      });
       
       // Generate JWT token
       const token = jwt.sign(
@@ -57,6 +65,7 @@ router.post('/register',
         token,
         user
       });
+      
     } catch (error) {
       console.error('Registration error:', error);
       res.status(500).json({ error: 'Failed to register user' });
