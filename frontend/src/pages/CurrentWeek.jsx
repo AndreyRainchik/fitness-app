@@ -75,6 +75,58 @@ const CurrentWeek = () => {
     }
   };
 
+  /**
+   * NEW: Start a workout for a specific lift
+   * Converts the lift's sets into a template format and navigates to ActiveWorkout
+   */
+  const handleStartWorkout = (lift) => {
+    // Create a template-like structure from the lift data
+    const templateSets = [];
+    let setId = 1;
+
+    // Add main sets (5/3/1 sets)
+    if (lift.main_sets) {
+      lift.main_sets.forEach((set) => {
+        templateSets.push({
+          id: setId++,
+          exercise_id: lift.exercise_id,
+          exercise_name: lift.exercise_name,
+          set_number: set.set_number,
+          weight: set.weight,
+          reps: set.reps,
+          rpe: null,
+          is_warmup: 0
+        });
+      });
+    }
+
+    // Add BBB accessory sets
+    if (lift.accessory_sets && lift.accessory_sets.length > 0) {
+      const bbbSet = lift.accessory_sets[0]; // All 5 sets use same weight/reps
+      for (let i = 1; i <= 5; i++) {
+        templateSets.push({
+          id: setId++,
+          exercise_id: lift.exercise_id,
+          exercise_name: lift.exercise_name,
+          set_number: lift.main_sets.length + i, // Continue numbering after main sets
+          weight: bbbSet.weight,
+          reps: bbbSet.reps,
+          rpe: null,
+          is_warmup: 0
+        });
+      }
+    }
+
+    // Create template object
+    const template = {
+      name: `${lift.exercise_name} - Week ${workout.week}`,
+      sets: templateSets
+    };
+
+    // Navigate to ActiveWorkout with pre-populated data
+    navigate('/workout/active', { state: { template } });
+  };
+
   const getWeekName = (week) => {
     const names = {
       1: '5/5/5+',
@@ -118,17 +170,17 @@ const CurrentWeek = () => {
       <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{workout.program_name}</h1>
-              <p className="mt-2 text-gray-600">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{workout.program_name}</h1>
+              <p className="mt-2 text-sm sm:text-base text-gray-600">
                 Week {workout.week} ({getWeekName(workout.week)}) · Cycle {workout.cycle}
               </p>
             </div>
             <button
               onClick={handleCompleteWeek}
               disabled={advancing}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
             >
               {advancing ? 'Advancing...' : 'Complete Week'}
             </button>
@@ -162,34 +214,45 @@ const CurrentWeek = () => {
           {workout.lifts && workout.lifts.map((lift, liftIndex) => (
             <div key={liftIndex} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
               {/* Lift Header */}
-              <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-900">{lift.exercise_name}</h2>
-                <p className="text-sm text-gray-600">Training Max: {lift.training_max} lbs</p>
+              <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{lift.exercise_name}</h2>
+                    <p className="text-sm text-gray-600">Training Max: {lift.training_max} lbs</p>
+                  </div>
+                  {/* Start Workout Button */}
+                  <button
+                    onClick={() => handleStartWorkout(lift)}
+                    className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium whitespace-nowrap"
+                  >
+                    Start Workout
+                  </button>
+                </div>
               </div>
 
               {/* Main Sets */}
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Main Sets (5/3/1)</h3>
+              <div className="p-4 sm:p-6">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Main Sets (5/3/1)</h3>
                 <div className="space-y-4">
                   {lift.main_sets && lift.main_sets.map((set, setIndex) => (
-                    <div key={setIndex} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <span className="text-lg font-bold text-gray-900">
-                            Set {set.set_number}:{' '}
+                    <div key={setIndex} className="border border-gray-200 rounded-lg p-3 sm:p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="text-base sm:text-lg font-bold text-gray-900">
+                            Set {set.set_number}:
                           </span>
-                          <span className="text-lg font-bold text-blue-600">
+                          <span className="text-base sm:text-lg font-bold text-blue-600">
                             {set.weight} lbs
                           </span>
-                          <span className="text-gray-600 ml-2">
+                          <span className="text-sm sm:text-base text-gray-600">
                             × {set.reps}{set.is_amrap ? '+' : ''} reps
                           </span>
-                          <span className="text-sm text-gray-500 ml-2">
+                          <span className="text-xs sm:text-sm text-gray-500">
                             ({set.percentage}% TM)
                           </span>
                         </div>
                         {set.is_amrap && (
-                          <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded">
+                          <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded self-start">
                             AMRAP
                           </span>
                         )}
@@ -203,28 +266,28 @@ const CurrentWeek = () => {
 
               {/* BBB Accessory Sets */}
               {lift.accessory_sets && lift.accessory_sets.length > 0 && (
-                <div className="px-6 pb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                <div className="px-4 sm:px-6 pb-4 sm:pb-6">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
                     Boring But Big (BBB) Accessory
                   </h3>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <span className="text-lg font-bold text-gray-900">
-                          5 sets:{' '}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                    <div className="mb-2">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="text-base sm:text-lg font-bold text-gray-900">
+                          5 sets:
                         </span>
-                        <span className="text-lg font-bold text-blue-600">
+                        <span className="text-base sm:text-lg font-bold text-blue-600">
                           {lift.accessory_sets[0].weight} lbs
                         </span>
-                        <span className="text-gray-600 ml-2">
+                        <span className="text-sm sm:text-base text-gray-600">
                           × {lift.accessory_sets[0].reps} reps
                         </span>
-                        <span className="text-sm text-gray-500 ml-2">
+                        <span className="text-xs sm:text-sm text-gray-500">
                           ({lift.accessory_sets[0].percentage}% TM)
                         </span>
                       </div>
                     </div>
-                    <p className="text-sm text-gray-600 mb-3">
+                    <p className="text-xs sm:text-sm text-gray-600 mb-3">
                       Same weight for all 5 sets. Rest 1-2 minutes between sets.
                     </p>
                     {/* Plate Calculator */}
@@ -237,9 +300,9 @@ const CurrentWeek = () => {
         </div>
 
         {/* Training Notes */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-blue-900 mb-3">💡 Training Notes</h3>
-          <ul className="space-y-2 text-sm text-blue-800">
+        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-blue-900 mb-3">💡 Training Notes</h3>
+          <ul className="space-y-2 text-xs sm:text-sm text-blue-800">
             {workout.week !== 4 ? (
               <>
                 <li>• <strong>AMRAP sets:</strong> Push for as many quality reps as possible</li>

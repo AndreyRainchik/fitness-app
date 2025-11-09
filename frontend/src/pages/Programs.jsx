@@ -3,6 +3,42 @@ import { programsAPI, exercisesAPI } from '../services/api';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout/Layout';
 
+// Program Types Configuration
+const PROGRAM_TYPES = {
+  '531': {
+    id: '531',
+    name: '5/3/1 Boring But Big',
+    shortName: '5/3/1 BBB',
+    description: 'Progressive strength program with submaximal training and high-volume accessory work',
+    available: true,
+    badge: { bg: 'bg-blue-100', text: 'text-blue-800' }
+  },
+  'gzclp': {
+    id: 'gzclp',
+    name: 'GZCL Linear Progression',
+    shortName: 'GZCLP',
+    description: 'Tier-based linear progression program focusing on compound movements',
+    available: false,
+    badge: { bg: 'bg-purple-100', text: 'text-purple-800' }
+  },
+  'starting_strength': {
+    id: 'starting_strength',
+    name: 'Starting Strength',
+    shortName: 'SS',
+    description: 'Simple linear progression for novice lifters with focus on basic barbell movements',
+    available: false,
+    badge: { bg: 'bg-green-100', text: 'text-green-800' }
+  },
+  'nsuns': {
+    id: 'nsuns',
+    name: "nSuns LP",
+    shortName: 'nSuns',
+    description: 'High-volume linear progression with multiple working sets at varying percentages',
+    available: false,
+    badge: { bg: 'bg-orange-100', text: 'text-orange-800' }
+  }
+};
+
 const Programs = () => {
   const [programs, setPrograms] = useState([]);
   const [exercises, setExercises] = useState([]);
@@ -11,6 +47,7 @@ const Programs = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
 
   // Form state
+  const [selectedProgramType, setSelectedProgramType] = useState('531');
   const [programName, setProgramName] = useState('');
   const [selectedLifts, setSelectedLifts] = useState([
     { exercise_id: '', training_max: '' },
@@ -30,15 +67,13 @@ const Programs = () => {
         programsAPI.getAll(),
         exercisesAPI.getAll()
       ]);
-      // Programs API returns array directly
       setPrograms(Array.isArray(programsData) ? programsData : []);
-      // Exercises API returns { exercises: [], count: n }
       setExercises(exercisesData.exercises || []);
     } catch (error) {
       console.error('Error loading data:', error);
       setMessage({ type: 'error', text: 'Failed to load programs' });
-      setExercises([]); // Ensure exercises is always an array
-      setPrograms([]); // Ensure programs is always an array
+      setExercises([]);
+      setPrograms([]);
     } finally {
       setLoading(false);
     }
@@ -66,7 +101,7 @@ const Programs = () => {
     try {
       const programData = {
         name: programName,
-        type: '531',
+        type: selectedProgramType,
         start_date: new Date().toISOString().split('T')[0],
         is_active: programs.length === 0 ? 1 : 0, // Auto-activate if first program
         lifts: validLifts.map(lift => ({
@@ -113,6 +148,7 @@ const Programs = () => {
   };
 
   const resetForm = () => {
+    setSelectedProgramType('531');
     setProgramName('');
     setSelectedLifts([
       { exercise_id: '', training_max: '' },
@@ -131,6 +167,17 @@ const Programs = () => {
   const getExerciseName = (exerciseId) => {
     const exercise = exercises.find(ex => ex.id === exerciseId);
     return exercise ? exercise.name : 'Unknown';
+  };
+
+  const getProgramTypeBadge = (programType) => {
+    const type = PROGRAM_TYPES[programType];
+    if (!type) return null;
+    
+    return (
+      <span className={`px-2 py-1 ${type.badge.bg} ${type.badge.text} text-xs font-medium rounded`}>
+        {type.shortName}
+      </span>
+    );
   };
 
   // Suggest main lifts for quick selection
@@ -152,7 +199,7 @@ const Programs = () => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Training Programs</h1>
-          <p className="mt-2 text-gray-600">Manage your 5/3/1 Boring But Big programs</p>
+          <p className="mt-2 text-gray-600">Create and manage your strength training programs</p>
         </div>
 
         {/* Message */}
@@ -181,9 +228,64 @@ const Programs = () => {
         {/* Create Form */}
         {showCreateForm && (
           <div className="mb-8 bg-white border border-gray-200 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Create 5/3/1 BBB Program</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Create Training Program</h2>
             
             <form onSubmit={handleCreateProgram} className="space-y-6">
+              {/* Program Type Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Program Type *
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {Object.values(PROGRAM_TYPES).map(type => (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => type.available && setSelectedProgramType(type.id)}
+                      disabled={!type.available}
+                      className={`relative p-4 border-2 rounded-lg text-left transition-all ${
+                        selectedProgramType === type.id
+                          ? 'border-blue-500 bg-blue-50'
+                          : type.available
+                          ? 'border-gray-200 hover:border-gray-300 bg-white'
+                          : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className={`font-semibold ${
+                              type.available ? 'text-gray-900' : 'text-gray-400'
+                            }`}>
+                              {type.name}
+                            </h3>
+                            {!type.available && (
+                              <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs font-medium rounded">
+                                Coming Soon
+                              </span>
+                            )}
+                          </div>
+                          <p className={`mt-1 text-sm ${
+                            type.available ? 'text-gray-600' : 'text-gray-400'
+                          }`}>
+                            {type.description}
+                          </p>
+                        </div>
+                        {selectedProgramType === type.id && type.available && (
+                          <div className="ml-3 flex-shrink-0">
+                            <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
+                              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Program Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -194,58 +296,80 @@ const Programs = () => {
                   value={programName}
                   onChange={(e) => setProgramName(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="e.g., 5/3/1 BBB - Cycle 1"
+                  placeholder={`e.g., ${PROGRAM_TYPES[selectedProgramType]?.shortName} - Cycle 1`}
                   required
                 />
               </div>
 
-              {/* Lifts */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Main Lifts (select up to 4)
-                </label>
-                <div className="space-y-3">
-                  {selectedLifts.map((lift, index) => (
-                    <div key={index} className="flex gap-3">
-                      <select
-                        value={lift.exercise_id}
-                        onChange={(e) => handleLiftChange(index, 'exercise_id', e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="">Select exercise...</option>
-                        <optgroup label="Main Lifts (Recommended)">
-                          {mainLifts.map(ex => (
-                            <option key={ex.id} value={ex.id}>{ex.name}</option>
-                          ))}
-                        </optgroup>
-                        <optgroup label="All Exercises">
-                          {exercises.filter(ex => !mainLifts.find(m => m.id === ex.id)).map(ex => (
-                            <option key={ex.id} value={ex.id}>{ex.name}</option>
-                          ))}
-                        </optgroup>
-                      </select>
-                      <input
-                        type="number"
-                        value={lift.training_max}
-                        onChange={(e) => handleLiftChange(index, 'training_max', e.target.value)}
-                        placeholder="Training Max"
-                        step="2.5"
-                        min="0"
-                        className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  ))}
+              {/* Program-Specific Configuration */}
+              {selectedProgramType === '531' && PROGRAM_TYPES['531'].available && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Main Lifts (select up to 4)
+                  </label>
+                  <div className="space-y-4">
+                    {selectedLifts.map((lift, index) => (
+                      <div key={index} className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                        <div className="flex-1">
+                          <label className="block text-xs font-medium text-gray-600 mb-1 sm:hidden">
+                            Exercise {index + 1}
+                          </label>
+                          <select
+                            value={lift.exercise_id}
+                            onChange={(e) => handleLiftChange(index, 'exercise_id', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="">Select exercise...</option>
+                            <optgroup label="Main Lifts (Recommended)">
+                              {mainLifts.map(ex => (
+                                <option key={ex.id} value={ex.id}>{ex.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="All Exercises">
+                              {exercises.filter(ex => !mainLifts.find(m => m.id === ex.id)).map(ex => (
+                                <option key={ex.id} value={ex.id}>{ex.name}</option>
+                              ))}
+                            </optgroup>
+                          </select>
+                        </div>
+                        <div className="w-full sm:w-40">
+                          <label className="block text-xs font-medium text-gray-600 mb-1 sm:hidden">
+                            Training Max (lbs)
+                          </label>
+                          <input
+                            type="number"
+                            value={lift.training_max}
+                            onChange={(e) => handleLiftChange(index, 'training_max', e.target.value)}
+                            placeholder="Training Max"
+                            step="2.5"
+                            min="0"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs text-gray-500">
+                    Training Max = 90% of your 1RM (one-rep max)
+                  </p>
                 </div>
-                <p className="mt-2 text-xs text-gray-500">
-                  Training Max = 90% of your 1RM (one-rep max)
-                </p>
-              </div>
+              )}
+
+              {/* Placeholder for future program types */}
+              {selectedProgramType !== '531' && (
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <p className="text-sm text-gray-600">
+                    Configuration for {PROGRAM_TYPES[selectedProgramType]?.name} will be available soon.
+                  </p>
+                </div>
+              )}
 
               {/* Actions */}
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled={!PROGRAM_TYPES[selectedProgramType]?.available}
+                  className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Create Program
                 </button>
@@ -255,7 +379,7 @@ const Programs = () => {
                     setShowCreateForm(false);
                     resetForm();
                   }}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  className="w-full sm:w-auto px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                 >
                   Cancel
                 </button>
@@ -267,7 +391,7 @@ const Programs = () => {
         {/* Programs List */}
         {programs.length === 0 ? (
           <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-            <p className="text-gray-600">No programs yet. Create your first 5/3/1 BBB program!</p>
+            <p className="text-gray-600">No programs yet. Create your first training program!</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -278,18 +402,19 @@ const Programs = () => {
                   program.is_active ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'
                 }`}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
+                <div className="flex items-start justify-between flex-col sm:flex-row gap-4">
+                  <div className="flex-1 w-full">
+                    <div className="flex items-center gap-3 flex-wrap">
                       <h3 className="text-lg font-semibold text-gray-900">{program.name}</h3>
+                      {getProgramTypeBadge(program.type)}
                       {program.is_active && (
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
                           ACTIVE
                         </span>
                       )}
                     </div>
                     <p className="mt-1 text-sm text-gray-600">
-                      Week {program.current_week} · Cycle {program.current_cycle} · {program.type.toUpperCase()}
+                      Week {program.current_week} · Cycle {program.current_cycle}
                     </p>
                     
                     {/* Lifts */}
@@ -308,24 +433,24 @@ const Programs = () => {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-shrink-0 w-full sm:w-auto">
                     {!program.is_active && (
                       <button
                         onClick={() => handleSetActive(program.id)}
-                        className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                        className="flex-1 sm:flex-none px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors whitespace-nowrap"
                       >
                         Set Active
                       </button>
                     )}
                     <Link
                       to={`/programs/${program.id}`}
-                      className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                      className="flex-1 sm:flex-none px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors text-center"
                     >
                       View
                     </Link>
                     <button
                       onClick={() => handleDeleteProgram(program.id)}
-                      className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                      className="flex-1 sm:flex-none px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors whitespace-nowrap"
                     >
                       Delete
                     </button>
