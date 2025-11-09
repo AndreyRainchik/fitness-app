@@ -4,10 +4,12 @@ import { useRegisterSW } from 'virtual:pwa-register/react';
 /**
  * PWAPrompt Component
  * Handles PWA installation prompt and service worker updates
+ * Update prompts only show when running as installed PWA (standalone mode)
  */
 const PWAPrompt = () => {
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isStandalone, setIsStandalone] = useState(false);
 
   // Service worker registration and update handling
   const {
@@ -22,6 +24,32 @@ const PWAPrompt = () => {
       console.log('SW registration error', error);
     },
   });
+
+  // Check if app is running in standalone mode (installed as PWA)
+  useEffect(() => {
+    const checkStandaloneMode = () => {
+      // Check multiple methods to detect standalone mode
+      const isStandaloneBrowser = window.matchMedia('(display-mode: standalone)').matches;
+      const isStandaloneIOS = ('standalone' in window.navigator) && (window.navigator.standalone);
+      const isStandaloneAndroid = document.referrer.includes('android-app://');
+      
+      return isStandaloneBrowser || isStandaloneIOS || isStandaloneAndroid;
+    };
+
+    setIsStandalone(checkStandaloneMode());
+
+    // Listen for display mode changes
+    const mediaQuery = window.matchMedia('(display-mode: standalone)');
+    const handleChange = (e) => {
+      setIsStandalone(e.matches);
+    };
+    
+    mediaQuery.addEventListener('change', handleChange);
+    
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange);
+    };
+  }, []);
 
   // Handle install prompt
   useEffect(() => {
@@ -87,8 +115,8 @@ const PWAPrompt = () => {
 
   return (
     <>
-      {/* Install Prompt */}
-      {showInstallPrompt && (
+      {/* Install Prompt - Only show in browser (not standalone) */}
+      {showInstallPrompt && !isStandalone && (
         <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 bg-white border-2 border-blue-500 rounded-lg shadow-lg p-4 z-50 animate-slide-up">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
@@ -122,8 +150,8 @@ const PWAPrompt = () => {
         </div>
       )}
 
-      {/* Update Available Prompt */}
-      {needRefresh && (
+      {/* Update Available Prompt - ONLY show in standalone mode (installed PWA) */}
+      {needRefresh && isStandalone && (
         <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 bg-white border-2 border-green-500 rounded-lg shadow-lg p-4 z-50 animate-slide-up">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
@@ -157,8 +185,8 @@ const PWAPrompt = () => {
         </div>
       )}
 
-      {/* Offline Ready Notification */}
-      {offlineReady && (
+      {/* Offline Ready Notification - Only show in standalone mode */}
+      {offlineReady && isStandalone && (
         <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 bg-white border-2 border-blue-500 rounded-lg shadow-lg p-4 z-50 animate-slide-up">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
