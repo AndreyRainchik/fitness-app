@@ -32,7 +32,9 @@ code {
   animation: fadeIn 0.3s ease-in-out;
 }
 
-@keyframes slideUp {
+/* Add this to your frontend/src/index.css or a new pwa.css file */
+
+@keyframes slide-up {
   from {
     transform: translateY(100%);
     opacity: 0;
@@ -43,6 +45,45 @@ code {
   }
 }
 
-.animate-slideUp {
-  animation: slideUp 0.3s ease-out;
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* PWA Install button styles (if you want a persistent button in header) */
+.pwa-install-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: #2563eb;
+  color: white;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.pwa-install-button:hover {
+  background-color: #1d4ed8;
+}
+
+/* Standalone mode detection - hide install button when installed */
+@media (display-mode: standalone) {
+  .pwa-install-button {
+    display: none;
+  }
+}
+
+/* iOS specific styles for install prompt */
+@supports (-webkit-touch-callout: none) {
+  .ios-install-prompt {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    padding: 1rem;
+    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+    z-index: 50;
+  }
 }
