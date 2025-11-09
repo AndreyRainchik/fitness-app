@@ -1,5 +1,15 @@
+// Determine the base URL based on environment
+const getBaseURL = () => {
+  // In production (when served from same server), use relative paths
+  if (import.meta.env.PROD) {
+    return '/api';
+  }
+  // In development, use the backend server URL
+  return import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+};
+
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = getBaseURL();
 
 /**
  * Generic API call helper

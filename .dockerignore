@@ -1,0 +1,71 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+README.md
+LICENSE
+CHANGELOG.md
+docs/
+
+# Docker files
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Backend specific
+backend/node_modules/
+backend/package-lock.json
+backend/yarn.lock
+backend/*.db
+backend/*.db-*
+backend/data/
+backend/logs/
+backend/backups/
+backend/coverage/
+
+# Frontend specific
+frontend/node_modules/
+frontend/package-lock.json
+frontend/yarn.lock
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/coverage/
+
+# Test files
+**/*.test.js
+**/*.spec.js
+**/test/
+**/tests/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

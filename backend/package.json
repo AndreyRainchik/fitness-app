@@ -1,12 +1,19 @@
 {
-  "name": "fitness-app-backend",
+ "name": "fitness-app-backend",
   "version": "1.0.0",
   "description": "Backend API for Fitness Tracking App",
   "main": "src/server.js",
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "start:prod": "NODE_ENV=production node src/server.production.js",
+    "dev": "node --watch src/server.js",
+    "migrate": "node src/migrate.js",
+    "backup": "node src/backup-database.js",
+    "test:db": "node src/test-db.js",
+    "test:api": "node src/test-api.js",
+    "test:analytics": "node src/test-analytics.js",
+    "show-exercises": "node src/show-exercises.js"
   },
   "keywords": [
     "fitness",

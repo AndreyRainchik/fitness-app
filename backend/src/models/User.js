@@ -9,7 +9,7 @@ class User {
   /**
    * Create a new user
    */
-  static async create({ email, password, username, bodyweight = null, units = 'kg', sex = null }) {
+  static async create({ email, password, username, bodyweight = null, units = 'lbs', sex = null }) {
     try {
       // Hash password
       const password_hash = await bcrypt.hash(password, 10);
@@ -23,6 +23,15 @@ class User {
       
       // Get the created user
       const user = get('SELECT * FROM users WHERE email = ?', [email]);
+      if (bodyweight) {
+        const user_id = user.id;
+        const date = new Date(user.created_at).toISOString().split('T')[0];
+        run(
+          `INSERT INTO bodyweight_logs (user_id, date, weight, units)
+           VALUES (?, ?, ?, ?)`,
+           [user_id, date, bodyweight, units]
+        );
+      }
       
       // Remove password hash from returned user
       delete user.password_hash;

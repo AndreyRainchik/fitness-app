@@ -5,7 +5,7 @@
 // Used by Render and other platforms for uptime monitoring
 
 import express from 'express';
-import { db } from '../config/database.js';
+import { query } from '../config/database.js';
 
 const router = express.Router();
 
@@ -39,7 +39,7 @@ router.get('/detailed', async (req, res) => {
 
   try {
     // Test database connection
-    const result = db.exec('SELECT 1');
+    const result = query('SELECT 1');
     health.checks.database = 'ok';
   } catch (error) {
     health.status = 'degraded';
@@ -62,7 +62,7 @@ router.get('/detailed', async (req, res) => {
 router.get('/ready', async (req, res) => {
   try {
     // Check if database is accessible
-    db.exec('SELECT 1');
+    query('SELECT 1');
     
     res.status(200).json({
       status: 'ready',
