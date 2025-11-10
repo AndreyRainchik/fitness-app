@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { programsAPI } from '../services/api';
 import PlateCalculator from '../components/PlateCalculator/PlateCalculator';
 import Layout from '../components/Layout/Layout';
+import { useBatchPlateAdjustedWeights } from '../utils/usePlateAdjustedWeight';
 
 const CurrentWeek = () => {
   const { programId } = useParams();
@@ -11,6 +12,78 @@ const CurrentWeek = () => {
   const [loading, setLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  // Collect all weights from workout for batch fetching
+  const allWeights = useMemo(() => {
+    if (!workout || !workout.lifts) return [];
+    
+    const weights = [];
+    workout.lifts.forEach(lift => {
+      if (workout.program_type === '531') {
+        // Main sets
+        if (lift.main_sets) {
+          lift.main_sets.forEach(set => weights.push(set.weight));
+        }
+        // BBB accessory sets
+        if (lift.accessory_sets && lift.accessory_sets.length > 0) {
+          weights.push(lift.accessory_sets[0].weight);
+        }
+      } else if (workout.program_type === 'starting_strength') {
+        // Starting Strength sets
+        if (lift.sets && lift.sets.length > 0) {
+          weights.push(lift.sets[0].weight);
+        }
+      }
+    });
+    
+    return [...new Set(weights)]; // Remove duplicates
+  }, [workout]);
+
+  // Fetch adjusted weights for all programmed weights
+  const { weightsMap, loading: weightsLoading } = useBatchPlateAdjustedWeights(allWeights);
+
+  // Helper function to get adjusted weight info
+  const getAdjustedWeightInfo = (programmedWeight) => {
+    if (weightsLoading || !weightsMap.has(programmedWeight)) {
+      return {
+        weight: programmedWeight,
+        isAdjusted: false
+      };
+    }
+    
+    const info = weightsMap.get(programmedWeight);
+    return {
+      weight: info.adjustedWeight,
+      isAdjusted: info.isAdjusted
+    };
+  };
+
+  // Component to display weight with adjustment indicator
+  const WeightDisplay = ({ programmedWeight, className = '' }) => {
+    const { weight, isAdjusted } = getAdjustedWeightInfo(programmedWeight);
+    
+    if (!isAdjusted) {
+      return (
+        <span className={`text-base sm:text-lg font-bold text-blue-600 ${className}`}>
+          {weight} lbs
+        </span>
+      );
+    }
+    
+    return (
+      <span className={`inline-flex flex-wrap items-center gap-1 ${className}`}>
+        <span className="text-base sm:text-lg font-bold text-amber-600">
+          {weight} lbs
+        </span>
+        <span className="text-xs text-amber-600" title={`Adjusted from ${programmedWeight} lbs based on available plates`}>
+          ⚠️
+        </span>
+        <span className="text-xs text-gray-500">
+          (from {programmedWeight})
+        </span>
+      </span>
+    );
+  };
 
   useEffect(() => {
     if (programId) {
@@ -78,6 +151,7 @@ const CurrentWeek = () => {
   /**
    * Start a workout for a specific lift
    * Converts the lift's sets into a template format and navigates to ActiveWorkout
+   * Uses adjusted weights based on plate availability
    */
   const handleStartWorkout = (lift) => {
     const templateSets = [];
@@ -85,15 +159,16 @@ const CurrentWeek = () => {
 
     // For 5/3/1 programs
     if (workout.program_type === '531') {
-      // Add main sets (5/3/1 sets)
+      // Add main sets (5/3/1 sets) with adjusted weights
       if (lift.main_sets) {
         lift.main_sets.forEach((set) => {
+          const { weight } = getAdjustedWeightInfo(set.weight);
           templateSets.push({
             id: setId++,
             exercise_id: lift.exercise_id,
             exercise_name: lift.exercise_name,
             set_number: set.set_number,
-            weight: set.weight,
+            weight: weight, // Use adjusted weight
             reps: set.reps,
             rpe: null,
             is_warmup: 0
@@ -101,16 +176,18 @@ const CurrentWeek = () => {
         });
       }
 
-      // Add BBB accessory sets
+      // Add BBB accessory sets with adjusted weights
       if (lift.accessory_sets && lift.accessory_sets.length > 0) {
-        const bbbSet = lift.accessory_sets[0]; // All 5 sets use same weight/reps
+        const bbbSet = lift.accessory_sets[0];
+        const { weight } = getAdjustedWeightInfo(bbbSet.weight);
+        
         for (let i = 1; i <= 5; i++) {
           templateSets.push({
             id: setId++,
             exercise_id: lift.exercise_id,
             exercise_name: lift.exercise_name,
-            set_number: lift.main_sets.length + i, // Continue numbering after main sets
-            weight: bbbSet.weight,
+            set_number: lift.main_sets.length + i,
+            weight: weight,
             reps: bbbSet.reps,
             rpe: null,
             is_warmup: 0
@@ -121,15 +198,17 @@ const CurrentWeek = () => {
 
     // For Starting Strength programs
     if (workout.program_type === 'starting_strength') {
-      // Add working sets
+      // Add working sets with adjusted weights
       if (lift.sets) {
+        const { weight } = getAdjustedWeightInfo(lift.sets[0].weight);
+        
         lift.sets.forEach((set) => {
           templateSets.push({
             id: setId++,
             exercise_id: lift.exercise_id,
             exercise_name: lift.exercise_name,
             set_number: set.set_number,
-            weight: set.weight,
+            weight: weight,
             reps: set.reps,
             rpe: null,
             is_warmup: 0
@@ -286,9 +365,7 @@ const CurrentWeek = () => {
                               <span className="text-base sm:text-lg font-bold text-gray-900">
                                 Set {set.set_number}:
                               </span>
-                              <span className="text-base sm:text-lg font-bold text-blue-600">
-                                {set.weight} lbs
-                              </span>
+                              <WeightDisplay programmedWeight={set.weight} />
                               <span className="text-sm sm:text-base text-gray-600">
                                 × {set.reps}{set.is_amrap ? '+' : ''} reps
                               </span>
@@ -321,9 +398,7 @@ const CurrentWeek = () => {
                             <span className="text-base sm:text-lg font-bold text-gray-900">
                               5 sets:
                             </span>
-                            <span className="text-base sm:text-lg font-bold text-blue-600">
-                              {lift.accessory_sets[0].weight} lbs
-                            </span>
+                            <WeightDisplay programmedWeight={lift.accessory_sets[0].weight} />
                             <span className="text-sm sm:text-base text-gray-600">
                               × {lift.accessory_sets[0].reps} reps
                             </span>
@@ -355,9 +430,7 @@ const CurrentWeek = () => {
                         <span className="text-base sm:text-lg font-bold text-gray-900">
                           {lift.sets.length} × {lift.sets[0].reps}:
                         </span>
-                        <span className="text-base sm:text-lg font-bold text-blue-600">
-                          {lift.sets[0].weight} lbs
-                        </span>
+                        <WeightDisplay programmedWeight={lift.sets[0].weight} />
                         <span className="text-sm text-gray-600">
                           ({lift.sets.length} sets of {lift.sets[0].reps} reps)
                         </span>
