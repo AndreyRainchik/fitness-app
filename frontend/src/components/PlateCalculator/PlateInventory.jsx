@@ -33,7 +33,6 @@ const PlateInventory = () => {
   };
 
   const handlePlateChange = (weight, count) => {
-    console.log(weight);
     setPlates(prev => ({
       ...prev,
       [weight]: parseInt(count) || 0
@@ -49,7 +48,6 @@ const PlateInventory = () => {
         bar_weight: parseFloat(barWeight),
         plates: plates
       };
-      console.log(inventoryData);
 
       await profileAPI.updatePlateInventory(inventoryData);
       setMessage({ type: 'success', text: 'Plate inventory saved successfully!' });
