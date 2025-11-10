@@ -8,18 +8,7 @@ services:
     container_name: fitness-tracker-app
     ports:
       - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - JWT_SECRET=679114221a0389eb613ad50aa37753f49ad76e793f8b11fc426ee74d800eacfb
-      - CORS_ORIGIN=*
-      - DATABASE_PATH=/app/data/fitness_tracker.db
-      - LOG_LEVEL=info
-      - RATE_LIMIT_MAX=100
-      - AUTH_RATE_LIMIT_MAX=10
-      - ENABLE_HEALTH_CHECK=true
-      - EXTERNAL_LOG_URL=https://s1583312.eu-nbg-2.betterstackdata.com/
-      - EXTERNAL_LOG_TOKEN=Ra6ChCAZp8yMS6EyuKnFBnA4
+    env_file: .env
     volumes:
       # Mount database and logs to host for persistence during development
       - ./data:/app/data:Z
