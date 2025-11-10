@@ -159,8 +159,9 @@ function Register() {
                 name="bodyweight"
                 value={formData.bodyweight}
                 onChange={handleChange}
+                step="0.1"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="185"
+                placeholder="185.5"
                 min="0"
               />
             </div>
