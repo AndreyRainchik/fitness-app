@@ -239,9 +239,7 @@ class User {
         // Migrate existing inventory to preset
         preset = PlateInventoryPreset.migrateFromUserTable(id);
       } else {
-        // Create default preset
-        const units = user ? user.units : 'lbs';
-        preset = PlateInventoryPreset.createDefaultPreset(id, units);
+        throw new Error('Error updating plate inventory: no active plate preset selected');
       }
     }
     

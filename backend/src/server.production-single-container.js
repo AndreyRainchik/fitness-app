@@ -17,6 +17,7 @@ import analyticsRoutes from './routes/analytics.js';
 import templateRoutes from './routes/templates.js';
 import programRoutes from './routes/programs.js';
 import healthRoutes from './routes/health.js';
+import platePresetRoutes from './routes/platepresets.js';
 
 // Load environment variables
 dotenv.config();
@@ -146,7 +147,8 @@ app.get('/api', (req, res) => {
       profile: '/api/profile',
       analytics: '/api/analytics',
       templates: '/api/templates',
-      programs: '/api/programs'
+      programs: '/api/programs',
+      platePresets: '/api/plate-presets'
     }
   });
 });
@@ -165,6 +167,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/programs', programRoutes);
+app.use('/api/plate-presets', platePresetRoutes);
 
 // ============================================================================
 // STATIC FILE SERVING (Frontend)

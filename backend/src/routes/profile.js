@@ -356,7 +356,11 @@ router.post('/calculate-plates', (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Calculate plates error:', error);
-    res.status(500).json({ error: 'Failed to calculate plates' });
+    if(error.message.includes('no active plate')) {
+      res.status(400).json({ error: 'No active plate preset selected' });
+    } else {
+      res.status(500).json({ error: 'Failed to calculate plates' });
+    }
   }
 });
 

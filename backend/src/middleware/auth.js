@@ -15,7 +15,7 @@ export const authenticateToken = (req, res, next) => {
   
   try {
     // Verify token
-    const user = jwt.verify(token, process.env.JWT_SECRET);
+    const user = jwt.verify(token, Buffer.from(process.env.JWT_SECRET, 'base64'));
     req.user = user;
     next();
   } catch (error) {
@@ -33,7 +33,7 @@ export const optionalAuth = (req, res, next) => {
   
   if (token) {
     try {
-      const user = jwt.verify(token, process.env.JWT_SECRET);
+      const user = jwt.verify(token, Buffer.from(process.env.JWT_SECRET, 'base64'));
       req.user = user;
     } catch (error) {
       // Token invalid, but that's okay for optional auth

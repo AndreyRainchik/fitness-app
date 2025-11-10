@@ -10,6 +10,7 @@ import Set from './Set.js';
 import Program from './Program.js';
 import BodyweightLog from './BodyweightLog.js';
 import { WorkoutTemplate, TemplateSet } from './WorkoutTemplate.js';
+import PlateInventoryPreset from './PlateInventoryPreset.js';
 
 export {
   User,
@@ -19,7 +20,8 @@ export {
   Program,
   BodyweightLog,
   WorkoutTemplate,
-  TemplateSet
+  TemplateSet,
+  PlateInventoryPreset
 };
 
 export default {
@@ -30,5 +32,6 @@ export default {
   Program,
   BodyweightLog,
   WorkoutTemplate,
-  TemplateSet
+  TemplateSet,
+  PlateInventoryPreset
 };

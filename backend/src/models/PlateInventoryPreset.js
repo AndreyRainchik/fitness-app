@@ -38,7 +38,6 @@ class PlateInventoryPreset {
   static create({ user_id, name, plates, bar_weight = 45 }) {
     // Validate plates is an object
     const platesJson = typeof plates === 'string' ? plates : JSON.stringify(plates);
-    
     run(
       `INSERT INTO plate_inventory_presets (user_id, name, plates, bar_weight, is_active)
        VALUES (?, ?, ?, ?, 0)`,
@@ -47,8 +46,11 @@ class PlateInventoryPreset {
     const newId = get(
         'SELECT * FROM plate_inventory_presets WHERE user_id = ? AND name = ?', [user_id, name]
     );
-    
-    return this.getById(newId.id);
+    // If no other 
+    if(!this.getActive(user_id)) {
+        this.setActive(newId.id);
+    }
+    return newId;
   }
 
   /**

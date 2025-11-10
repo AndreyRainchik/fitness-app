@@ -26,7 +26,7 @@ export async function initDatabase() {
     // Check if database file exists
     if (fs.existsSync(dbPath)) {
       console.log('📂 Loading existing database...');
-      logger.info(`🔄 Saving database to ${dbPath}`);
+      logger.info(`🔄 Loading database from ${dbPath}`);
       const buffer = fs.readFileSync(dbPath);
       db = new SQL.Database(buffer);
     } else {

@@ -1,7 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
-import { User } from '../models/index.js';
+import { User, PlateInventoryPreset } from '../models/index.js';
 import { authenticateToken } from '../middleware/auth.js';
 import logger from '../config/logger.config.js';
 
@@ -45,6 +45,7 @@ router.post('/register',
         units: units || 'kg',
         sex: sex || null
       });
+      PlateInventoryPreset.createDefaultPreset(user.id, units);
 
       logger.info('😃 User registered successfully', {
         userId: user.id,
@@ -56,7 +57,7 @@ router.post('/register',
       // Generate JWT token
       const token = jwt.sign(
         { id: user.id, email: user.email },
-        process.env.JWT_SECRET,
+        Buffer.from(process.env.JWT_SECRET, 'base64'),
         { expiresIn: '7d' }
       );
       
@@ -101,7 +102,7 @@ router.post('/login',
       // Generate JWT token
       const token = jwt.sign(
         { id: user.id, email: user.email },
-        process.env.JWT_SECRET,
+        Buffer.from(process.env.JWT_SECRET, 'base64'),
         { expiresIn: '7d' }
       );
       

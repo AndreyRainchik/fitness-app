@@ -63,7 +63,11 @@ const PlateCalculator = ({ targetWeight, className = '' }) => {
       setPlatesData(data);
     } catch (err) {
       console.error('Error calculating plates:', err);
-      setError('Failed to calculate plates');
+      if(err.message.includes('active plate preset')) {
+        setError('No active plate preset selected');
+      } else {
+        setError('Failed to calculate plates');
+      }
     } finally {
       setLoading(false);
     }
