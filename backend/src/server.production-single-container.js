@@ -155,7 +155,7 @@ app.get('/api', (req, res) => {
 
 // Auth routes (with stricter rate limiting)
 if (NODE_ENV === 'production') {
-  app.use('/api/auth', authRateLimiter, authRoutes);
+  app.use('/api/auth', authRoutes);
 } else {
   app.use('/api/auth', authRoutes);
 }

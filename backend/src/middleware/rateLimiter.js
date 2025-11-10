@@ -11,7 +11,7 @@ const requestStore = new Map();
 
 // Configuration
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
-const MAX_REQUESTS = 100; // requests per window
+const MAX_REQUESTS = 900; // requests per window
 
 // Stricter limits for auth endpoints
 const AUTH_RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes

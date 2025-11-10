@@ -4,6 +4,7 @@ import { body, validationResult } from 'express-validator';
 import { User, PlateInventoryPreset } from '../models/index.js';
 import { authenticateToken } from '../middleware/auth.js';
 import logger from '../config/logger.config.js';
+import { authRateLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
@@ -12,6 +13,7 @@ const router = express.Router();
  * Register a new user
  */
 router.post('/register',
+  authRateLimiter,
   [
     body('email').isEmail().withMessage('Valid email is required'),
     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
@@ -79,6 +81,7 @@ router.post('/register',
  * Login with email and password
  */
 router.post('/login',
+  authRateLimiter,
   [
     body('email').isEmail().withMessage('Valid email is required'),
     body('password').notEmpty().withMessage('Password is required')
