@@ -192,7 +192,7 @@ const PlateInventory = () => {
       ...formData,
       plates: {
         ...formData.plates,
-        [weight]: count
+        [parseFloat(weight)]: parseInt(count)
       }
     });
   };

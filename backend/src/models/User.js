@@ -278,6 +278,10 @@ class User {
    */
   static calculatePlatesNeeded(targetWeight, plateInventory) {
     const barWeight = plateInventory.bar_weight || 45;
+
+    if (targetWeight == barWeight) {
+      return { plates: [], per_side: 0, total: barWeight, exact: true };
+    }
     const availablePlates = plateInventory.plates || {};
     
     // Calculate weight needed on each side
