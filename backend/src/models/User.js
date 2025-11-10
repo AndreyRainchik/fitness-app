@@ -1,5 +1,6 @@
 import { get, all, run } from '../config/database.js';
 import bcrypt from 'bcryptjs';
+import PlateInventoryPreset from './PlateInventoryPreset.js';
 
 /**
  * User Model
@@ -200,15 +201,13 @@ class User {
       return {
         bar_weight: 20,
         plates: {
-          '25': 4,    // 25 kg plates (pairs)
-          '20': 4,
+          '25': 2,    // 25 kg plates (pairs)
+          '20': 2,
           '15': 2,
           '10': 4,
           '5': 4,
-          '2.5': 4,
-          '1.25': 4,
-          '0.5': 2,
-          '0.25': 2
+          '2.5': 2,
+          '1.25': 2
         }
       };
     } else {
@@ -219,62 +218,55 @@ class User {
           '25': 4,
           '10': 4,
           '5': 4,
-          '2.5': 4,
-          '1': 2,
-          '0.75': 2,
-          '0.5': 2,
-          '0.25': 2
+          '2.5': 4
         }
       };
     }
   }
   
   /**
-   * Get user's plate inventory
-   * Returns default if not set
+   * Get plate inventory for a user (from active preset)
    */
   static getPlateInventory(id) {
-    const user = get('SELECT plate_inventory, bar_weight, units FROM users WHERE id = ?', [id]);
-    if (!user) {
-      return null;
-    }
+    // Try to get active preset
+    let preset = PlateInventoryPreset.getActive(id);
     
-    // If plate_inventory is not set, return defaults
-    if (!user.plate_inventory) {
-      return this.getDefaultPlateInventory(user.units);
-    }
-    
-    try {
-      const inventory = JSON.parse(user.plate_inventory);
-      // Ensure bar_weight is included
-      if (!inventory.bar_weight && user.bar_weight) {
-        inventory.bar_weight = user.bar_weight;
-      } else if (!inventory.bar_weight) {
-        inventory.bar_weight = user.units === 'kg' ? 20 : 45;
+    // If no preset exists, migrate from old system or create default
+    if (!preset) {
+      const user = get('SELECT plate_inventory, bar_weight, units FROM users WHERE id = ?', [id]);
+      
+      if (user && user.plate_inventory) {
+        // Migrate existing inventory to preset
+        preset = PlateInventoryPreset.migrateFromUserTable(id);
+      } else {
+        // Create default preset
+        const units = user ? user.units : 'lbs';
+        preset = PlateInventoryPreset.createDefaultPreset(id, units);
       }
-      return inventory;
-    } catch (error) {
-      console.error('Error parsing plate inventory:', error);
-      return this.getDefaultPlateInventory(user.units);
     }
+    
+    // Return in the format expected by calculatePlatesNeeded
+    return PlateInventoryPreset.getInventoryFormat(preset);
   }
   
   /**
-   * Update user's plate inventory
+   * Update plate inventory (updates the active preset)
    */
-  static updatePlateInventory(id, plateInventory) {
+  static updatePlateInventory(id, plates, barWeight) {
     try {
-      // Validate and stringify the inventory
-      const inventoryString = JSON.stringify(plateInventory);
+      // Get or create active preset
+      let preset = PlateInventoryPreset.getActive(id);
       
-      // Extract bar_weight if present
-      const barWeight = plateInventory.bar_weight || null;
+      if (!preset) {
+        // Create default preset first
+        preset = PlateInventoryPreset.createDefaultPreset(id);
+      }
       
-      // Update both plate_inventory and bar_weight
-      run(
-        'UPDATE users SET plate_inventory = ?, bar_weight = ? WHERE id = ?',
-        [inventoryString, barWeight, id]
-      );
+      // Update the active preset
+      PlateInventoryPreset.update(preset.id, {
+        plates: plates,
+        bar_weight: barWeight
+      });
       
       return this.getPlateInventory(id);
     } catch (error) {

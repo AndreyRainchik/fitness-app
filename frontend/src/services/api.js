@@ -586,6 +586,80 @@ export const programsAPI = {
   },
 };
 
+/**
+ * Plate Inventory Presets API calls
+ */
+export const platePresetsAPI = {
+  /**
+   * Get all presets for the user
+   */
+  getAll: async () => {
+    return await apiCall('/plate-presets');
+  },
+
+  /**
+   * Get the active preset
+   */
+  getActive: async () => {
+    return await apiCall('/plate-presets/active');
+  },
+
+  /**
+   * Get a specific preset by ID
+   */
+  getById: async (id) => {
+    return await apiCall(`/plate-presets/${id}`);
+  },
+
+  /**
+   * Create a new preset
+   */
+  create: async (presetData) => {
+    return await apiCall('/plate-presets', {
+      method: 'POST',
+      body: JSON.stringify(presetData),
+    });
+  },
+
+  /**
+   * Update a preset
+   */
+  update: async (id, updates) => {
+    return await apiCall(`/plate-presets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  /**
+   * Delete a preset
+   */
+  delete: async (id) => {
+    return await apiCall(`/plate-presets/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Set a preset as active
+   */
+  activate: async (id) => {
+    return await apiCall(`/plate-presets/${id}/activate`, {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Duplicate a preset with a new name
+   */
+  duplicate: async (id, newName) => {
+    return await apiCall(`/plate-presets/${id}/duplicate`, {
+      method: 'POST',
+      body: JSON.stringify({ name: newName }),
+    });
+  },
+};
+
 export default {
   auth: authAPI,
   exercises: exercisesAPI,
@@ -594,4 +668,5 @@ export default {
   analytics: analyticsAPI,
   templates: templatesAPI,
   programs: programsAPI,
+  platePresets: platePresetsAPI,
 };
