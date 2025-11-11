@@ -594,20 +594,20 @@ const Programs = () => {
                     {!program.is_active && (
                       <button
                         onClick={() => handleSetActive(program.id)}
-                        className="flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 bg-blue-600 text-white cursor-default"
+                        className="flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 bg-blue-600 text-white"
                       >
                         Set Active
                       </button>
                     )}
                     <Link
                       to={`/programs/${program.id}`}
-                      className="flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 bg-gray-200 text-gray-700 cursor-default"
+                      className="flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 bg-gray-200 text-gray-700"
                     >
                       View Details
                     </Link>
                     <button
                       onClick={() => handleDeleteProgram(program.id)}
-                      className="flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 bg-red-600 text-white cursor-default"
+                      className="flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 bg-red-600 text-white"
                     >
                       Delete
                     </button>
