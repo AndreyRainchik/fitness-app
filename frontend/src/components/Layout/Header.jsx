@@ -74,8 +74,8 @@ function Header() {
             <span className="text-white text-xl font-bold">Fitness Tracker</span>
           </Link>
 
-          {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center space-x-2">
+          {/* Desktop Navigation Links - Now shows at lg (1024px+) instead of md (768px+) */}
+          <nav className="hidden lg:flex items-center space-x-2">
             <Link to="/dashboard" className={navLinkClass('/dashboard')}>
               Dashboard
             </Link>
@@ -96,8 +96,8 @@ function Header() {
             </Link>
           </nav>
 
-          {/* Desktop User Menu */}
-          <div className="hidden md:flex items-center space-x-4">
+          {/* Desktop User Menu - Now shows at lg (1024px+) instead of md (768px+) */}
+          <div className="hidden lg:flex items-center space-x-4">
             <div className="relative" ref={userDropdownRef}>
               <button
                 onClick={toggleUserDropdown}
@@ -150,10 +150,10 @@ function Header() {
             </div>
           </div>
 
-          {/* Mobile Hamburger Button */}
+          {/* Mobile Hamburger Button - Now shows below 1024px instead of below 768px */}
           <button
             onClick={toggleMobileMenu}
-            className="md:hidden text-white p-2 rounded-lg hover:bg-blue-700 transition duration-200"
+            className="lg:hidden text-white p-2 rounded-lg hover:bg-blue-700 transition duration-200"
             aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? (
@@ -170,9 +170,9 @@ function Header() {
           </button>
         </div>
 
-        {/* Mobile Menu Dropdown */}
+        {/* Mobile Menu Dropdown - Now shows below 1024px instead of below 768px */}
         {isMobileMenuOpen && (
-          <div className="md:hidden bg-white rounded-lg shadow-lg mb-4 overflow-hidden">
+          <div className="lg:hidden bg-white rounded-lg shadow-lg mb-4 overflow-hidden">
             <nav className="py-2">
               <Link 
                 to="/dashboard" 
