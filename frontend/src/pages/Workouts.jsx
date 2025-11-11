@@ -51,17 +51,20 @@ function Workouts() {
 
   return (
     <Layout>
-      <header className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Workout History</h1>
-          <p className="text-gray-600">View and manage all your workouts</p>
+      {/* Header - Improved mobile layout */}
+      <header className="mb-8">
+        <div className="flex items-start justify-between flex-col sm:flex-row gap-4 sm:gap-0">
+          <div>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">Workout History</h1>
+            <p className="text-gray-600">View and manage all your workouts</p>
+          </div>
+          <Link
+            to="/workout/new"
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200 text-center whitespace-nowrap"
+          >
+            + New Workout
+          </Link>
         </div>
-        <Link
-          to="/workout/new"
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200"
-        >
-          + New Workout
-        </Link>
       </header>
 
       {error && (
@@ -91,26 +94,29 @@ function Workouts() {
           {workouts.map((workout) => (
             <div key={workout.id} className="bg-white rounded-lg shadow hover:shadow-md transition duration-200">
               <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
+                {/* Card Header - Improved mobile layout */}
+                <div className="flex items-start justify-between flex-col sm:flex-row gap-4 mb-4">
+                  <div className="flex-1 w-full">
                     <h3 className="text-xl font-bold text-gray-900 mb-1">
                       {workout.name}
                     </h3>
                     <p className="text-sm text-gray-500">
                       {formatDate(workout.date)}
-                      {workout.duration > 0 && ` • ${workout.duration} min`}
+                      {workout.duration_minutes > 0 && ` • ${workout.duration_minutes} min`}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  
+                  {/* Actions - Responsive buttons */}
+                  <div className="flex gap-2 w-full sm:w-auto flex-shrink-0">
                     <Link
                       to={`/workout/${workout.id}`}
-                      className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                      className="flex-1 sm:flex-none px-4 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium text-center"
                     >
                       View
                     </Link>
                     <button
                       onClick={() => handleDeleteWorkout(workout.id)}
-                      className="text-red-600 hover:text-red-700 font-medium text-sm"
+                      className="flex-1 sm:flex-none px-4 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors font-medium"
                     >
                       Delete
                     </button>
@@ -142,10 +148,10 @@ function Workouts() {
                 )}
 
                 {/* Total Volume */}
-                {workout.totalVolume > 0 && (
+                {workout.total_volume > 0 && (
                   <div className="mt-4 pt-4 border-t">
                     <p className="text-sm text-gray-600">
-                      Total Volume: <span className="font-bold text-gray-900">{workout.totalVolume.toLocaleString()} lbs</span>
+                      Total Volume: <span className="font-bold text-gray-900">{Math.round(workout.total_volume).toLocaleString()} lbs</span>
                     </p>
                   </div>
                 )}

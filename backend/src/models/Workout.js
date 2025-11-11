@@ -30,31 +30,71 @@ class Workout {
   }
   
   /**
-   * Get all workouts for a user
+   * Get all workouts for a user WITH summary data (exercise count, volume, exercise names)
    */
   static getByUser(user_id, limit = null) {
+    let query = `
+      SELECT 
+        w.*,
+        COUNT(DISTINCT s.exercise_id) as exercise_count,
+        SUM(s.weight * s.reps) as total_volume
+      FROM workouts w
+      LEFT JOIN sets s ON w.id = s.workout_id
+      WHERE w.user_id = ?
+      GROUP BY w.id
+      ORDER BY w.date DESC, w.id DESC
+    `;
+    
     if (limit) {
-      return all(
-        'SELECT * FROM workouts WHERE user_id = ? ORDER BY date DESC, id DESC LIMIT ?',
-        [user_id, limit]
-      );
+      query += ' LIMIT ?';
+      const workouts = all(query, [user_id, limit]);
+      return this._enrichWorkoutsWithExercises(workouts);
     }
-    return all(
-      'SELECT * FROM workouts WHERE user_id = ? ORDER BY date DESC, id DESC',
-      [user_id]
-    );
+    
+    const workouts = all(query, [user_id]);
+    return this._enrichWorkoutsWithExercises(workouts);
   }
   
   /**
-   * Get workouts for a user within a date range
+   * Helper: Add exercise names to workouts
+   */
+  static _enrichWorkoutsWithExercises(workouts) {
+    return workouts.map(workout => {
+      // Get unique exercises for this workout
+      const exercises = all(
+        `SELECT DISTINCT e.name
+         FROM sets s
+         JOIN exercises e ON s.exercise_id = e.id
+         WHERE s.workout_id = ?
+         ORDER BY e.name`,
+        [workout.id]
+      );
+      
+      return {
+        ...workout,
+        exercises: exercises.map(ex => ({ name: ex.name }))
+      };
+    });
+  }
+  
+  /**
+   * Get workouts for a user within a date range WITH summary data
    */
   static getByUserAndDateRange(user_id, start_date, end_date) {
-    return all(
-      `SELECT * FROM workouts 
-       WHERE user_id = ? AND date >= ? AND date <= ?
-       ORDER BY date DESC, id DESC`,
+    const workouts = all(
+      `SELECT 
+        w.*,
+        COUNT(DISTINCT s.exercise_id) as exercise_count,
+        SUM(s.weight * s.reps) as total_volume
+       FROM workouts w
+       LEFT JOIN sets s ON w.id = s.workout_id
+       WHERE w.user_id = ? AND w.date >= ? AND w.date <= ?
+       GROUP BY w.id
+       ORDER BY w.date DESC, w.id DESC`,
       [user_id, start_date, end_date]
     );
+    
+    return this._enrichWorkoutsWithExercises(workouts);
   }
   
   /**
