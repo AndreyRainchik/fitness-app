@@ -2,7 +2,7 @@
   "name": "Fitness Tracker - Training Programs & Analytics",
   "short_name": "Fitness Tracker",
   "description": "Track your workouts with 5/3/1 BBB, Starting Strength, and advanced analytics",
-  "start_url": "/",
+  "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
