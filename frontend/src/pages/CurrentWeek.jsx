@@ -18,12 +18,17 @@ const CurrentWeek = () => {
   const [allStatuses, setAllStatuses] = useState(null);
   const [loadingStatuses, setLoadingStatuses] = useState(false);
 
-  // Collect all weights from workout for batch fetching
+  // Collect all weights from workout for batch fetching (INCLUDING WARMUP SETS)
   const allWeights = useMemo(() => {
     if (!workout || !workout.lifts) return [];
     
     const weights = [];
     workout.lifts.forEach(lift => {
+      // NEW: Warmup sets (for both program types)
+      if (lift.warmup_sets) {
+        lift.warmup_sets.forEach(set => weights.push(set.weight));
+      }
+      
       if (workout.program_type === '531') {
         // Main sets
         if (lift.main_sets) {
@@ -828,6 +833,36 @@ const CurrentWeek = () => {
               {/* 5/3/1 Program Content */}
               {workout.program_type === '531' && (
                 <>
+                  {/* Warmup Sets */}
+                  {lift.warmup_sets && lift.warmup_sets.length > 0 && (
+                    <div className="p-4 sm:p-6 bg-gray-50 border-b border-gray-200">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Warmup Sets</h3>
+                      <div className="space-y-3">
+                        {lift.warmup_sets.map((set, setIndex) => (
+                          <div key={setIndex} className="border border-gray-300 rounded-lg p-3 sm:p-4 bg-white">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <span className="text-base sm:text-lg font-bold text-gray-700">
+                                  Warmup {setIndex + 1}:
+                                </span>
+                                {/* Use WeightDisplay to show plate-adjusted weights */}
+                                <WeightDisplay programmedWeight={set.weight} className="text-gray-700" />
+                                <span className="text-sm sm:text-base text-gray-600">
+                                  × {set.reps} reps
+                                </span>
+                              </div>
+                            </div>
+                            {/* Plate Calculator */}
+                            <PlateCalculator targetWeight={set.weight} />
+                          </div>
+                        ))}
+                      </div>
+                      <p className="mt-3 text-xs sm:text-sm text-gray-600">
+                        <strong>💡 Tip:</strong> Warmup sets prepare your muscles and nervous system. Rest 30-60 seconds between warmup sets.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Main Sets */}
                   <div className="p-4 sm:p-6">
                     <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Main Sets (5/3/1)</h3>
@@ -894,40 +929,73 @@ const CurrentWeek = () => {
 
               {/* Starting Strength Program Content */}
               {workout.program_type === 'starting_strength' && lift.sets && (
-                <div className="p-4 sm:p-6">
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
-                    Working Sets
-                  </h3>
-                  <div className="border border-gray-200 rounded-lg p-3 sm:p-4">
-                    <div className="mb-2">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="text-base sm:text-lg font-bold text-gray-900">
-                          {lift.sets.length} × {lift.sets[0].reps}:
-                        </span>
-                        <WeightDisplay programmedWeight={lift.sets[0].weight} />
-                        <span className="text-sm text-gray-600">
-                          ({lift.sets.length} sets of {lift.sets[0].reps} reps)
-                        </span>
+                <>
+                  {/* Warmup Sets */}
+                  {lift.warmup_sets && lift.warmup_sets.length > 0 && (
+                    <div className="p-4 sm:p-6 bg-gray-50 border-b border-gray-200">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Warmup Sets</h3>
+                      <div className="space-y-3">
+                        {lift.warmup_sets.map((set, setIndex) => (
+                          <div key={setIndex} className="border border-gray-300 rounded-lg p-3 sm:p-4 bg-white">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <span className="text-base sm:text-lg font-bold text-gray-700">
+                                  Warmup {setIndex + 1}:
+                                </span>
+                                {/* Use WeightDisplay to show plate-adjusted weights */}
+                                <WeightDisplay programmedWeight={set.weight} className="text-gray-700" />
+                                <span className="text-sm sm:text-base text-gray-600">
+                                  × {set.reps} reps
+                                </span>
+                              </div>
+                            </div>
+                            {/* Plate Calculator */}
+                            <PlateCalculator targetWeight={set.weight} />
+                          </div>
+                        ))}
                       </div>
+                      <p className="mt-3 text-xs sm:text-sm text-gray-600">
+                        <strong>💡 Tip:</strong> Warmup sets prepare your muscles and nervous system. Rest 30-60 seconds between warmup sets.
+                      </p>
                     </div>
-                    <p className="text-xs sm:text-sm text-gray-600 mb-3">
-                      Same weight for all sets. Rest 3-5 minutes between sets.
-                    </p>
-                    {/* Plate Calculator */}
-                    <PlateCalculator targetWeight={lift.sets[0].weight} />
+                  )}
+
+                  {/* Working Sets */}
+                  <div className="p-4 sm:p-6">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
+                      Working Sets
+                    </h3>
+                    <div className="border border-gray-200 rounded-lg p-3 sm:p-4">
+                      <div className="mb-2">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="text-base sm:text-lg font-bold text-gray-900">
+                            {lift.sets.length} × {lift.sets[0].reps}:
+                          </span>
+                          <WeightDisplay programmedWeight={lift.sets[0].weight} />
+                          <span className="text-sm text-gray-600">
+                            ({lift.sets.length} sets of {lift.sets[0].reps} reps)
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs sm:text-sm text-gray-600 mb-3">
+                        Same weight for all sets. Rest 3-5 minutes between sets.
+                      </p>
+                      {/* Plate Calculator */}
+                      <PlateCalculator targetWeight={lift.sets[0].weight} />
+                    </div>
+                    
+                    {/* Next Session Info */}
+                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-xs sm:text-sm text-green-800">
+                        <strong>Next session:</strong> {' '}
+                        {lift.exercise_name === 'Barbell Squat' || lift.exercise_name === 'Barbell Deadlift' 
+                          ? `${lift.sets[0].weight + 10} lbs (+10 lbs)`
+                          : `${lift.sets[0].weight + 5} lbs (+5 lbs)`
+                        }
+                      </p>
+                    </div>
                   </div>
-                  
-                  {/* Next Session Info */}
-                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-xs sm:text-sm text-green-800">
-                      <strong>Next session:</strong> {' '}
-                      {lift.exercise_name === 'Barbell Squat' || lift.exercise_name === 'Barbell Deadlift' 
-                        ? `${lift.sets[0].weight + 10} lbs (+10 lbs)`
-                        : `${lift.sets[0].weight + 5} lbs (+5 lbs)`
-                      }
-                    </p>
-                  </div>
-                </div>
+                </>
               )}
             </div>
           ))}

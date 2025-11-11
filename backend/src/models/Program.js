@@ -600,9 +600,9 @@ class Program {
   
   /**
    * Get the current week's workout for a program
-   * UPDATED: Now includes status for each lift
+   * UPDATED: Now includes status for each lift AND warmup sets
    * @param {number} id - Program ID
-   * @returns {Object} Complete workout with all lifts, their sets, and status
+   * @returns {Object} Complete workout with all lifts, their sets, warmup sets, and status
    */
   static getCurrentWeekWorkout(id) {
     const program = this.getWithLifts(id);
@@ -636,6 +636,10 @@ class Program {
         const mainSets = this.calculate531Week(program.current_week, lift.training_max);
         const bbbSets = this.generateBBBSets(lift.training_max, 0.50);
         
+        // Calculate warmup sets based on the heaviest main set
+        const heaviestMainSetWeight = Math.max(...mainSets.map(set => set.weight));
+        const warmupSets = this.getWarmupSets(heaviestMainSetWeight);
+        
         // Add status to lift
         const liftStatus = statusMap.get(lift.exercise_id);
         
@@ -643,6 +647,7 @@ class Program {
           exercise_id: lift.exercise_id,
           exercise_name: lift.exercise_name,
           training_max: lift.training_max,
+          warmup_sets: warmupSets,
           main_sets: mainSets,
           accessory_sets: bbbSets,
           status: liftStatus ? liftStatus.status : null,
@@ -672,6 +677,9 @@ class Program {
         // For Starting Strength, training_max is actually current working weight
         const sets = this.generateStartingStrengthSets(lift.exercise_name, lift.training_max);
         
+        // Calculate warmup sets based on working weight
+        const warmupSets = this.getWarmupSets(lift.training_max);
+        
         // Add status to lift
         const liftStatus = statusMap.get(lift.exercise_id);
         
@@ -679,6 +687,7 @@ class Program {
           exercise_id: lift.exercise_id,
           exercise_name: lift.exercise_name,
           current_weight: lift.training_max, // Using training_max field to store current weight
+          warmup_sets: warmupSets,
           sets: sets,
           status: liftStatus ? liftStatus.status : null,
           status_notes: liftStatus ? liftStatus.notes : null,
@@ -701,27 +710,55 @@ class Program {
    */
   static getWarmupSets(workingWeight) {
     const warmups = [];
-    
+    /*
     // Bar only
     warmups.push({
       weight: 45, // Standard barbell weight (lbs) - should be configurable
       reps: 5,
       is_warmup: true
     });
-    
+    */
     // 40% of working weight
-    if (workingWeight > 95) {
-      const weight40 = Math.round((workingWeight * 0.40) / 5) * 5;
+    const weight40 = Math.round((workingWeight * 0.40) / 5) * 5;
+    if(weight40 < 45) {
+        warmups.push({
+        weight: 45, // Standard barbell weight (lbs) - should be configurable
+        reps: 5,
+        is_warmup: true
+      });
+    } else {
       warmups.push({
         weight: weight40,
         reps: 5,
         is_warmup: true
       });
     }
+
+    // 50% of working weight
+    const weight50 = Math.round((workingWeight * 0.50) / 5) * 5;
+    if(weight50 < 45) {
+        warmups.push({
+        weight: 45, // Standard barbell weight (lbs) - should be configurable
+        reps: 5,
+        is_warmup: true
+      });
+    } else {
+      warmups.push({
+        weight: weight50,
+        reps: 5,
+        is_warmup: true
+      });
+    }
     
     // 60% of working weight
-    if (workingWeight > 135) {
-      const weight60 = Math.round((workingWeight * 0.60) / 5) * 5;
+    const weight60 = workingWeight * 0.60;
+    if(weight60 < 45) {
+        warmups.push({
+        weight: 45, // Standard barbell weight (lbs) - should be configurable
+        reps: 3,
+        is_warmup: true
+      });
+    } else {
       warmups.push({
         weight: weight60,
         reps: 3,
