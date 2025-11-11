@@ -594,20 +594,20 @@ const Programs = () => {
                     {!program.is_active && (
                       <button
                         onClick={() => handleSetActive(program.id)}
-                        className="px-4 py-2.5 sm:py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 active:bg-blue-300 transition-colors font-medium whitespace-nowrap min-h-[44px] sm:min-h-0"
+                        className="flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 bg-blue-600 text-white cursor-default"
                       >
                         Set Active
                       </button>
                     )}
                     <Link
                       to={`/programs/${program.id}`}
-                      className="flex items-center justify-center px-4 py-2.5 sm:py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 active:bg-gray-300 transition-colors font-medium min-h-[44px] sm:min-h-0"
+                      className="flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 bg-gray-200 text-gray-700 cursor-default"
                     >
                       View Details
                     </Link>
                     <button
                       onClick={() => handleDeleteProgram(program.id)}
-                      className="px-4 py-2.5 sm:py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 active:bg-red-300 transition-colors font-medium whitespace-nowrap min-h-[44px] sm:min-h-0"
+                      className="flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 bg-red-600 text-white cursor-default"
                     >
                       Delete
                     </button>
