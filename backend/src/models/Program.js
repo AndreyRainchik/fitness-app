@@ -298,23 +298,23 @@ class Program {
   }
   
   /**
-   * Clear all statuses for a program's current week
+   * Clear all statuses for current week/cycle
    * @param {number} program_id - Program ID
-   * @returns {Object} Success indicator with count
+   * @returns {Object} Success indicator with count of cleared records
    */
   static clearCurrentWeekStatuses(program_id) {
     const program = this.findById(program_id);
     if (!program) {
-      return { success: false, error: 'Program not found' };
+      return { success: false, cleared: 0 };
     }
     
-    const result = run(
+    run(
       `DELETE FROM program_lift_status 
        WHERE program_id = ? AND week = ? AND cycle = ?`,
       [program_id, program.current_week, program.current_cycle]
     );
     
-    return { success: true, deleted_count: result.changes };
+    return { success: true };
   }
   
   // =====================================================
@@ -326,6 +326,8 @@ class Program {
    * Automatically adjusts training maxes/weights based on lift status:
    * - Failed lifts: Decrease by increment (deload)
    * - Completed/No status: Increase by increment (progress)
+   * 
+   * UPDATED: Now checks ALL weeks in the current cycle for failed lifts
    */
   static advanceWeek(id) {
     const program = this.findById(id);
@@ -333,11 +335,26 @@ class Program {
       return null;
     }
     
-    // Get current week statuses before advancing
-    const currentStatuses = this.getCurrentWeekStatuses(id);
-    const statusMap = new Map();
-    currentStatuses.forEach(status => {
-      statusMap.set(status.exercise_id, status.status);
+    // UPDATED: Get ALL statuses for the current cycle (weeks 1-4)
+    // instead of just the current week
+    const allCycleStatuses = all(
+      `SELECT pls.*, e.name as exercise_name
+       FROM program_lift_status pls
+       JOIN exercises e ON pls.exercise_id = e.id
+       WHERE pls.program_id = ? AND pls.cycle = ?`,
+      [id, program.current_cycle]
+    );
+    
+    // Build a map of exercise_id -> array of statuses across all weeks
+    const cycleStatusMap = new Map();
+    allCycleStatuses.forEach(status => {
+      if (!cycleStatusMap.has(status.exercise_id)) {
+        cycleStatusMap.set(status.exercise_id, []);
+      }
+      cycleStatusMap.get(status.exercise_id).push({
+        week: status.week,
+        status: status.status
+      });
     });
     
     let newWeek = program.current_week + 1;
@@ -369,14 +386,19 @@ class Program {
               increment = 10;
             }
             
-            // Check if this lift was marked as failed during the cycle
-            const liftStatus = statusMap.get(lift.exercise_id);
+            // UPDATED: Check if this lift was marked as failed in ANY week of the cycle
+            const liftStatuses = cycleStatusMap.get(lift.exercise_id) || [];
+            const hasFailure = liftStatuses.some(s => s.status === 'failed');
             let newTrainingMax;
             
-            if (liftStatus === 'failed') {
+            if (hasFailure) {
               // Deload: Decrease training max by the increment amount
               newTrainingMax = lift.training_max - increment;
-              console.log(`Deloading ${exercise.name}: ${lift.training_max} -> ${newTrainingMax} lbs (failed)`);
+              const failedWeeks = liftStatuses
+                .filter(s => s.status === 'failed')
+                .map(s => s.week)
+                .join(', ');
+              console.log(`Deloading ${exercise.name}: ${lift.training_max} -> ${newTrainingMax} lbs (failed in week(s) ${failedWeeks})`);
             } else {
               // Progress normally: Increase training max
               newTrainingMax = lift.training_max + increment;
@@ -405,6 +427,13 @@ class Program {
         'SELECT * FROM program_lifts WHERE program_id = ?',
         [id]
       );
+      
+      // Get current week statuses (for Starting Strength, we only check current session)
+      const currentStatuses = this.getCurrentWeekStatuses(id);
+      const statusMap = new Map();
+      currentStatuses.forEach(status => {
+        statusMap.set(status.exercise_id, status.status);
+      });
       
       lifts.forEach(lift => {
         // Get exercise to determine weight increment

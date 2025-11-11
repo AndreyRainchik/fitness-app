@@ -13,6 +13,10 @@ const CurrentWeek = () => {
   const [advancing, setAdvancing] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [updatingStatus, setUpdatingStatus] = useState(new Set()); // Track which exercises are being updated
+  
+  // NEW: State for tracking all statuses across the cycle
+  const [allStatuses, setAllStatuses] = useState(null);
+  const [loadingStatuses, setLoadingStatuses] = useState(false);
 
   // Collect all weights from workout for batch fetching
   const allWeights = useMemo(() => {
@@ -86,6 +90,34 @@ const CurrentWeek = () => {
     );
   };
 
+  // NEW: Helper function to check if a lift failed in ANY week of the current cycle
+  const hasFailureInCycle = (exerciseId) => {
+    if (!allStatuses || !workout) return false;
+    
+    // Filter statuses for this exercise in the current cycle
+    const exerciseStatuses = allStatuses.statuses.filter(
+      status => status.exercise_id === exerciseId && status.cycle === workout.cycle
+    );
+    
+    // Check if any status in weeks 1-4 is 'failed'
+    return exerciseStatuses.some(status => status.status === 'failed');
+  };
+
+  // NEW: Get which weeks had failures for display purposes
+  const getFailedWeeks = (exerciseId) => {
+    if (!allStatuses || !workout) return [];
+    
+    return allStatuses.statuses
+      .filter(
+        status => 
+          status.exercise_id === exerciseId && 
+          status.cycle === workout.cycle && 
+          status.status === 'failed'
+      )
+      .map(status => status.week)
+      .sort((a, b) => a - b);
+  };
+
   useEffect(() => {
     if (programId) {
       loadCurrentWeek();
@@ -93,6 +125,27 @@ const CurrentWeek = () => {
       loadActiveProgram();
     }
   }, [programId]);
+
+  // NEW: Effect to load all statuses when workout is loaded
+  useEffect(() => {
+    if (workout && workout.program_id && workout.program_type === '531') {
+      loadAllStatuses(workout.program_id);
+    }
+  }, [workout?.program_id]);
+
+  // NEW: Load all statuses for the program
+  const loadAllStatuses = async (progId) => {
+    try {
+      setLoadingStatuses(true);
+      const statusData = await programsAPI.getAllStatuses(progId);
+      setAllStatuses(statusData);
+    } catch (error) {
+      console.error('Error loading all statuses:', error);
+      // Don't show error to user - this is supplementary data
+    } finally {
+      setLoadingStatuses(false);
+    }
+  };
 
   const loadActiveProgram = async () => {
     try {
@@ -255,39 +308,40 @@ const CurrentWeek = () => {
 
   /**
    * Status indicator component
+   * Enhanced for mobile with better sizing and spacing
    */
   const StatusIndicator = ({ status }) => {
     if (!status) return null;
 
     if (status === 'completed') {
       return (
-        <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1 bg-green-100 text-green-800 text-xs sm:text-sm font-medium rounded-full">
+          <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
           </svg>
-          Completed
+          <span>Completed</span>
         </span>
       );
     }
 
     if (status === 'failed') {
       return (
-        <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full">
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1 bg-red-100 text-red-800 text-xs sm:text-sm font-medium rounded-full">
+          <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
           </svg>
-          Failed
+          <span>Failed</span>
         </span>
       );
     }
 
     if (status === 'skipped') {
       return (
-        <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full">
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1 bg-yellow-100 text-yellow-800 text-xs sm:text-sm font-medium rounded-full">
+          <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
           </svg>
-          Skipped
+          <span>Skipped</span>
         </span>
       );
     }
@@ -297,36 +351,47 @@ const CurrentWeek = () => {
 
   /**
    * Status control buttons component
+   * Enhanced for mobile with better touch targets and spacing
    */
   const StatusControls = ({ exerciseId, currentStatus }) => {
     const isUpdating = updatingStatus.has(exerciseId);
 
     return (
-      <div className="flex flex-wrap gap-2 mt-3">
+      <div className="flex flex-col sm:flex-row gap-2 mt-3">
         {/* Mark Completed Button */}
         <button
           onClick={() => handleSetStatus(exerciseId, 'completed')}
           disabled={isUpdating || currentStatus === 'completed'}
-          className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+          className={`flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 ${
             currentStatus === 'completed'
               ? 'bg-green-600 text-white cursor-default'
-              : 'bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed'
+              : 'bg-green-100 text-green-700 hover:bg-green-200 active:bg-green-300 disabled:opacity-50 disabled:cursor-not-allowed'
           }`}
         >
-          {isUpdating ? 'Updating...' : currentStatus === 'completed' ? '✓ Completed' : 'Mark Complete'}
+          {currentStatus === 'completed' && (
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          )}
+          <span>{isUpdating ? 'Updating...' : currentStatus === 'completed' ? 'Completed' : 'Mark Complete'}</span>
         </button>
 
         {/* Mark Failed Button */}
         <button
           onClick={() => handleSetStatus(exerciseId, 'failed')}
           disabled={isUpdating || currentStatus === 'failed'}
-          className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+          className={`flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 ${
             currentStatus === 'failed'
               ? 'bg-red-600 text-white cursor-default'
-              : 'bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed'
+              : 'bg-red-100 text-red-700 hover:bg-red-200 active:bg-red-300 disabled:opacity-50 disabled:cursor-not-allowed'
           }`}
         >
-          {isUpdating ? 'Updating...' : currentStatus === 'failed' ? '✗ Failed' : 'Mark Failed'}
+          {currentStatus === 'failed' && (
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          )}
+          <span>{isUpdating ? 'Updating...' : currentStatus === 'failed' ? 'Failed' : 'Mark Failed'}</span>
         </button>
 
         {/* Clear Status Button (only show if status exists) */}
@@ -334,9 +399,12 @@ const CurrentWeek = () => {
           <button
             onClick={() => handleClearStatus(exerciseId)}
             disabled={isUpdating}
-            className="flex-1 sm:flex-none px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 active:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] sm:min-h-0"
           >
-            {isUpdating ? 'Updating...' : 'Clear'}
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <span>{isUpdating ? 'Updating...' : 'Clear'}</span>
           </button>
         )}
       </div>
@@ -382,7 +450,7 @@ const CurrentWeek = () => {
             id: setId++,
             exercise_id: lift.exercise_id,
             exercise_name: lift.exercise_name,
-            set_number: lift.main_sets.length + i + 1,
+            set_number: i + 1,
             weight: weight, // Use adjusted weight
             reps: bbbSet.reps,
             rpe: null,
@@ -391,13 +459,12 @@ const CurrentWeek = () => {
         }
       }
     }
-    
+
     // For Starting Strength programs
-    else if (workout.program_type === 'starting_strength') {
-      if (lift.sets && lift.sets.length > 0) {
-        const { weight } = getAdjustedWeightInfo(lift.sets[0].weight);
-        
+    if (workout.program_type === 'starting_strength') {
+      if (lift.sets) {
         lift.sets.forEach((set) => {
+          const { weight } = getAdjustedWeightInfo(set.weight);
           templateSets.push({
             id: setId++,
             exercise_id: lift.exercise_id,
@@ -412,12 +479,11 @@ const CurrentWeek = () => {
       }
     }
 
-    // Navigate to active workout with pre-populated sets
+    // Navigate to ActiveWorkout with template sets
     navigate('/workout/active', {
       state: {
-        fromProgram: true,
-        programId: workout.program_id,
-        sets: templateSets
+        templateSets,
+        workoutName: `${lift.exercise_name} - ${workout.program_type === '531' ? `Week ${workout.week}` : workout.workout_type}`
       }
     });
   };
@@ -425,31 +491,19 @@ const CurrentWeek = () => {
   if (loading) {
     return (
       <Layout>
-        <div className="flex justify-center items-center min-h-screen">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading workout...</p>
-          </div>
+        <div className="bg-white rounded-lg shadow p-12 text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-gray-600">Loading workout...</p>
         </div>
       </Layout>
     );
   }
 
-  // Helper function to format program type for display
-  const formatProgramType = (type) => {
-    if (type === '531') return '5/3/1';
-    if (type === 'starting_strength') return 'Starting Strength';
-    if (type === 'custom') return 'Custom';
-    return type;
-  };
-
   if (!workout) {
     return (
       <Layout>
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <p className="text-yellow-800">No workout found. Please create a program first.</p>
-          </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <p className="text-gray-600">No workout available</p>
         </div>
       </Layout>
     );
@@ -457,27 +511,21 @@ const CurrentWeek = () => {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto px-4 py-4 sm:py-8">
-        {/* Messages */}
-        {message.text && (
-          <div className={`mb-4 p-4 rounded-lg ${
-            message.type === 'error' ? 'bg-red-50 border border-red-200 text-red-800' :
-            message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
-            'bg-blue-50 border border-blue-200 text-blue-800'
-          }`}>
-            {message.text}
-          </div>
-        )}
-
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-            {workout.program_name}
-          </h1>
-          <div className="flex flex-wrap items-center gap-3 text-sm sm:text-base text-gray-600">
-            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-medium text-sm">
-              {formatProgramType(workout.program_type)}
-            </span>
+        <div className="mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-2">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">
+              {workout.program_name}
+            </h1>
+            <button
+              onClick={() => navigate('/programs')}
+              className="text-blue-600 hover:text-blue-700 active:text-blue-800 text-sm font-medium self-start sm:self-auto"
+            >
+              ← Back to Programs
+            </button>
+          </div>
+          <div className="text-sm sm:text-base md:text-lg text-gray-600">
             <span className="font-semibold">
               {workout.program_type === '531' ? `Week ${workout.week} · Cycle ${workout.cycle}` : ''}
               {workout.program_type === 'starting_strength' ? `Session ${workout.session_number} · ${workout.workout_type}` : ''}
@@ -485,14 +533,14 @@ const CurrentWeek = () => {
           </div>
         </div>
 
-        {/* Training Max Update Preview */}
+        {/* Training Max Update Preview for Starting Strength */}
         {workout.lifts && workout.lifts.length > 0 && workout.program_type === 'starting_strength' && (
-          <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4 sm:p-6">
-            <div className="flex items-start gap-3 mb-3">
-              <svg className="w-6 h-6 text-purple-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-3 sm:p-6">
+            <div className="flex items-start gap-2 sm:gap-3">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <p className="text-xs sm:text-sm text-purple-700 mb-3">
                   {'When you complete this session and advance:'}
                 </p>
@@ -503,29 +551,57 @@ const CurrentWeek = () => {
                                       lift.exercise_name === 'Barbell Deadlift' || 
                                       lift.exercise_name === 'Power Clean';
                     const increment = isLowerBody ? 10 : 5;
-                    const currentMax = workout.program_type === '531' ? lift.training_max : lift.current_weight;
+                    const currentMax = lift.current_weight;
                     const isFailed = lift.status === 'failed';
                     const newMax = isFailed ? currentMax - increment : currentMax + increment;
                     const change = isFailed ? -increment : +increment;
                     
                     return (
-                      <div key={idx} className="flex items-center justify-between bg-white bg-opacity-60 rounded-lg px-3 py-2 text-sm">
-                        <span className="font-medium text-gray-900">{lift.exercise_name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-600">{currentMax} lbs</span>
-                          <svg className={`w-4 h-4 ${isFailed ? 'text-red-500' : 'text-green-500'}`} fill="currentColor" viewBox="0 0 20 20">
-                            {isFailed ? (
-                              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                            ) : (
-                              <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                            )}
-                          </svg>
-                          <span className={`font-bold ${isFailed ? 'text-red-600' : 'text-green-600'}`}>
-                            {newMax} lbs
-                          </span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${isFailed ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                            {change > 0 ? '+' : ''}{change} lbs
-                          </span>
+                      <div key={idx} className="bg-white bg-opacity-60 rounded-lg p-2.5 sm:p-3">
+                        {/* Mobile: Stack layout */}
+                        <div className="flex flex-col gap-2 sm:hidden">
+                          <div className="flex items-start justify-between">
+                            <span className="font-medium text-gray-900 text-sm flex-1 min-w-0">{lift.exercise_name}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${isFailed ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                              {change > 0 ? '+' : ''}{change} lbs
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600">{currentMax} lbs</span>
+                            <div className="flex items-center gap-1.5">
+                              <svg className={`w-4 h-4 ${isFailed ? 'text-red-500' : 'text-green-500'}`} fill="currentColor" viewBox="0 0 20 20">
+                                {isFailed ? (
+                                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                ) : (
+                                  <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                                )}
+                              </svg>
+                              <span className={`font-bold ${isFailed ? 'text-red-600' : 'text-green-600'}`}>
+                                {newMax} lbs
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Desktop: Horizontal layout */}
+                        <div className="hidden sm:flex items-center justify-between">
+                          <span className="font-medium text-gray-900 text-sm flex-1">{lift.exercise_name}</span>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-gray-600 text-sm">{currentMax} lbs</span>
+                            <svg className={`w-4 h-4 ${isFailed ? 'text-red-500' : 'text-green-500'}`} fill="currentColor" viewBox="0 0 20 20">
+                              {isFailed ? (
+                                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                              ) : (
+                                <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                              )}
+                            </svg>
+                            <span className={`font-bold text-sm ${isFailed ? 'text-red-600' : 'text-green-600'}`}>
+                              {newMax} lbs
+                            </span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${isFailed ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                              {change > 0 ? '+' : ''}{change} lbs
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );
@@ -533,11 +609,11 @@ const CurrentWeek = () => {
                 </div>
                 
                 {workout.lifts.some(l => l.status === 'failed') && (
-                  <div className="mt-3 flex items-start gap-2 text-xs text-orange-700 bg-orange-50 rounded-lg p-2">
+                  <div className="mt-3 flex items-start gap-2 text-xs text-orange-700 bg-orange-50 rounded-lg p-2.5">
                     <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                     </svg>
-                    <span>Failed lifts will be <strong>decreased</strong> (deloaded) to allow recovery</span>
+                    <span className="leading-relaxed">Failed lifts will be <strong>decreased</strong> (deloaded) to allow recovery</span>
                   </div>
                 )}
               </div>
@@ -545,65 +621,131 @@ const CurrentWeek = () => {
           </div>
         )}
 
+        {/* UPDATED: Training Max Update Preview for 5/3/1 - Only shows on Week 4 */}
+        {/* Now checks ALL weeks in the current cycle, not just week 4 */}
         {workout.lifts && workout.lifts.length > 0 && workout.program_type === '531' && workout.week === 4 && (
-          <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4 sm:p-6">
-            <div className="flex items-start gap-3 mb-3">
-              <svg className="w-6 h-6 text-purple-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-3 sm:p-6">
+            <div className="flex items-start gap-2 sm:gap-3">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
-              <div className="flex-1">
-                <h3 className="text-base sm:text-lg font-semibold text-purple-900 mb-2">
-                  {'📈 Training Max Updates (After This Deload)'}
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm sm:text-base md:text-lg font-semibold text-purple-900 mb-1 sm:mb-2">
+                  {'📈 Training Max Updates'}
                 </h3>
-                <p className="text-xs sm:text-sm text-purple-700 mb-3">
-                  {'When you complete this deload week and advance to the next cycle:'}
+                <p className="text-xs text-purple-700 mb-3">
+                  {'After completing this deload week:'}
                 </p>
                 
-                <div className="space-y-2">
-                  {workout.lifts.map((lift, idx) => {
-                    const isLowerBody = lift.exercise_name === 'Barbell Squat' || 
-                                      lift.exercise_name === 'Barbell Deadlift' || 
-                                      lift.exercise_name === 'Power Clean';
-                    const increment = isLowerBody ? 10 : 5;
-                    const currentMax = workout.program_type === '531' ? lift.training_max : lift.current_weight;
-                    const isFailed = lift.status === 'failed';
-                    const newMax = isFailed ? currentMax - increment : currentMax + increment;
-                    const change = isFailed ? -increment : +increment;
+                {loadingStatuses ? (
+                  <div className="text-xs sm:text-sm text-purple-600">Loading status data...</div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      {workout.lifts.map((lift, idx) => {
+                        const isLowerBody = lift.exercise_name === 'Barbell Squat' || 
+                                          lift.exercise_name === 'Barbell Deadlift' || 
+                                          lift.exercise_name === 'Power Clean';
+                        const increment = isLowerBody ? 10 : 5;
+                        const currentMax = lift.training_max;
+                        
+                        // UPDATED: Check if failed in ANY week of the cycle, not just current week
+                        const isFailed = hasFailureInCycle(lift.exercise_id);
+                        const failedWeeks = getFailedWeeks(lift.exercise_id);
+                        
+                        const newMax = isFailed ? currentMax - increment : currentMax + increment;
+                        const change = isFailed ? -increment : +increment;
+                        
+                        return (
+                          <div key={idx} className="bg-white bg-opacity-60 rounded-lg p-2.5 sm:p-3">
+                            {/* Mobile: Stack layout */}
+                            <div className="flex flex-col gap-2 sm:hidden">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium text-gray-900 text-sm truncate">{lift.exercise_name}</div>
+                                  {isFailed && failedWeeks.length > 0 && (
+                                    <div className="text-xs text-red-600 mt-0.5">
+                                      Week{failedWeeks.length > 1 ? 's' : ''} {failedWeeks.join(', ')}
+                                    </div>
+                                  )}
+                                </div>
+                                <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${isFailed ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                  {change > 0 ? '+' : ''}{change} lbs
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600">{currentMax} lbs</span>
+                                <div className="flex items-center gap-1.5">
+                                  <svg className={`w-4 h-4 ${isFailed ? 'text-red-500' : 'text-green-500'}`} fill="currentColor" viewBox="0 0 20 20">
+                                    {isFailed ? (
+                                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                    ) : (
+                                      <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                                    )}
+                                  </svg>
+                                  <span className={`font-bold ${isFailed ? 'text-red-600' : 'text-green-600'}`}>
+                                    {newMax} lbs
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Desktop: Horizontal layout */}
+                            <div className="hidden sm:flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium text-gray-900 text-sm">{lift.exercise_name}</span>
+                                {isFailed && failedWeeks.length > 0 && (
+                                  <div className="text-xs text-red-600 mt-0.5">
+                                    Failed in week{failedWeeks.length > 1 ? 's' : ''}: {failedWeeks.join(', ')}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <span className="text-gray-600 text-sm">{currentMax} lbs</span>
+                                <svg className={`w-4 h-4 ${isFailed ? 'text-red-500' : 'text-green-500'}`} fill="currentColor" viewBox="0 0 20 20">
+                                  {isFailed ? (
+                                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                  ) : (
+                                    <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                                  )}
+                                </svg>
+                                <span className={`font-bold text-sm ${isFailed ? 'text-red-600' : 'text-green-600'}`}>
+                                  {newMax} lbs
+                                </span>
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${isFailed ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                  {change > 0 ? '+' : ''}{change} lbs
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                     
-                    return (
-                      <div key={idx} className="flex items-center justify-between bg-white bg-opacity-60 rounded-lg px-3 py-2 text-sm">
-                        <span className="font-medium text-gray-900">{lift.exercise_name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-600">{currentMax} lbs</span>
-                          <svg className={`w-4 h-4 ${isFailed ? 'text-red-500' : 'text-green-500'}`} fill="currentColor" viewBox="0 0 20 20">
-                            {isFailed ? (
-                              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                            ) : (
-                              <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                            )}
-                          </svg>
-                          <span className={`font-bold ${isFailed ? 'text-red-600' : 'text-green-600'}`}>
-                            {newMax} lbs
-                          </span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${isFailed ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                            {change > 0 ? '+' : ''}{change} lbs
-                          </span>
-                        </div>
+                    {/* UPDATED: Show warning if ANY week in the cycle had failures */}
+                    {workout.lifts.some(lift => hasFailureInCycle(lift.exercise_id)) && (
+                      <div className="mt-3 flex items-start gap-2 text-xs text-orange-700 bg-orange-50 rounded-lg p-2.5">
+                        <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                        <span className="leading-relaxed">Lifts with failures in ANY week of this cycle will be <strong>decreased</strong> to allow recovery</span>
                       </div>
-                    );
-                  })}
-                </div>
-                
-                {workout.lifts.some(l => l.status === 'failed') && (
-                  <div className="mt-3 flex items-start gap-2 text-xs text-orange-700 bg-orange-50 rounded-lg p-2">
-                    <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                    </svg>
-                    <span>Failed lifts will be <strong>decreased</strong> (deloaded) to allow recovery</span>
-                  </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Message Display */}
+        {message.text && (
+          <div className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg text-sm ${
+            message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
+            message.type === 'error' ? 'bg-red-50 border border-red-200 text-red-800' :
+            'bg-blue-50 border border-blue-200 text-blue-800'
+          }`}>
+            {message.text}
           </div>
         )}
 
@@ -611,18 +753,18 @@ const CurrentWeek = () => {
         <div className="mb-6">
           {/* Warning for failed lifts */}
           {workout.lifts && workout.lifts.some(lift => lift.status === 'failed') && (
-            <div className="mb-4 bg-yellow-50 border border-yellow-300 rounded-lg p-4">
+            <div className="mb-4 bg-yellow-50 border border-yellow-300 rounded-lg p-3 sm:p-4">
               <div className="flex items-start gap-2">
                 <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-yellow-800 mb-1">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm font-semibold text-yellow-800 mb-1">
                     ⚠️ Failed lifts detected
                   </p>
-                  <p className="text-xs text-yellow-700">
+                  <p className="text-xs text-yellow-700 leading-relaxed">
                     When you advance, training max will be <strong>decreased</strong> for: {' '}
-                    {workout.lifts.filter(l => l.status === 'failed').map(l => l.exercise_name).join(', ')}
+                    <span className="font-medium">{workout.lifts.filter(l => l.status === 'failed').map(l => l.exercise_name).join(', ')}</span>
                   </p>
                 </div>
               </div>
@@ -632,7 +774,7 @@ const CurrentWeek = () => {
           <button
             onClick={handleCompleteWeek}
             disabled={advancing}
-            className="w-full sm:w-auto px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto px-6 py-3 sm:py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors font-medium text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] sm:min-h-0"
           >
             {advancing ? 'Advancing...' : 'Complete Week & Advance'}
           </button>
@@ -640,8 +782,8 @@ const CurrentWeek = () => {
 
         {/* Starting Strength Auto-Progression Notice */}
         {workout.program_type === 'starting_strength' && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-700 mt-1">
+          <div className="mb-4 sm:mb-6 bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+            <p className="text-xs sm:text-sm text-blue-700">
               Weights will automatically increase after you complete this session
             </p>
           </div>
@@ -655,25 +797,25 @@ const CurrentWeek = () => {
               className={`bg-white border rounded-lg overflow-hidden transition-all ${getStatusBorderClass(lift.status)}`}
             >
               {/* Lift Header */}
-              <div className={`px-4 sm:px-6 py-4 border-b border-gray-200 ${getStatusBgClass(lift.status)}`}>
-                <div className="flex flex-col gap-3">
-                  {/* Exercise Name and Status */}
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{lift.exercise_name}</h2>
+              <div className={`px-3 sm:px-4 md:px-6 py-3 sm:py-4 border-b border-gray-200 ${getStatusBgClass(lift.status)}`}>
+                <div className="flex flex-col gap-2.5 sm:gap-3">
+                  {/* Exercise Name and Status Row */}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                      <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900">{lift.exercise_name}</h2>
                       <StatusIndicator status={lift.status} />
                     </div>
                     {/* Start Workout Button */}
                     <button
                       onClick={() => handleStartWorkout(lift)}
-                      className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium whitespace-nowrap"
+                      className="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium text-sm whitespace-nowrap min-h-[44px] sm:min-h-0"
                     >
                       Start Workout
                     </button>
                   </div>
                   
                   {/* Training Max / Current Weight */}
-                  <p className="text-sm text-gray-600">
+                  <p className="text-xs sm:text-sm text-gray-600">
                     {workout.program_type === '531' && `Training Max: ${lift.training_max} lbs`}
                     {workout.program_type === 'starting_strength' && `Current Weight: ${lift.current_weight} lbs`}
                   </p>
@@ -792,24 +934,26 @@ const CurrentWeek = () => {
         </div>
 
         {/* Training Notes */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold text-blue-900 mb-3">💡 Training Notes</h3>
+        <div className="mt-6 sm:mt-8 bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 md:p-6">
+          <h3 className="text-sm sm:text-base md:text-lg font-semibold text-blue-900 mb-2 sm:mb-3">💡 Training Notes</h3>
           
           {/* 5/3/1 Notes */}
           {workout.program_type === '531' && (
-            <ul className="space-y-2 text-xs sm:text-sm text-blue-800">
+            <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-blue-800">
               {workout.week !== 4 ? (
                 <>
                   <li>• <strong>AMRAP sets:</strong> Push for as many quality reps as possible</li>
                   <li>• <strong>Main sets:</strong> Rest 3-5 minutes between sets</li>
                   <li>• <strong>BBB sets:</strong> Rest 1-2 minutes, focus on form and volume</li>
                   <li>• <strong>Week {workout.week} target:</strong> {workout.week === 1 ? '8-10+ reps on AMRAP' : workout.week === 2 ? '5-7+ reps on AMRAP' : '3-5+ reps on AMRAP'}</li>
+                  <li>• <strong>Mark failed:</strong> If you miss the AMRAP target or complete fewer reps than prescribed</li>
                 </>
               ) : (
                 <>
                   <li>• <strong>Deload week:</strong> Focus on recovery, not max effort</li>
                   <li>• <strong>Purpose:</strong> Allows body to recover before next cycle</li>
                   <li>• <strong>Next week:</strong> Cycle {workout.cycle + 1} begins!</li>
+                  <li>• <strong>Training max adjustments:</strong> Based on performance across ALL weeks of this cycle</li>
                 </>
               )}
             </ul>
@@ -817,7 +961,7 @@ const CurrentWeek = () => {
           
           {/* Starting Strength Notes */}
           {workout.program_type === 'starting_strength' && (
-            <ul className="space-y-2 text-xs sm:text-sm text-blue-800">
+            <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-blue-800">
               <li>• <strong>Linear Progression:</strong> Add weight every session - program does this automatically</li>
               <li>• <strong>Rest periods:</strong> 3-5 minutes between sets for best recovery</li>
               <li>• <strong>Form first:</strong> Only increase weight if you can maintain good form for all reps</li>
