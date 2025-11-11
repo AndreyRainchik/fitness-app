@@ -323,6 +323,9 @@ class Program {
   
   /**
    * Advance to next session/week
+   * Automatically adjusts training maxes/weights based on lift status:
+   * - Failed lifts: Decrease by increment (deload)
+   * - Completed/No status: Increase by increment (progress)
    */
   static advanceWeek(id) {
     const program = this.findById(id);
@@ -330,15 +333,64 @@ class Program {
       return null;
     }
     
+    // Get current week statuses before advancing
+    const currentStatuses = this.getCurrentWeekStatuses(id);
+    const statusMap = new Map();
+    currentStatuses.forEach(status => {
+      statusMap.set(status.exercise_id, status.status);
+    });
+    
     let newWeek = program.current_week + 1;
     let newCycle = program.current_cycle;
     
     // For 5/3/1, cycle through weeks 1-3, then deload (week 4)
-    // After week 4, advance to next cycle
+    // After week 4, advance to next cycle and adjust training maxes
     if (program.type === '531') {
       if (newWeek > 4) {
         newWeek = 1;
         newCycle += 1;
+        
+        // At the end of a cycle, adjust training maxes based on performance
+        const lifts = all(
+          'SELECT * FROM program_lifts WHERE program_id = ?',
+          [id]
+        );
+        
+        lifts.forEach(lift => {
+          // Get exercise to determine weight increment
+          const exercise = get('SELECT * FROM exercises WHERE id = ?', [lift.exercise_id]);
+          
+          if (exercise) {
+            let increment = 5; // Default: upper body
+            
+            // Determine increment based on exercise
+            const lowerBodyExercises = ['Barbell Squat', 'Barbell Deadlift', 'Power Clean'];
+            if (lowerBodyExercises.includes(exercise.name)) {
+              increment = 10;
+            }
+            
+            // Check if this lift was marked as failed during the cycle
+            const liftStatus = statusMap.get(lift.exercise_id);
+            let newTrainingMax;
+            
+            if (liftStatus === 'failed') {
+              // Deload: Decrease training max by the increment amount
+              newTrainingMax = lift.training_max - increment;
+              console.log(`Deloading ${exercise.name}: ${lift.training_max} -> ${newTrainingMax} lbs (failed)`);
+            } else {
+              // Progress normally: Increase training max
+              newTrainingMax = lift.training_max + increment;
+              console.log(`Progressing ${exercise.name}: ${lift.training_max} -> ${newTrainingMax} lbs`);
+            }
+            
+            // Ensure training max doesn't go below a reasonable minimum (45 lbs - empty bar)
+            if (newTrainingMax < 45) {
+              newTrainingMax = 45;
+            }
+            
+            this.updateLift(id, lift.exercise_id, newTrainingMax);
+          }
+        });
       }
     }
     
@@ -348,7 +400,7 @@ class Program {
       // Toggle between Workout A (cycle 1) and Workout B (cycle 2)
       newCycle = program.current_cycle === 1 ? 2 : 1;
       
-      // Increment weights for each lift
+      // Adjust weights for each lift based on status
       const lifts = all(
         'SELECT * FROM program_lifts WHERE program_id = ?',
         [id]
@@ -367,8 +419,26 @@ class Program {
             increment = 10;
           }
           
+          // Check if this lift was marked as failed
+          const liftStatus = statusMap.get(lift.exercise_id);
+          let newWeight;
+          
+          if (liftStatus === 'failed') {
+            // Deload: Decrease weight by the increment amount
+            newWeight = lift.training_max - increment;
+            console.log(`Deloading ${exercise.name}: ${lift.training_max} -> ${newWeight} lbs (failed)`);
+          } else {
+            // Progress normally: Increase weight
+            newWeight = lift.training_max + increment;
+            console.log(`Progressing ${exercise.name}: ${lift.training_max} -> ${newWeight} lbs`);
+          }
+          
+          // Ensure weight doesn't go below a reasonable minimum (45 lbs - empty bar)
+          if (newWeight < 45) {
+            newWeight = 45;
+          }
+          
           // Update the weight (stored in training_max for Starting Strength)
-          const newWeight = lift.training_max + increment;
           this.updateLift(id, lift.exercise_id, newWeight);
         }
       });

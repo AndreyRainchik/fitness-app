@@ -126,14 +126,34 @@ const CurrentWeek = () => {
   };
 
   const handleCompleteWeek = async () => {
-    if (!confirm('Mark this week as complete and advance to next week?')) {
+    // Check for failed lifts
+    const failedLifts = workout.lifts.filter(lift => lift.status === 'failed');
+    
+    let confirmMessage = 'Mark this week as complete and advance to next week?';
+    
+    if (failedLifts.length > 0) {
+      const liftNames = failedLifts.map(lift => lift.exercise_name).join(', ');
+      confirmMessage = `You have ${failedLifts.length} failed lift(s): ${liftNames}\n\n` +
+        `Their training max/weight will be DECREASED by the increment amount.\n\n` +
+        `Continue and advance to next week?`;
+    }
+    
+    if (!confirm(confirmMessage)) {
       return;
     }
 
     try {
       setAdvancing(true);
       await programsAPI.advanceWeek(workout.program_id);
-      setMessage({ type: 'success', text: 'Advanced to next week!' });
+      
+      if (failedLifts.length > 0) {
+        setMessage({ 
+          type: 'success', 
+          text: `Advanced to next week. Training max decreased for ${failedLifts.length} failed lift(s).` 
+        });
+      } else {
+        setMessage({ type: 'success', text: 'Advanced to next week!' });
+      }
       
       // Reload the workout
       if (programId) {
@@ -467,6 +487,26 @@ const CurrentWeek = () => {
 
         {/* Advance Week Button */}
         <div className="mb-6">
+          {/* Warning for failed lifts */}
+          {workout.lifts && workout.lifts.some(lift => lift.status === 'failed') && (
+            <div className="mb-4 bg-yellow-50 border border-yellow-300 rounded-lg p-4">
+              <div className="flex items-start gap-2">
+                <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-yellow-800 mb-1">
+                    ⚠️ Failed lifts detected
+                  </p>
+                  <p className="text-xs text-yellow-700">
+                    When you advance, training max will be <strong>decreased</strong> for: {' '}
+                    {workout.lifts.filter(l => l.status === 'failed').map(l => l.exercise_name).join(', ')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <button
             onClick={handleCompleteWeek}
             disabled={advancing}
