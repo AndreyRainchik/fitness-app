@@ -425,9 +425,27 @@ const CurrentWeek = () => {
     const templateSets = [];
     let setId = 1;
 
+    // Add warmup sets
+    if (lift.warmup_sets && lift.warmup_sets.length > 0) {
+      lift.warmup_sets.forEach((set, index) => {
+        const { weight } = getAdjustedWeightInfo(set.weight);
+        templateSets.push({
+          id: setId++,
+          exercise_id: lift.exercise_id,
+          exercise_name: lift.exercise_name,
+          set_number: index + 1,
+          weight: weight,
+          reps: set.reps,
+          rpe: null,
+          is_warmup: 1
+        });
+      });
+    }
+
     // For 5/3/1 programs
     if (workout.program_type === '531') {
       // Add main sets (5/3/1 sets) with adjusted weights
+      
       if (lift.main_sets) {
         lift.main_sets.forEach((set) => {
           const { weight } = getAdjustedWeightInfo(set.weight);
@@ -487,8 +505,10 @@ const CurrentWeek = () => {
     // Navigate to ActiveWorkout with template sets
     navigate('/workout/active', {
       state: {
-        templateSets,
-        workoutName: `${lift.exercise_name} - ${workout.program_type === '531' ? `Week ${workout.week}` : workout.workout_type}`
+        template: {
+          name: `${lift.exercise_name} - ${workout.program_type === '531' ? `Week ${workout.week}` : workout.workout_type}`,
+          sets: templateSets
+        }
       }
     });
   };
