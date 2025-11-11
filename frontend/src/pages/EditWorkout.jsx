@@ -479,78 +479,97 @@ function EditWorkout() {
                 {exercise.sets.length > 0 && (
                   <div className="mb-4">
                     <div className="grid grid-cols-12 gap-2 mb-2 text-sm font-medium text-gray-700">
-                      <div className="col-span-2">Set</div>
-                      <div className="col-span-3">Weight ({user?.units || 'lbs'})</div>
-                      <div className="col-span-3">Reps</div>
-                      <div className="col-span-3">RPE</div>
-                      <div className="col-span-1"></div>
+                        <div className="col-span-1"></div>
+                        <div className="col-span-1">Set</div>
+                        <div className="col-span-3">Weight ({user?.units || 'lbs'})</div>
+                        <div className="col-span-2">Reps</div>
+                        <div className="col-span-4">RPE</div>
                     </div>
 
                     {exercise.sets.map((set) => (
-                      <div key={set.id} className="grid grid-cols-12 gap-2 mb-2">
-                        <div className="col-span-2 flex items-center">
-                          <span className="text-gray-700">{set.setNumber}</span>
-                        </div>
+                        <div key={set.id} className="grid grid-cols-12 gap-2 mb-2">
+                            {/* Delete button - far left for safety */}
+                            <div className="col-span-1 flex items-center">
+                            <button
+                                onClick={() => handleRemoveSet(exercise.id, set.id)}
+                                className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors"
+                                title="Delete set"
+                                disabled={isSaving}
+                            >
+                                ✕
+                            </button>
+                            </div>
 
-                        <div className="col-span-3">
-                          <input
-                            type="number"
-                            value={set.weight}
-                            onChange={(e) => handleSetChange(exercise.id, set.id, 'weight', e.target.value)}
-                            className="w-full border rounded-md px-2 py-1"
-                          />
-                        </div>
+                            {/* Set number - reduced from 2 columns to 1 */}
+                            <div className="col-span-1 flex items-center justify-center">
+                            <span className="text-gray-700 font-medium">{set.setNumber}</span>
+                            </div>
 
-                        <div className="col-span-3">
-                          <input
-                            type="number"
-                            value={set.reps}
-                            onChange={(e) => handleSetChange(exercise.id, set.id, 'reps', e.target.value)}
-                            className="w-full border rounded-md px-2 py-1"
-                          />
-                        </div>
-
-                        <div className="col-span-3 flex items-center gap-2">
-                          <select
-                            value={set.rpe ?? ''}
-                            onChange={(e) => handleSetChange(exercise.id, set.id, 'rpe', e.target.value)}
-                            disabled={set.isWarmup}
-                            className="w-20 border rounded-md px-2 py-1 bg-white"
-                          >
-                            <option value="">--</option>
-                            {[...Array(11)].map((_, i) => (
-                              <option key={i} value={i}>
-                                {i}
-                              </option>
-                            ))}
-                          </select>
-
-                          <label className="flex items-center text-xs text-gray-600 gap-1">
+                            <div className="col-span-3">
                             <input
-                              type="checkbox"
-                              checked={!!set.isWarmup}
-                              onChange={(e) => {
-                                const checked = e.target.checked;
-                                handleSetChange(exercise.id, set.id, 'isWarmup', checked);
-                                if (checked) {
-                                  handleSetChange(exercise.id, set.id, 'rpe', null);
-                                }
-                              }}
+                                type="number"
+                                step="0.1"
+                                value={set.weight}
+                                onChange={(e) => handleSetChange(exercise.id, set.id, 'weight', e.target.value)}
+                                className="w-full border rounded-md px-2 py-1 text-sm"
+                                disabled={isSaving}
                             />
-                            Warm-up
-                          </label>
-                        </div>
+                            </div>
 
-                        <div className="col-span-1">
-                          <button
-                            onClick={() => handleRemoveSet(exercise.id, set.id)}
-                            className="text-sm text-red-600"
-                          >
-                            ✕
-                          </button>
+                            <div className="col-span-2">
+                            <input
+                                type="number"
+                                value={set.reps}
+                                onChange={(e) => handleSetChange(exercise.id, set.id, 'reps', e.target.value)}
+                                className="w-full border rounded-md px-2 py-1 text-sm"
+                                disabled={isSaving}
+                            />
+                            </div>
+
+                            {/* RPE + Warmup - increased from 3 columns to 4! */}
+                            <div className="col-span-4">
+                            <div className="flex items-center gap-2">
+                                {/* RPE dropdown */}
+                                <select
+                                value={set.rpe ?? ''}
+                                onChange={(e) => handleSetChange(exercise.id, set.id, 'rpe', e.target.value)}
+                                disabled={set.isWarmup || isSaving}
+                                className="w-16 sm:w-20 border rounded-md px-2 py-1 bg-white text-sm flex-shrink-0"
+                                >
+                                <option value="">--</option>
+                                {[...Array(11)].map((_, i) => (
+                                    <option key={i} value={i}>
+                                    {i}
+                                    </option>
+                                ))}
+                                </select>
+
+                                {/* Warm-up toggle - now has room for label even on mobile! */}
+                                <label 
+                                className="flex items-center text-xs text-gray-600 gap-1.5 cursor-pointer whitespace-nowrap" 
+                                title="Mark as warm-up set"
+                                >
+                                <input
+                                    type="checkbox"
+                                    checked={!!set.isWarmup}
+                                    onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    handleSetChange(exercise.id, set.id, 'isWarmup', checked);
+                                    if (checked) {
+                                        handleSetChange(exercise.id, set.id, 'rpe', null);
+                                    }
+                                    }}
+                                    disabled={isSaving}
+                                    className="rounded w-4 h-4"
+                                />
+                                {/* Show abbreviated on mobile, full text on desktop */}
+                                <span className="hidden sm:inline">Warm-up</span>
+                                <span className="sm:hidden">WU</span>
+                                </label>
+                            </div>
+                            </div>
                         </div>
-                      </div>
-                    ))}
+                        ))}
                   </div>
                 )}
 

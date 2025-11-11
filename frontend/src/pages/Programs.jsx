@@ -195,17 +195,17 @@ const Programs = () => {
 
   return (
     <Layout>
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Training Programs</h1>
-          <p className="mt-2 text-gray-600">Create and manage your strength training programs</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Training Programs</h1>
+          <p className="mt-2 text-sm sm:text-base text-gray-600">Create and manage your strength training programs</p>
         </div>
 
         {/* Message */}
         {message.text && (
           <div
-            className={`mb-6 p-4 rounded-lg ${
+            className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg text-sm ${
               message.type === 'success'
                 ? 'bg-green-50 text-green-800 border border-green-200'
                 : 'bg-red-50 text-red-800 border border-red-200'
@@ -219,7 +219,7 @@ const Programs = () => {
         {!showCreateForm && (
           <button
             onClick={() => setShowCreateForm(true)}
-            className="mb-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="mb-4 sm:mb-6 w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium text-sm min-h-[44px] sm:min-h-0"
           >
             + Create New Program
           </button>
@@ -227,10 +227,10 @@ const Programs = () => {
 
         {/* Create Form */}
         {showCreateForm && (
-          <div className="mb-8 bg-white border border-gray-200 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Create Training Program</h2>
+          <div className="mb-6 sm:mb-8 bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Create Training Program</h2>
             
-            <form onSubmit={handleCreateProgram} className="space-y-6">
+            <form onSubmit={handleCreateProgram} className="space-y-5 sm:space-y-6">
               {/* Program Type Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -243,18 +243,18 @@ const Programs = () => {
                       type="button"
                       onClick={() => type.available && setSelectedProgramType(type.id)}
                       disabled={!type.available}
-                      className={`relative p-4 border-2 rounded-lg text-left transition-all ${
+                      className={`relative p-3 sm:p-4 border-2 rounded-lg text-left transition-all min-h-[80px] ${
                         selectedProgramType === type.id
                           ? 'border-blue-500 bg-blue-50'
                           : type.available
-                          ? 'border-gray-200 hover:border-gray-300 bg-white'
+                          ? 'border-gray-200 hover:border-gray-300 active:border-gray-400 bg-white'
                           : 'border-gray-200 bg-gray-50 cursor-not-allowed'
                       }`}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <h3 className={`font-semibold ${
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className={`text-sm sm:text-base font-semibold ${
                               type.available ? 'text-gray-900' : 'text-gray-400'
                             }`}>
                               {type.name}
@@ -265,14 +265,14 @@ const Programs = () => {
                               </span>
                             )}
                           </div>
-                          <p className={`mt-1 text-sm ${
+                          <p className={`mt-1 text-xs sm:text-sm ${
                             type.available ? 'text-gray-600' : 'text-gray-400'
                           }`}>
                             {type.description}
                           </p>
                         </div>
                         {selectedProgramType === type.id && type.available && (
-                          <div className="ml-3 flex-shrink-0">
+                          <div className="flex-shrink-0">
                             <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
                               <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -295,7 +295,7 @@ const Programs = () => {
                   type="text"
                   value={programName}
                   onChange={(e) => setProgramName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base min-h-[44px] sm:min-h-0"
                   placeholder={`e.g., ${PROGRAM_TYPES[selectedProgramType]?.shortName} - Cycle 1`}
                   required
                 />
@@ -307,7 +307,7 @@ const Programs = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Main Lifts (select up to 4)
                   </label>
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {selectedLifts.map((lift, index) => (
                       <div key={index} className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                         <div className="flex-1">
@@ -317,7 +317,7 @@ const Programs = () => {
                           <select
                             value={lift.exercise_id}
                             onChange={(e) => handleLiftChange(index, 'exercise_id', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           >
                             <option value="">Select exercise...</option>
                             <optgroup label="Main Lifts (Recommended)">
@@ -343,14 +343,14 @@ const Programs = () => {
                             placeholder="Training Max"
                             step="2.5"
                             min="0"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           />
                         </div>
                       </div>
                     ))}
                   </div>
                   <p className="mt-3 text-xs text-gray-500">
-                    Training Max = 90% of your 1RM (one-rep max)
+                    💡 Training Max = 90% of your 1RM (one-rep max)
                   </p>
                 </div>
               )}
@@ -364,7 +364,7 @@ const Programs = () => {
                   <p className="text-xs text-gray-600 mb-4">
                     Enter your current working weight for each lift. The program will auto-progress each session.
                   </p>
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {/* Squat */}
                     <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                       <div className="flex-1">
@@ -374,7 +374,7 @@ const Programs = () => {
                         <select
                           value={selectedLifts[0]?.exercise_id || ''}
                           onChange={(e) => handleLiftChange(0, 'exercise_id', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           required
                         >
                           <option value="">Select Squat...</option>
@@ -394,7 +394,7 @@ const Programs = () => {
                           placeholder="0"
                           step="5"
                           min="0"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           required
                         />
                       </div>
@@ -409,7 +409,7 @@ const Programs = () => {
                         <select
                           value={selectedLifts[1]?.exercise_id || ''}
                           onChange={(e) => handleLiftChange(1, 'exercise_id', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           required
                         >
                           <option value="">Select Bench...</option>
@@ -429,7 +429,7 @@ const Programs = () => {
                           placeholder="0"
                           step="5"
                           min="0"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           required
                         />
                       </div>
@@ -444,7 +444,7 @@ const Programs = () => {
                         <select
                           value={selectedLifts[2]?.exercise_id || ''}
                           onChange={(e) => handleLiftChange(2, 'exercise_id', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           required
                         >
                           <option value="">Select OHP...</option>
@@ -464,7 +464,7 @@ const Programs = () => {
                           placeholder="0"
                           step="5"
                           min="0"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           required
                         />
                       </div>
@@ -479,7 +479,7 @@ const Programs = () => {
                         <select
                           value={selectedLifts[3]?.exercise_id || ''}
                           onChange={(e) => handleLiftChange(3, 'exercise_id', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           required
                         >
                           <option value="">Select Deadlift...</option>
@@ -499,7 +499,7 @@ const Programs = () => {
                           placeholder="0"
                           step="5"
                           min="0"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           required
                         />
                       </div>
@@ -521,11 +521,11 @@ const Programs = () => {
               )}
 
               {/* Actions */}
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <button
                   type="submit"
                   disabled={!PROGRAM_TYPES[selectedProgramType]?.available}
-                  className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm min-h-[44px] sm:min-h-0"
                 >
                   Create Program
                 </button>
@@ -535,7 +535,7 @@ const Programs = () => {
                     setShowCreateForm(false);
                     resetForm();
                   }}
-                  className="w-full sm:w-auto px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  className="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 active:bg-gray-400 transition-colors font-medium text-sm min-h-[44px] sm:min-h-0"
                 >
                   Cancel
                 </button>
@@ -547,35 +547,36 @@ const Programs = () => {
         {/* Programs List */}
         {programs.length === 0 ? (
           <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-            <p className="text-gray-600">No programs yet. Create your first training program!</p>
+            <p className="text-sm sm:text-base text-gray-600">No programs yet. Create your first training program!</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {programs.map(program => (
               <div
                 key={program.id}
-                className={`bg-white border rounded-lg p-6 ${
+                className={`bg-white border rounded-lg p-4 sm:p-6 ${
                   program.is_active ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'
                 }`}
               >
-                <div className="flex items-start justify-between flex-col sm:flex-row gap-4">
-                  <div className="flex-1 w-full">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <h3 className="text-lg font-semibold text-gray-900">{program.name}</h3>
+                <div className="flex flex-col gap-4">
+                  {/* Program Info */}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">{program.name}</h3>
                       {getProgramTypeBadge(program.type)}
-                      {program.is_active && (
+                      {program.is_active === 1 && (
                         <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
                           ACTIVE
                         </span>
                       )}
                     </div>
-                    <p className="mt-1 text-sm text-gray-600">
+                    <p className="text-xs sm:text-sm text-gray-600 mb-3">
                       Week {program.current_week} · Cycle {program.current_cycle}
                     </p>
                     
                     {/* Lifts */}
                     {program.lifts && program.lifts.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2">
                         {program.lifts.map((lift, idx) => (
                           <span
                             key={idx}
@@ -589,24 +590,24 @@ const Programs = () => {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2 flex-shrink-0 w-full sm:w-auto">
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     {!program.is_active && (
                       <button
                         onClick={() => handleSetActive(program.id)}
-                        className="flex-1 sm:flex-none px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors whitespace-nowrap"
+                        className="px-4 py-2.5 sm:py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 active:bg-blue-300 transition-colors font-medium whitespace-nowrap min-h-[44px] sm:min-h-0"
                       >
                         Set Active
                       </button>
                     )}
                     <Link
                       to={`/programs/${program.id}`}
-                      className="flex-1 sm:flex-none px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors text-center"
+                      className="flex items-center justify-center px-4 py-2.5 sm:py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 active:bg-gray-300 transition-colors font-medium min-h-[44px] sm:min-h-0"
                     >
-                      View
+                      View Details
                     </Link>
                     <button
                       onClick={() => handleDeleteProgram(program.id)}
-                      className="flex-1 sm:flex-none px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors whitespace-nowrap"
+                      className="px-4 py-2.5 sm:py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 active:bg-red-300 transition-colors font-medium whitespace-nowrap min-h-[44px] sm:min-h-0"
                     >
                       Delete
                     </button>
