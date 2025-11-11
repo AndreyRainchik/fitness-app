@@ -188,6 +188,139 @@ class Program {
     return { success: true };
   }
   
+  // =====================================================
+  // NEW: LIFT STATUS TRACKING METHODS
+  // =====================================================
+  
+  /**
+   * Set status for a lift in a specific week/cycle
+   * @param {number} program_id - Program ID
+   * @param {number} exercise_id - Exercise ID
+   * @param {number} week - Week number
+   * @param {number} cycle - Cycle number
+   * @param {string} status - Status: 'completed', 'failed', or 'skipped'
+   * @param {string} notes - Optional notes
+   * @returns {Object} The created/updated status record
+   */
+  static setLiftStatus(program_id, exercise_id, week, cycle, status, notes = null) {
+    // Validate status
+    const validStatuses = ['completed', 'failed', 'skipped'];
+    if (!validStatuses.includes(status)) {
+      throw new Error(`Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
+    }
+    
+    // Use UPSERT (INSERT OR REPLACE) to handle both new and existing records
+    run(
+      `INSERT INTO program_lift_status (program_id, exercise_id, week, cycle, status, notes, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(program_id, exercise_id, week, cycle)
+       DO UPDATE SET 
+         status = excluded.status,
+         notes = excluded.notes,
+         updated_at = CURRENT_TIMESTAMP`,
+      [program_id, exercise_id, week, cycle, status, notes]
+    );
+    
+    return get(
+      `SELECT * FROM program_lift_status 
+       WHERE program_id = ? AND exercise_id = ? AND week = ? AND cycle = ?`,
+      [program_id, exercise_id, week, cycle]
+    );
+  }
+  
+  /**
+   * Get status for a specific lift in a specific week/cycle
+   * @param {number} program_id - Program ID
+   * @param {number} exercise_id - Exercise ID
+   * @param {number} week - Week number
+   * @param {number} cycle - Cycle number
+   * @returns {Object|null} Status record or null if not set
+   */
+  static getLiftStatus(program_id, exercise_id, week, cycle) {
+    return get(
+      `SELECT * FROM program_lift_status 
+       WHERE program_id = ? AND exercise_id = ? AND week = ? AND cycle = ?`,
+      [program_id, exercise_id, week, cycle]
+    );
+  }
+  
+  /**
+   * Get all statuses for a program's current week/cycle
+   * @param {number} program_id - Program ID
+   * @returns {Array} Array of status records with exercise info
+   */
+  static getCurrentWeekStatuses(program_id) {
+    const program = this.findById(program_id);
+    if (!program) {
+      return [];
+    }
+    
+    return all(
+      `SELECT pls.*, e.name as exercise_name
+       FROM program_lift_status pls
+       JOIN exercises e ON pls.exercise_id = e.id
+       WHERE pls.program_id = ? AND pls.week = ? AND pls.cycle = ?`,
+      [program_id, program.current_week, program.current_cycle]
+    );
+  }
+  
+  /**
+   * Get all statuses for a program (all weeks/cycles)
+   * @param {number} program_id - Program ID
+   * @returns {Array} Array of all status records
+   */
+  static getAllProgramStatuses(program_id) {
+    return all(
+      `SELECT pls.*, e.name as exercise_name
+       FROM program_lift_status pls
+       JOIN exercises e ON pls.exercise_id = e.id
+       WHERE pls.program_id = ?
+       ORDER BY pls.cycle, pls.week, e.name`,
+      [program_id]
+    );
+  }
+  
+  /**
+   * Clear status for a lift in a specific week/cycle
+   * @param {number} program_id - Program ID
+   * @param {number} exercise_id - Exercise ID
+   * @param {number} week - Week number
+   * @param {number} cycle - Cycle number
+   * @returns {Object} Success indicator
+   */
+  static clearLiftStatus(program_id, exercise_id, week, cycle) {
+    run(
+      `DELETE FROM program_lift_status 
+       WHERE program_id = ? AND exercise_id = ? AND week = ? AND cycle = ?`,
+      [program_id, exercise_id, week, cycle]
+    );
+    return { success: true };
+  }
+  
+  /**
+   * Clear all statuses for a program's current week
+   * @param {number} program_id - Program ID
+   * @returns {Object} Success indicator with count
+   */
+  static clearCurrentWeekStatuses(program_id) {
+    const program = this.findById(program_id);
+    if (!program) {
+      return { success: false, error: 'Program not found' };
+    }
+    
+    const result = run(
+      `DELETE FROM program_lift_status 
+       WHERE program_id = ? AND week = ? AND cycle = ?`,
+      [program_id, program.current_week, program.current_cycle]
+    );
+    
+    return { success: true, deleted_count: result.changes };
+  }
+  
+  // =====================================================
+  // END: LIFT STATUS TRACKING METHODS
+  // =====================================================
+  
   /**
    * Advance to next session/week
    */
@@ -368,14 +501,26 @@ class Program {
   
   /**
    * Get the current week's workout for a program
+   * UPDATED: Now includes status for each lift
    * @param {number} id - Program ID
-   * @returns {Object} Complete workout with all lifts and their sets
+   * @returns {Object} Complete workout with all lifts, their sets, and status
    */
   static getCurrentWeekWorkout(id) {
     const program = this.getWithLifts(id);
     if (!program) {
       return null;
     }
+    
+    // Get all statuses for current week/cycle
+    const statuses = this.getCurrentWeekStatuses(id);
+    const statusMap = new Map();
+    statuses.forEach(status => {
+      statusMap.set(status.exercise_id, {
+        status: status.status,
+        notes: status.notes,
+        updated_at: status.updated_at
+      });
+    });
     
     const workout = {
       program_id: program.id,
@@ -392,12 +537,18 @@ class Program {
         const mainSets = this.calculate531Week(program.current_week, lift.training_max);
         const bbbSets = this.generateBBBSets(lift.training_max, 0.50);
         
+        // Add status to lift
+        const liftStatus = statusMap.get(lift.exercise_id);
+        
         workout.lifts.push({
           exercise_id: lift.exercise_id,
           exercise_name: lift.exercise_name,
           training_max: lift.training_max,
           main_sets: mainSets,
-          accessory_sets: bbbSets
+          accessory_sets: bbbSets,
+          status: liftStatus ? liftStatus.status : null,
+          status_notes: liftStatus ? liftStatus.notes : null,
+          status_updated_at: liftStatus ? liftStatus.updated_at : null
         });
       });
     }
@@ -422,11 +573,17 @@ class Program {
         // For Starting Strength, training_max is actually current working weight
         const sets = this.generateStartingStrengthSets(lift.exercise_name, lift.training_max);
         
+        // Add status to lift
+        const liftStatus = statusMap.get(lift.exercise_id);
+        
         workout.lifts.push({
           exercise_id: lift.exercise_id,
           exercise_name: lift.exercise_name,
           current_weight: lift.training_max, // Using training_max field to store current weight
-          sets: sets
+          sets: sets,
+          status: liftStatus ? liftStatus.status : null,
+          status_notes: liftStatus ? liftStatus.notes : null,
+          status_updated_at: liftStatus ? liftStatus.updated_at : null
         });
       });
       

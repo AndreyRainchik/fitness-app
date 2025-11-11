@@ -342,4 +342,183 @@ router.delete('/:id/lifts/:exercise_id', authenticateToken, async (req, res) => 
   }
 });
 
+/**
+ * @route   PUT /api/programs/:id/lifts/:exercise_id/status
+ * @desc    Set or update status for a lift in the current week
+ * @access  Private
+ * @body    { status: 'completed'|'failed'|'skipped', notes?: string }
+ */
+router.put('/:id/lifts/:exercise_id/status', authenticateToken, async (req, res) => {
+  try {
+    const program = Program.findById(req.params.id);
+    
+    if (!program) {
+      return res.status(404).json({ error: 'Program not found' });
+    }
+    
+    // Verify ownership
+    if (program.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const { status, notes } = req.body;
+    
+    // Validate status
+    const validStatuses = ['completed', 'failed', 'skipped'];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` 
+      });
+    }
+    
+    // Verify exercise exists in program
+    const lift = Program.getLift(req.params.id, req.params.exercise_id);
+    if (!lift) {
+      return res.status(404).json({ error: 'Exercise not found in program' });
+    }
+    
+    // Set the status for current week/cycle
+    const statusRecord = Program.setLiftStatus(
+      req.params.id,
+      req.params.exercise_id,
+      program.current_week,
+      program.current_cycle,
+      status,
+      notes || null
+    );
+    
+    res.json(statusRecord);
+  } catch (error) {
+    console.error('Error setting lift status:', error);
+    res.status(500).json({ error: 'Failed to set lift status' });
+  }
+});
+
+/**
+ * @route   DELETE /api/programs/:id/lifts/:exercise_id/status
+ * @desc    Clear status for a lift in the current week
+ * @access  Private
+ */
+router.delete('/:id/lifts/:exercise_id/status', authenticateToken, async (req, res) => {
+  try {
+    const program = Program.findById(req.params.id);
+    
+    if (!program) {
+      return res.status(404).json({ error: 'Program not found' });
+    }
+    
+    // Verify ownership
+    if (program.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Clear the status for current week/cycle
+    const result = Program.clearLiftStatus(
+      req.params.id,
+      req.params.exercise_id,
+      program.current_week,
+      program.current_cycle
+    );
+    
+    res.json({ success: true, message: 'Status cleared successfully' });
+  } catch (error) {
+    console.error('Error clearing lift status:', error);
+    res.status(500).json({ error: 'Failed to clear lift status' });
+  }
+});
+
+/**
+ * @route   GET /api/programs/:id/status
+ * @desc    Get all lift statuses for the current week
+ * @access  Private
+ */
+router.get('/:id/status', authenticateToken, async (req, res) => {
+  try {
+    const program = Program.findById(req.params.id);
+    
+    if (!program) {
+      return res.status(404).json({ error: 'Program not found' });
+    }
+    
+    // Verify ownership
+    if (program.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const statuses = Program.getCurrentWeekStatuses(req.params.id);
+    
+    res.json({
+      program_id: program.id,
+      week: program.current_week,
+      cycle: program.current_cycle,
+      statuses: statuses
+    });
+  } catch (error) {
+    console.error('Error fetching lift statuses:', error);
+    res.status(500).json({ error: 'Failed to fetch lift statuses' });
+  }
+});
+
+/**
+ * @route   GET /api/programs/:id/status/all
+ * @desc    Get all lift statuses for all weeks (full history)
+ * @access  Private
+ */
+router.get('/:id/status/all', authenticateToken, async (req, res) => {
+  try {
+    const program = Program.findById(req.params.id);
+    
+    if (!program) {
+      return res.status(404).json({ error: 'Program not found' });
+    }
+    
+    // Verify ownership
+    if (program.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const statuses = Program.getAllProgramStatuses(req.params.id);
+    
+    res.json({
+      program_id: program.id,
+      total_records: statuses.length,
+      statuses: statuses
+    });
+  } catch (error) {
+    console.error('Error fetching all lift statuses:', error);
+    res.status(500).json({ error: 'Failed to fetch all lift statuses' });
+  }
+});
+
+/**
+ * @route   DELETE /api/programs/:id/status
+ * @desc    Clear all lift statuses for the current week
+ * @access  Private
+ */
+router.delete('/:id/status', authenticateToken, async (req, res) => {
+  try {
+    const program = Program.findById(req.params.id);
+    
+    if (!program) {
+      return res.status(404).json({ error: 'Program not found' });
+    }
+    
+    // Verify ownership
+    if (program.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const result = Program.clearCurrentWeekStatuses(req.params.id);
+    
+    res.json({ 
+      success: true, 
+      message: 'All statuses cleared for current week',
+      deleted_count: result.deleted_count
+    });
+  } catch (error) {
+    console.error('Error clearing week statuses:', error);
+    res.status(500).json({ error: 'Failed to clear week statuses' });
+  }
+});
+
 export default router;

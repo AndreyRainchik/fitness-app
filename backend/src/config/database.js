@@ -199,6 +199,23 @@ function createTables() {
       UNIQUE(user_id, name) -- Each user's preset names must be unique
     )
   `);
+
+  // Program lift status table
+  db.run(`
+        CREATE TABLE IF NOT EXISTS program_lift_status (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          program_id INTEGER NOT NULL,
+          exercise_id INTEGER NOT NULL,
+          week INTEGER NOT NULL,
+          cycle INTEGER NOT NULL,
+          status TEXT CHECK(status IN ('completed', 'failed', 'skipped')) NOT NULL,
+          notes TEXT,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE,
+          FOREIGN KEY (exercise_id) REFERENCES exercises(id),
+          UNIQUE(program_id, exercise_id, week, cycle)
+        )
+  `);
   
   // Create indexes for better query performance
   db.run('CREATE INDEX IF NOT EXISTS idx_workouts_user_date ON workouts(user_id, date)');
@@ -209,6 +226,8 @@ function createTables() {
   db.run('CREATE INDEX IF NOT EXISTS idx_template_sets_template ON template_sets(template_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_plate_presets_user_id ON plate_inventory_presets(user_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_plate_presets_active ON plate_inventory_presets(user_id, is_active)');
+  db.run(`CREATE INDEX IF NOT EXISTS idx_program_lift_status_program ON program_lift_status(program_id)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_program_lift_status_week_cycle ON program_lift_status(program_id, week, cycle)`);
   
   console.log('✅ Tables created successfully');
 }

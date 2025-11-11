@@ -584,6 +584,57 @@ export const programsAPI = {
       method: 'DELETE',
     });
   },
+
+    /**
+   * Set or update status for a lift in the current week
+   * @param {number} programId - Program ID
+   * @param {number} exerciseId - Exercise ID
+   * @param {string} status - Status: 'completed', 'failed', or 'skipped'
+   * @param {string} notes - Optional notes
+   */
+  setLiftStatus: async (programId, exerciseId, status, notes = null) => {
+    return await apiCall(`/programs/${programId}/lifts/${exerciseId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, notes }),
+    });
+  },
+
+  /**
+   * Clear status for a lift in the current week
+   * @param {number} programId - Program ID
+   * @param {number} exerciseId - Exercise ID
+   */
+  clearLiftStatus: async (programId, exerciseId) => {
+    return await apiCall(`/programs/${programId}/lifts/${exerciseId}/status`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Get all lift statuses for the current week
+   * @param {number} programId - Program ID
+   */
+  getCurrentWeekStatuses: async (programId) => {
+    return await apiCall(`/programs/${programId}/status`);
+  },
+
+  /**
+   * Get all lift statuses for all weeks (full history)
+   * @param {number} programId - Program ID
+   */
+  getAllStatuses: async (programId) => {
+    return await apiCall(`/programs/${programId}/status/all`);
+  },
+
+  /**
+   * Clear all statuses for the current week
+   * @param {number} programId - Program ID
+   */
+  clearCurrentWeekStatuses: async (programId) => {
+    return await apiCall(`/programs/${programId}/status`, {
+      method: 'DELETE',
+    });
+  },
 };
 
 /**

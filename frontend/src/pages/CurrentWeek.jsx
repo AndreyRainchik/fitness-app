@@ -12,6 +12,7 @@ const CurrentWeek = () => {
   const [loading, setLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [updatingStatus, setUpdatingStatus] = useState(new Set()); // Track which exercises are being updated
 
   // Collect all weights from workout for batch fetching
   const allWeights = useMemo(() => {
@@ -149,6 +150,180 @@ const CurrentWeek = () => {
   };
 
   /**
+   * Handle setting lift status (completed, failed, or skipped)
+   */
+  const handleSetStatus = async (exerciseId, status) => {
+    try {
+      // Add to updating set
+      setUpdatingStatus(prev => new Set(prev).add(exerciseId));
+      
+      await programsAPI.setLiftStatus(workout.program_id, exerciseId, status);
+      
+      // Reload workout to get updated status
+      if (programId) {
+        await loadCurrentWeek();
+      } else {
+        await loadActiveProgram();
+      }
+      
+      // Show success message briefly
+      const statusText = status === 'completed' ? 'completed' : status === 'failed' ? 'failed' : 'skipped';
+      setMessage({ type: 'success', text: `Marked as ${statusText}` });
+      setTimeout(() => setMessage({ type: '', text: '' }), 2000);
+    } catch (error) {
+      console.error('Error setting lift status:', error);
+      setMessage({ type: 'error', text: 'Failed to update status' });
+    } finally {
+      // Remove from updating set
+      setUpdatingStatus(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(exerciseId);
+        return newSet;
+      });
+    }
+  };
+
+  /**
+   * Handle clearing lift status
+   */
+  const handleClearStatus = async (exerciseId) => {
+    try {
+      setUpdatingStatus(prev => new Set(prev).add(exerciseId));
+      
+      await programsAPI.clearLiftStatus(workout.program_id, exerciseId);
+      
+      // Reload workout to get updated status
+      if (programId) {
+        await loadCurrentWeek();
+      } else {
+        await loadActiveProgram();
+      }
+      
+      setMessage({ type: 'success', text: 'Status cleared' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 2000);
+    } catch (error) {
+      console.error('Error clearing lift status:', error);
+      setMessage({ type: 'error', text: 'Failed to clear status' });
+    } finally {
+      setUpdatingStatus(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(exerciseId);
+        return newSet;
+      });
+    }
+  };
+
+  /**
+   * Get border color class based on status
+   */
+  const getStatusBorderClass = (status) => {
+    if (status === 'completed') return 'border-green-500 border-2';
+    if (status === 'failed') return 'border-red-500 border-2';
+    if (status === 'skipped') return 'border-yellow-500 border-2';
+    return 'border-gray-200';
+  };
+
+  /**
+   * Get background color class based on status
+   */
+  const getStatusBgClass = (status) => {
+    if (status === 'completed') return 'bg-green-50';
+    if (status === 'failed') return 'bg-red-50';
+    if (status === 'skipped') return 'bg-yellow-50';
+    return 'bg-gray-50';
+  };
+
+  /**
+   * Status indicator component
+   */
+  const StatusIndicator = ({ status }) => {
+    if (!status) return null;
+
+    if (status === 'completed') {
+      return (
+        <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+          Completed
+        </span>
+      );
+    }
+
+    if (status === 'failed') {
+      return (
+        <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full">
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+          Failed
+        </span>
+      );
+    }
+
+    if (status === 'skipped') {
+      return (
+        <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full">
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
+          </svg>
+          Skipped
+        </span>
+      );
+    }
+
+    return null;
+  };
+
+  /**
+   * Status control buttons component
+   */
+  const StatusControls = ({ exerciseId, currentStatus }) => {
+    const isUpdating = updatingStatus.has(exerciseId);
+
+    return (
+      <div className="flex flex-wrap gap-2 mt-3">
+        {/* Mark Completed Button */}
+        <button
+          onClick={() => handleSetStatus(exerciseId, 'completed')}
+          disabled={isUpdating || currentStatus === 'completed'}
+          className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            currentStatus === 'completed'
+              ? 'bg-green-600 text-white cursor-default'
+              : 'bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed'
+          }`}
+        >
+          {isUpdating ? 'Updating...' : currentStatus === 'completed' ? '✓ Completed' : 'Mark Complete'}
+        </button>
+
+        {/* Mark Failed Button */}
+        <button
+          onClick={() => handleSetStatus(exerciseId, 'failed')}
+          disabled={isUpdating || currentStatus === 'failed'}
+          className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            currentStatus === 'failed'
+              ? 'bg-red-600 text-white cursor-default'
+              : 'bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed'
+          }`}
+        >
+          {isUpdating ? 'Updating...' : currentStatus === 'failed' ? '✗ Failed' : 'Mark Failed'}
+        </button>
+
+        {/* Clear Status Button (only show if status exists) */}
+        {currentStatus && (
+          <button
+            onClick={() => handleClearStatus(exerciseId)}
+            disabled={isUpdating}
+            className="flex-1 sm:flex-none px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isUpdating ? 'Updating...' : 'Clear'}
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  /**
    * Start a workout for a specific lift
    * Converts the lift's sets into a template format and navigates to ActiveWorkout
    * Uses adjusted weights based on plate availability
@@ -181,13 +356,14 @@ const CurrentWeek = () => {
         const bbbSet = lift.accessory_sets[0];
         const { weight } = getAdjustedWeightInfo(bbbSet.weight);
         
-        for (let i = 1; i <= 5; i++) {
+        // Add 5 sets of BBB
+        for (let i = 0; i < 5; i++) {
           templateSets.push({
             id: setId++,
             exercise_id: lift.exercise_id,
             exercise_name: lift.exercise_name,
-            set_number: lift.main_sets.length + i,
-            weight: weight,
+            set_number: lift.main_sets.length + i + 1,
+            weight: weight, // Use adjusted weight
             reps: bbbSet.reps,
             rpe: null,
             is_warmup: 0
@@ -195,11 +371,10 @@ const CurrentWeek = () => {
         }
       }
     }
-
+    
     // For Starting Strength programs
-    if (workout.program_type === 'starting_strength') {
-      // Add working sets with adjusted weights
-      if (lift.sets) {
+    else if (workout.program_type === 'starting_strength') {
+      if (lift.sets && lift.sets.length > 0) {
         const { weight } = getAdjustedWeightInfo(lift.sets[0].weight);
         
         lift.sets.forEach((set) => {
@@ -208,7 +383,7 @@ const CurrentWeek = () => {
             exercise_id: lift.exercise_id,
             exercise_name: lift.exercise_name,
             set_number: set.set_number,
-            weight: weight,
+            weight: weight, // Use adjusted weight
             reps: set.reps,
             rpe: null,
             is_warmup: 0
@@ -217,50 +392,43 @@ const CurrentWeek = () => {
       }
     }
 
-    // Create template object
-    const template = {
-      name: workout.program_type === '531' 
-        ? `${lift.exercise_name} - Week ${workout.week}`
-        : `${lift.exercise_name} - ${workout.workout_type}`,
-      sets: templateSets
-    };
-
-    // Navigate to ActiveWorkout with pre-populated data
-    navigate('/workout/active', { state: { template } });
-  };
-
-  const getWeekName = (week) => {
-    const names = {
-      1: '5/5/5+',
-      2: '3/3/3+',
-      3: '5/3/1+',
-      4: 'Deload'
-    };
-    return names[week] || `Week ${week}`;
+    // Navigate to active workout with pre-populated sets
+    navigate('/workout/active', {
+      state: {
+        fromProgram: true,
+        programId: workout.program_id,
+        sets: templateSets
+      }
+    });
   };
 
   if (loading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="flex justify-center items-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading workout...</p>
+          </div>
         </div>
       </Layout>
     );
   }
 
+  // Helper function to format program type for display
+  const formatProgramType = (type) => {
+    if (type === '531') return '5/3/1';
+    if (type === 'starting_strength') return 'Starting Strength';
+    if (type === 'custom') return 'Custom';
+    return type;
+  };
+
   if (!workout) {
     return (
       <Layout>
-        <div className="max-w-5xl mx-auto px-4 py-8">
-          <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-            <p className="text-gray-600 mb-4">No active program found</p>
-            <button
-              onClick={() => navigate('/programs')}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Go to Programs
-            </button>
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p className="text-yellow-800">No workout found. Please create a program first.</p>
           </div>
         </div>
       </Layout>
@@ -269,58 +437,48 @@ const CurrentWeek = () => {
 
   return (
     <Layout>
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{workout.program_name}</h1>
-              <p className="mt-2 text-sm sm:text-base text-gray-600">
-                {workout.program_type === '531' && (
-                  <>Week {workout.week} ({getWeekName(workout.week)}) · Cycle {workout.cycle}</>
-                )}
-                {workout.program_type === 'starting_strength' && (
-                  <>{workout.workout_type} · Session {workout.session_number}</>
-                )}
-              </p>
-            </div>
-            <button
-              onClick={handleCompleteWeek}
-              disabled={advancing}
-              className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-            >
-              {advancing ? 'Advancing...' : workout.program_type === 'starting_strength' ? 'Complete Session' : 'Complete Week'}
-            </button>
-          </div>
-        </div>
-
-        {/* Message */}
+      <div className="max-w-4xl mx-auto px-4 py-4 sm:py-8">
+        {/* Messages */}
         {message.text && (
-          <div
-            className={`mb-6 p-4 rounded-lg ${
-              message.type === 'success'
-                ? 'bg-green-50 text-green-800 border border-green-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
-            }`}
-          >
+          <div className={`mb-4 p-4 rounded-lg ${
+            message.type === 'error' ? 'bg-red-50 border border-red-200 text-red-800' :
+            message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
+            'bg-blue-50 border border-blue-200 text-blue-800'
+          }`}>
             {message.text}
           </div>
         )}
 
-        {/* Week Info */}
-        {workout.program_type === '531' && workout.week === 4 && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-amber-800 font-medium">
-              🔄 Deload Week - Recovery and preparation for next cycle
-            </p>
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+            {workout.program_name}
+          </h1>
+          <div className="flex flex-wrap items-center gap-3 text-sm sm:text-base text-gray-600">
+            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-medium text-sm">
+              {formatProgramType(workout.program_type)}
+            </span>
+            <span className="font-semibold">
+              {workout.program_type === '531' ? `Week ${workout.week} · Cycle ${workout.cycle}` : ''}
+              {workout.program_type === 'starting_strength' ? `Session ${workout.session_number} · ${workout.workout_type}` : ''}
+            </span>
           </div>
-        )}
-        
+        </div>
+
+        {/* Advance Week Button */}
+        <div className="mb-6">
+          <button
+            onClick={handleCompleteWeek}
+            disabled={advancing}
+            className="w-full sm:w-auto px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {advancing ? 'Advancing...' : 'Complete Week & Advance'}
+          </button>
+        </div>
+
+        {/* Starting Strength Auto-Progression Notice */}
         {workout.program_type === 'starting_strength' && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-blue-800 font-medium">
-              💪 {workout.workout_type} - Linear Progression
-            </p>
+          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-700 mt-1">
               Weights will automatically increase after you complete this session
             </p>
@@ -330,24 +488,36 @@ const CurrentWeek = () => {
         {/* Lifts */}
         <div className="space-y-6">
           {workout.lifts && workout.lifts.map((lift, liftIndex) => (
-            <div key={liftIndex} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div 
+              key={liftIndex} 
+              className={`bg-white border rounded-lg overflow-hidden transition-all ${getStatusBorderClass(lift.status)}`}
+            >
               {/* Lift Header */}
-              <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{lift.exercise_name}</h2>
-                    <p className="text-sm text-gray-600">
-                      {workout.program_type === '531' && `Training Max: ${lift.training_max} lbs`}
-                      {workout.program_type === 'starting_strength' && `Current Weight: ${lift.current_weight} lbs`}
-                    </p>
+              <div className={`px-4 sm:px-6 py-4 border-b border-gray-200 ${getStatusBgClass(lift.status)}`}>
+                <div className="flex flex-col gap-3">
+                  {/* Exercise Name and Status */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{lift.exercise_name}</h2>
+                      <StatusIndicator status={lift.status} />
+                    </div>
+                    {/* Start Workout Button */}
+                    <button
+                      onClick={() => handleStartWorkout(lift)}
+                      className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium whitespace-nowrap"
+                    >
+                      Start Workout
+                    </button>
                   </div>
-                  {/* Start Workout Button */}
-                  <button
-                    onClick={() => handleStartWorkout(lift)}
-                    className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium whitespace-nowrap"
-                  >
-                    Start Workout
-                  </button>
+                  
+                  {/* Training Max / Current Weight */}
+                  <p className="text-sm text-gray-600">
+                    {workout.program_type === '531' && `Training Max: ${lift.training_max} lbs`}
+                    {workout.program_type === 'starting_strength' && `Current Weight: ${lift.current_weight} lbs`}
+                  </p>
+
+                  {/* Status Controls */}
+                  <StatusControls exerciseId={lift.exercise_id} currentStatus={lift.status} />
                 </div>
               </div>
 
