@@ -415,33 +415,35 @@ function ActiveWorkout() {
   return (
     <Layout>
       {/* Sticky header with timer and controls */}
-      <div className="sticky top-0 z-40 bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg mb-6 -mx-4 px-4 py-6 md:-mx-6 md:px-6">
+      <div className="sticky top-0 z-40 bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg mb-6 -mx-4 px-4 py-4 md:py-6 md:-mx-6 md:px-6">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-3">
-              <h1 className="text-2xl md:text-3xl font-bold text-white">Active Workout</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">Active Workout</h1>
               {location.state?.fromTemplate && (
-                <span className="px-3 py-1 bg-white bg-opacity-20 text-white text-sm font-medium rounded-full">
-                  📋 From Template
+                <span className="px-2 py-0.5 sm:px-3 sm:py-1 bg-white bg-opacity-20 text-white text-xs sm:text-sm font-medium rounded-full whitespace-nowrap">
+                  📋 Template
                 </span>
               )}
             </div>
             <div className="flex space-x-2">
               <button
                 onClick={handlePauseResume}
-                className={`px-4 py-2 rounded-lg font-semibold transition duration-200 ${
+                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg font-semibold transition duration-200 text-sm sm:text-base ${
                   isTimerRunning
                     ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
                     : 'bg-green-500 hover:bg-green-600 text-white'
                 }`}
               >
-                {isTimerRunning ? '⏸️ Pause' : '▶️ Resume'}
+                <span className="sm:hidden">{isTimerRunning ? '⏸️' : '▶️'}</span>
+                <span className="hidden sm:inline">{isTimerRunning ? '⏸️ Pause' : '▶️ Resume'}</span>
               </button>
               <button
                 onClick={handleCancel}
-                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition duration-200"
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition duration-200 text-sm sm:text-base"
               >
-                ❌ Cancel
+                <span className="sm:hidden">❌</span>
+                <span className="hidden sm:inline">❌ Cancel</span>
               </button>
             </div>
           </div>
@@ -463,8 +465,8 @@ function ActiveWorkout() {
 
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           {/* Workout Name and Date */}
-          <div className="grid grid-cols-12 gap-4 items-center mb-6">
-            <div className="col-span-8">
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Workout Name
               </label>
@@ -477,7 +479,7 @@ function ActiveWorkout() {
                 disabled={isSaving}
               />
             </div>
-            <div className="col-span-4">
+            <div className="sm:w-40">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Date
               </label>
@@ -489,7 +491,7 @@ function ActiveWorkout() {
                 disabled={isSaving}
               />
             </div>
-            </div>
+          </div>
 
           {/* Exercise list */}
           <div className="space-y-6">
@@ -560,118 +562,178 @@ function ActiveWorkout() {
                 {/* Sets */}
                 {exercise.sets.length > 0 && (
                   <div className="mb-4">
-                    <div className="grid grid-cols-12 gap-2 mb-2 text-sm font-medium text-gray-700">
+                    {/* Desktop header - hidden on mobile */}
+                    <div className="hidden sm:grid grid-cols-12 gap-2 mb-2 text-sm font-medium text-gray-700">
                         <div className="col-span-1"></div>
                         <div className="col-span-1">Set</div>
                         <div className="col-span-3">Weight ({user?.units || 'lbs'})</div>
                         <div className="col-span-2">Reps</div>
-                        <div className="col-span-4">RPE</div>
+                        <div className="col-span-5">RPE</div>
                     </div>
 
                     {exercise.sets.map((set) => (
-                        <div key={set.id} className="grid grid-cols-12 gap-2 mb-2">
-                            {/* Delete button - far left for safety */}
+                        <div key={set.id}>
+                          {/* Mobile layout - card style */}
+                          <div className="sm:hidden bg-white border border-gray-200 rounded-lg p-3 mb-2">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-gray-700">Set {set.setNumber}</span>
+                              <button
+                                onClick={() => handleRemoveSet(exercise.id, set.id)}
+                                className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors text-sm"
+                                title="Delete set"
+                                disabled={isSaving}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 mb-2">
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">Weight ({user?.units || 'lbs'})</label>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  value={set.weight}
+                                  onChange={(e) => handleSetChange(exercise.id, set.id, 'weight', e.target.value)}
+                                  className="w-full border rounded-md px-3 py-2 text-base"
+                                  disabled={isSaving}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">Reps</label>
+                                <input
+                                  type="number"
+                                  value={set.reps}
+                                  onChange={(e) => handleSetChange(exercise.id, set.id, 'reps', e.target.value)}
+                                  className="w-full border rounded-md px-3 py-2 text-base"
+                                  disabled={isSaving}
+                                />
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs text-gray-500">RPE</label>
+                                <select
+                                  value={set.rpe ?? ''}
+                                  onChange={(e) => handleSetChange(exercise.id, set.id, 'rpe', e.target.value)}
+                                  disabled={set.isWarmup || isSaving}
+                                  className="border rounded-md px-2 py-1.5 bg-white text-sm"
+                                >
+                                  <option value="">--</option>
+                                  {[...Array(11)].map((_, i) => (
+                                    <option key={i} value={i}>{i}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <label className="flex items-center text-sm text-gray-600 gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={!!set.isWarmup}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    handleSetChange(exercise.id, set.id, 'isWarmup', checked);
+                                    if (checked) {
+                                      handleSetChange(exercise.id, set.id, 'rpe', null);
+                                    }
+                                  }}
+                                  disabled={isSaving}
+                                  className="rounded w-4 h-4"
+                                />
+                                Warm-up
+                              </label>
+                            </div>
+                          </div>
+
+                          {/* Desktop layout - compact grid */}
+                          <div className="hidden sm:grid grid-cols-12 gap-2 mb-2">
                             <div className="col-span-1 flex items-center">
-                            <button
+                              <button
                                 onClick={() => handleRemoveSet(exercise.id, set.id)}
                                 className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors"
                                 title="Delete set"
                                 disabled={isSaving}
-                            >
+                              >
                                 ✕
-                            </button>
+                              </button>
                             </div>
-
-                            {/* Set number - reduced from 2 columns to 1 */}
                             <div className="col-span-1 flex items-center justify-center">
-                            <span className="text-gray-700 font-medium">{set.setNumber}</span>
+                              <span className="text-gray-700 font-medium">{set.setNumber}</span>
                             </div>
-
                             <div className="col-span-3">
-                            <input
+                              <input
                                 type="number"
                                 step="0.1"
                                 value={set.weight}
                                 onChange={(e) => handleSetChange(exercise.id, set.id, 'weight', e.target.value)}
                                 className="w-full border rounded-md px-2 py-1 text-sm"
                                 disabled={isSaving}
-                            />
+                              />
                             </div>
-
                             <div className="col-span-2">
-                            <input
+                              <input
                                 type="number"
                                 value={set.reps}
                                 onChange={(e) => handleSetChange(exercise.id, set.id, 'reps', e.target.value)}
                                 className="w-full border rounded-md px-2 py-1 text-sm"
                                 disabled={isSaving}
-                            />
+                              />
                             </div>
-
-                            {/* RPE + Warmup - increased from 3 columns to 4! */}
-                            <div className="col-span-4">
-                            <div className="flex items-center gap-2">
-                                {/* RPE dropdown */}
+                            <div className="col-span-5">
+                              <div className="flex items-center gap-2">
                                 <select
-                                value={set.rpe ?? ''}
-                                onChange={(e) => handleSetChange(exercise.id, set.id, 'rpe', e.target.value)}
-                                disabled={set.isWarmup || isSaving}
-                                className="w-16 sm:w-20 border rounded-md px-2 py-1 bg-white text-sm flex-shrink-0"
+                                  value={set.rpe ?? ''}
+                                  onChange={(e) => handleSetChange(exercise.id, set.id, 'rpe', e.target.value)}
+                                  disabled={set.isWarmup || isSaving}
+                                  className="w-20 border rounded-md px-2 py-1 bg-white text-sm flex-shrink-0"
                                 >
-                                <option value="">--</option>
-                                {[...Array(11)].map((_, i) => (
-                                    <option key={i} value={i}>
-                                    {i}
-                                    </option>
-                                ))}
+                                  <option value="">--</option>
+                                  {[...Array(11)].map((_, i) => (
+                                    <option key={i} value={i}>{i}</option>
+                                  ))}
                                 </select>
-
-                                {/* Warm-up toggle - now has room for label even on mobile! */}
-                                <label 
-                                className="flex items-center text-xs text-gray-600 gap-1.5 cursor-pointer whitespace-nowrap" 
-                                title="Mark as warm-up set"
-                                >
-                                <input
+                                <label className="flex items-center text-xs text-gray-600 gap-1.5 cursor-pointer whitespace-nowrap">
+                                  <input
                                     type="checkbox"
                                     checked={!!set.isWarmup}
                                     onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    handleSetChange(exercise.id, set.id, 'isWarmup', checked);
-                                    if (checked) {
+                                      const checked = e.target.checked;
+                                      handleSetChange(exercise.id, set.id, 'isWarmup', checked);
+                                      if (checked) {
                                         handleSetChange(exercise.id, set.id, 'rpe', null);
-                                    }
+                                      }
                                     }}
                                     disabled={isSaving}
                                     className="rounded w-4 h-4"
-                                />
-                                {/* Show abbreviated on mobile, full text on desktop */}
-                                <span className="hidden sm:inline">Warm-up</span>
-                                <span className="sm:hidden">WU</span>
+                                  />
+                                  Warm-up
                                 </label>
+                              </div>
                             </div>
-                            </div>
+                          </div>
                         </div>
-                        ))}
+                      ))}
                   </div>
                 )}
 
-                <div className="flex gap-2 flex-wrap">
-                    <button
-                        onClick={() => handleAddSet(exercise.id)}
-                        disabled={!exercise.exerciseName || isSaving}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium disabled:bg-blue-400 transition-colors"
-                    >
-                        + Add Set
-                    </button>
-                    <button
-                        onClick={() => setIsRestTimerActive(true)}
-                        disabled={isSaving}
-                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium disabled:bg-green-400 transition-colors flex items-center gap-2"
-                        title="Start rest timer (3:00)"
-                    >
-                        <span className="text-base">⏱️</span>
-                        <span className="hidden sm:inline">Start Rest</span>
-                    </button>
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="flex gap-2">
+                      <button
+                          onClick={() => handleAddSet(exercise.id)}
+                          disabled={!exercise.exerciseName || isSaving}
+                          className="flex-1 sm:flex-none px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium disabled:bg-blue-400 transition-colors"
+                      >
+                          + Add Set
+                      </button>
+                      <button
+                          onClick={() => setIsRestTimerActive(true)}
+                          disabled={isSaving}
+                          className="flex-1 sm:flex-none px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium disabled:bg-green-400 transition-colors flex items-center justify-center gap-2"
+                          title="Start rest timer (3:00)"
+                      >
+                          <span className="text-base">⏱️</span>
+                          <span className="sm:hidden">Rest</span>
+                          <span className="hidden sm:inline">Start Rest</span>
+                      </button>
+                    </div>
                     <div className="text-sm text-gray-500 self-center">
                         {exercise.sets.length} set{exercise.sets.length !== 1 ? 's' : ''}
                     </div>
@@ -707,21 +769,20 @@ function ActiveWorkout() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-4">
-            <button
-              onClick={handleFinishWorkout}
-              disabled={isSaving || exercises.length === 0}
-              className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-bold py-3 px-4 rounded-lg transition duration-200"
-            >
-              {isSaving ? 'Saving...' : '✅ Finish Workout'}
-            </button>
-
+          <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-4">
             <button
               onClick={handleCancel}
               disabled={isSaving}
-              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-200"
+              className="sm:flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-200"
             >
               Cancel
+            </button>
+            <button
+              onClick={handleFinishWorkout}
+              disabled={isSaving || exercises.length === 0}
+              className="sm:flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-bold py-3 px-4 rounded-lg transition duration-200"
+            >
+              {isSaving ? 'Saving...' : '✅ Finish Workout'}
             </button>
           </div>
         </div>
