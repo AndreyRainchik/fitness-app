@@ -126,19 +126,19 @@ export function calculateWilks(totalKg, bodyweightKg, sex) {
 const STRENGTH_STANDARDS = {
   'Barbell Squat': {
     M: {
-      130: { beginner: 75, novice: 138, intermediate: 166, advanced: 230, elite: 307 },
-      140: { beginner: 84, novice: 156, intermediate: 190, advanced: 264, elite: 354 },
-      150: { beginner: 94, novice: 174, intermediate: 213, advanced: 297, elite: 399 },
-      160: { beginner: 103, novice: 192, intermediate: 236, advanced: 329, elite: 443 },
-      170: { beginner: 113, novice: 209, intermediate: 258, advanced: 361, elite: 486 },
-      180: { beginner: 122, novice: 227, intermediate: 280, advanced: 392, elite: 528 },
-      190: { beginner: 131, novice: 244, intermediate: 302, advanced: 423, elite: 570 },
-      200: { beginner: 140, novice: 261, intermediate: 324, advanced: 453, elite: 611 },
-      210: { beginner: 149, novice: 278, intermediate: 345, advanced: 483, elite: 651 },
-      220: { beginner: 158, novice: 294, intermediate: 366, advanced: 513, elite: 691 },
-      230: { beginner: 167, novice: 311, intermediate: 387, advanced: 542, elite: 731 },
-      240: { beginner: 175, novice: 327, intermediate: 408, advanced: 571, elite: 770 },
-      250: { beginner: 184, novice: 343, intermediate: 428, advanced: 600, elite: 809 },
+      130: { beginner: 100, novice: 147, intermediate: 206, advanced: 274, elite: 349 },
+      140: { beginner: 113, novice: 162, intermediate: 224, advanced: 295, elite: 373 },
+      150: { beginner: 125, novice: 177, intermediate: 242, advanced: 316, elite: 396 },
+      160: { beginner: 138, novice: 192, intermediate: 259, advanced: 336, elite: 418 },
+      170: { beginner: 150, novice: 207, intermediate: 276, advanced: 355, elite: 439 },
+      180: { beginner: 162, novice: 221, intermediate: 292, advanced: 373, elite: 460 },
+      190: { beginner: 174, novice: 235, intermediate: 308, advanced: 391, elite: 479 },
+      200: { beginner: 186, novice: 248, intermediate: 323, advanced: 408, elite: 499 },
+      210: { beginner: 197, novice: 261, intermediate: 338, advanced: 425, elite: 517 },
+      220: { beginner: 209, novice: 274, intermediate: 353, advanced: 442, elite: 535 },
+      230: { beginner: 220, novice: 287, intermediate: 367, advanced: 457, elite: 553 },
+      240: { beginner: 230, novice: 299, intermediate: 381, advanced: 473, elite: 570 },
+      250: { beginner: 241, novice: 311, intermediate: 395, advanced: 488, elite: 586 },
     },
     F: {
       100: { beginner: 41, novice: 76, intermediate: 92, advanced: 127, elite: 171 },
@@ -156,19 +156,19 @@ const STRENGTH_STANDARDS = {
   },
   'Barbell Bench Press': {
     M: {
-      130: { beginner: 61, novice: 92, intermediate: 107, advanced: 144, elite: 188 },
-      140: { beginner: 68, novice: 103, intermediate: 121, advanced: 163, elite: 213 },
-      150: { beginner: 76, novice: 115, intermediate: 135, advanced: 183, elite: 239 },
-      160: { beginner: 84, novice: 127, intermediate: 149, advanced: 203, elite: 265 },
-      170: { beginner: 91, novice: 138, intermediate: 163, advanced: 222, elite: 290 },
-      180: { beginner: 99, novice: 150, intermediate: 178, advanced: 242, elite: 316 },
-      190: { beginner: 107, novice: 162, intermediate: 192, advanced: 261, elite: 342 },
-      200: { beginner: 114, novice: 173, intermediate: 206, advanced: 280, elite: 367 },
-      210: { beginner: 122, novice: 185, intermediate: 220, advanced: 300, elite: 392 },
-      220: { beginner: 129, novice: 196, intermediate: 234, advanced: 319, elite: 417 },
-      230: { beginner: 137, novice: 208, intermediate: 248, advanced: 337, elite: 442 },
-      240: { beginner: 144, novice: 219, intermediate: 261, advanced: 356, elite: 467 },
-      250: { beginner: 151, novice: 230, intermediate: 275, advanced: 374, elite: 491 },
+      130: { beginner: 73, novice: 109, intermediate: 154, advanced: 208, elite: 266 },
+      140: { beginner: 83, novice: 121, intermediate: 169, advanced: 224, elite: 285 },
+      150: { beginner: 93, novice: 133, intermediate: 182, advanced: 240, elite: 302 },
+      160: { beginner: 102, novice: 144, intermediate: 196, advanced: 255, elite: 319 },
+      170: { beginner: 112, novice: 155, intermediate: 209, advanced: 270, elite: 336 },
+      180: { beginner: 121, novice: 166, intermediate: 221, advanced: 284, elite: 352 },
+      190: { beginner: 130, novice: 177, intermediate: 234, advanced: 298, elite: 367 },
+      200: { beginner: 139, novice: 187, intermediate: 246, advanced: 312, elite: 382 },
+      210: { beginner: 148, novice: 197, intermediate: 257, advanced: 325, elite: 397 },
+      220: { beginner: 156, novice: 207, intermediate: 269, advanced: 338, elite: 411 },
+      230: { beginner: 165, novice: 217, intermediate: 280, advanced: 350, elite: 425 },
+      240: { beginner: 173, novice: 227, intermediate: 291, advanced: 362, elite: 438 },
+      250: { beginner: 181, novice: 236, intermediate: 301, advanced: 374, elite: 451 },
     },
     F: {
       100: { beginner: 28, novice: 42, intermediate: 49, advanced: 66, elite: 86 },
@@ -186,19 +186,19 @@ const STRENGTH_STANDARDS = {
   },
   'Barbell Deadlift': {
     M: {
-      130: { beginner: 97, novice: 174, intermediate: 209, advanced: 284, elite: 371 },
-      140: { beginner: 109, novice: 196, intermediate: 238, advanced: 325, elite: 425 },
-      150: { beginner: 121, novice: 218, intermediate: 266, advanced: 365, elite: 479 },
-      160: { beginner: 133, novice: 240, intermediate: 294, advanced: 405, elite: 532 },
-      170: { beginner: 144, novice: 261, intermediate: 322, advanced: 444, elite: 584 },
-      180: { beginner: 156, novice: 282, intermediate: 349, advanced: 483, elite: 636 },
-      190: { beginner: 167, novice: 303, intermediate: 376, advanced: 521, elite: 687 },
-      200: { beginner: 179, novice: 324, intermediate: 403, advanced: 559, elite: 738 },
-      210: { beginner: 190, novice: 344, intermediate: 429, advanced: 596, elite: 788 },
-      220: { beginner: 201, novice: 365, intermediate: 455, advanced: 633, elite: 838 },
-      230: { beginner: 212, novice: 385, intermediate: 481, advanced: 670, elite: 887 },
-      240: { beginner: 223, novice: 405, intermediate: 506, advanced: 706, elite: 936 },
-      250: { beginner: 234, novice: 425, intermediate: 532, advanced: 742, elite: 984 },
+      130: { beginner: 126, novice: 179, intermediate: 246, advanced: 323, elite: 407 },
+      140: { beginner: 140, novice: 197, intermediate: 266, advanced: 346, elite: 433 },
+      150: { beginner: 154, novice: 213, intermediate: 286, advanced: 368, elite: 457 },
+      160: { beginner: 168, novice: 229, intermediate: 304, advanced: 389, elite: 481 },
+      170: { beginner: 181, novice: 245, intermediate: 322, advanced: 410, elite: 503 },
+      180: { beginner: 195, novice: 261, intermediate: 340, advanced: 430, elite: 525 },
+      190: { beginner: 208, novice: 275, intermediate: 357, advanced: 449, elite: 546 },
+      200: { beginner: 220, novice: 290, intermediate: 373, advanced: 467, elite: 567 },
+      210: { beginner: 233, novice: 304, intermediate: 389, advanced: 485, elite: 587 },
+      220: { beginner: 245, novice: 318, intermediate: 405, advanced: 503, elite: 606 },
+      230: { beginner: 257, novice: 332, intermediate: 420, advanced: 520, elite: 624 },
+      240: { beginner: 268, novice: 345, intermediate: 435, advanced: 536, elite: 642 },
+      250: { beginner: 280, novice: 358, intermediate: 450, advanced: 552, elite: 660 },
     },
     F: {
       100: { beginner: 53, novice: 95, intermediate: 115, advanced: 156, elite: 204 },
@@ -216,19 +216,19 @@ const STRENGTH_STANDARDS = {
   },
   'Barbell Overhead Press': {
     M: {
-      130: { beginner: 41, novice: 62, intermediate: 73, advanced: 98, elite: 128 },
-      140: { beginner: 46, novice: 70, intermediate: 83, advanced: 111, elite: 145 },
-      150: { beginner: 51, novice: 78, intermediate: 92, advanced: 125, elite: 163 },
-      160: { beginner: 57, novice: 86, intermediate: 102, advanced: 138, elite: 181 },
-      170: { beginner: 62, novice: 94, intermediate: 112, advanced: 152, elite: 198 },
-      180: { beginner: 67, novice: 102, intermediate: 121, advanced: 165, elite: 216 },
-      190: { beginner: 72, novice: 110, intermediate: 131, advanced: 178, elite: 233 },
-      200: { beginner: 77, novice: 118, intermediate: 140, advanced: 191, elite: 251 },
-      210: { beginner: 82, novice: 125, intermediate: 149, advanced: 204, elite: 268 },
-      220: { beginner: 88, novice: 133, intermediate: 159, advanced: 217, elite: 285 },
-      230: { beginner: 93, novice: 141, intermediate: 168, advanced: 229, elite: 301 },
-      240: { beginner: 98, novice: 148, intermediate: 177, advanced: 242, elite: 318 },
-      250: { beginner: 103, novice: 156, intermediate: 186, advanced: 254, elite: 334 },
+      130: { beginner: 45, novice: 70, intermediate: 102, advanced: 140, elite: 181 },
+      140: { beginner: 51, novice: 77, intermediate: 111, advanced: 150, elite: 194 },
+      150: { beginner: 57, novice: 85, intermediate: 120, advanced: 161, elite: 205 },
+      160: { beginner: 63, novice: 92, intermediate: 128, advanced: 170, elite: 216 },
+      170: { beginner: 69, novice: 99, intermediate: 136, advanced: 180, elite: 227 },
+      180: { beginner: 75, novice: 106, intermediate: 145, advanced: 189, elite: 238 },
+      190: { beginner: 80, novice: 113, intermediate: 152, advanced: 198, elite: 248 },
+      200: { beginner: 86, novice: 119, intermediate: 160, advanced: 207, elite: 257 },
+      210: { beginner: 91, novice: 126, intermediate: 168, advanced: 215, elite: 267 },
+      220: { beginner: 97, novice: 132, intermediate: 175, advanced: 224, elite: 276 },
+      230: { beginner: 102, novice: 138, intermediate: 182, advanced: 232, elite: 285 },
+      240: { beginner: 107, novice: 144, intermediate: 189, advanced: 239, elite: 293 },
+      250: { beginner: 112, novice: 150, intermediate: 196, advanced: 247, elite: 302 },
     },
     F: {
       100: { beginner: 19, novice: 28, intermediate: 33, advanced: 45, elite: 58 },
@@ -303,6 +303,14 @@ export function getStrengthStandard(exerciseName, bodyweightLbs, sex, estimated1
   }
   
   const standards = STRENGTH_STANDARDS[normalizedName][sex][weightClass];
+
+  const points = [
+    { p: 0.05, v: standards.beginner },
+    { p: 0.20, v: standards.novice },
+    { p: 0.50, v: standards.intermediate },
+    { p: 0.80, v: standards.advanced },
+    { p: 0.95, v: standards.elite }
+  ].sort((a, b) => a.v - b.v);
   
   // Determine level
   let level = 'Untrained';
@@ -311,27 +319,44 @@ export function getStrengthStandard(exerciseName, bodyweightLbs, sex, estimated1
   
   if (estimated1RM >= standards.elite) {
     level = 'Elite';
-    percentile = 99;
+    //percentile = 95;
   } else if (estimated1RM >= standards.advanced) {
     level = 'Advanced';
-    percentile = 90;
+    //percentile = 80;
     nextLevel = { level: 'Elite', weight: standards.elite };
   } else if (estimated1RM >= standards.intermediate) {
     level = 'Intermediate';
-    percentile = 70;
+    //percentile = 50;
     nextLevel = { level: 'Advanced', weight: standards.advanced };
   } else if (estimated1RM >= standards.novice) {
     level = 'Novice';
-    percentile = 50;
+    //percentile = 20;
     nextLevel = { level: 'Intermediate', weight: standards.intermediate };
   } else if (estimated1RM >= standards.beginner) {
     level = 'Beginner';
-    percentile = 25;
+    //percentile = 5;
     nextLevel = { level: 'Novice', weight: standards.novice };
   } else {
     level = 'Untrained';
-    percentile = 10;
+    //percentile = 0;
     nextLevel = { level: 'Beginner', weight: standards.beginner };
+  }
+
+  if (estimated1RM <= points[0].v) {
+    percentile = Math.round(points[0].p * 100);
+  } 
+  else if (estimated1RM >= points[points.length - 1].v) {
+    percentile = Math.round(points[points.length - 1].p * 100);
+  } else {
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i];
+      const b = points[i + 1];
+
+      if (estimated1RM >= a.v && estimated1RM <= b.v) {
+        const t = (estimated1RM - a.v) / (b.v - a.v);
+        percentile = Math.round((a.p + t * (b.p - a.p)) * 100);
+      }
+    }
   }
   
   return {
