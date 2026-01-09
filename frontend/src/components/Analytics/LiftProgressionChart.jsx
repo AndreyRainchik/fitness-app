@@ -64,7 +64,7 @@ function LiftProgressionChart({ data, exerciseName }) {
               <span className="font-medium">Best Set:</span> {data.weight} × {data.reps}
             </p>
             <p className="text-sm text-gray-700">
-              <span className="font-medium">Wilks:</span> {data.wilksScore}
+              <span className="font-medium">Percentile:</span> {data.percentile}%
             </p>
             <p className="text-sm">
               <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
@@ -158,8 +158,8 @@ function LiftProgressionChart({ data, exerciseName }) {
             />
             <Line
               type="monotone"
-              dataKey="wilksScore"
-              name="Wilks Score"
+              dataKey="percentile"
+              name="Percentile"
               stroke="#8b5cf6"
               strokeWidth={2}
               strokeDasharray="5 5"
