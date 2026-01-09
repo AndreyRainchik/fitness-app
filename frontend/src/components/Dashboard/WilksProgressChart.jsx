@@ -57,17 +57,17 @@ function WilksProgressChart({ weeks = 12 }) {
         const deadliftPoint = deadliftData.progression?.find(p => p.date === date);
         const ohpPoint = ohpData.progression?.find(p => p.date === date);
 
-        if (squatPoint) point.squat = squatPoint.wilksScore;
-        if (benchPoint) point.bench = benchPoint.wilksScore;
-        if (deadliftPoint) point.deadlift = deadliftPoint.wilksScore;
-        if (ohpPoint) point.ohp = ohpPoint.wilksScore;
+        if (squatPoint) point.squat = squatPoint.percentile;
+        if (benchPoint) point.bench = benchPoint.percentile;
+        if (deadliftPoint) point.deadlift = deadliftPoint.percentile;
+        if (ohpPoint) point.ohp = ohpPoint.percentile;
 
         return point;
       });
 
       setChartData(combined);
     } catch (err) {
-      console.error('Failed to load Wilks data:', err);
+      console.error('Failed to load percentile data:', err);
       setError('Failed to load chart data');
     } finally {
       setLoading(false);
@@ -102,7 +102,7 @@ function WilksProgressChart({ weeks = 12 }) {
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Wilks Score Progress</h3>
+        <h3 className="text-xl font-bold text-gray-900 mb-4">Percentile Progress</h3>
         <div className="h-64 flex items-center justify-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
@@ -113,7 +113,7 @@ function WilksProgressChart({ weeks = 12 }) {
   if (error) {
     return (
       <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Wilks Score Progress</h3>
+        <h3 className="text-xl font-bold text-gray-900 mb-4">Percentile Progress</h3>
         <div className="h-64 flex items-center justify-center">
           <p className="text-red-600">{error}</p>
         </div>
@@ -124,12 +124,12 @@ function WilksProgressChart({ weeks = 12 }) {
   if (chartData.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Wilks Score Progress</h3>
+        <h3 className="text-xl font-bold text-gray-900 mb-4">Percentile Progress</h3>
         <div className="h-64 flex items-center justify-center">
           <div className="text-center">
             <p className="text-gray-500 mb-2">No progression data available</p>
             <p className="text-sm text-gray-400">
-              Log workouts with main lifts to see your Wilks score trend
+              Log workouts with main lifts to see your percentile trend
             </p>
           </div>
         </div>
@@ -142,10 +142,10 @@ function WilksProgressChart({ weeks = 12 }) {
       {/* Header */}
       <div className="mb-6">
         <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
-          Wilks Score Progress
+          Percentile Progress
         </h3>
         <p className="text-sm text-gray-600">
-          Tracking relative strength across all main lifts
+          Tracking strength percentile across all main lifts
         </p>
       </div>
 
@@ -168,7 +168,7 @@ function WilksProgressChart({ weeks = 12 }) {
             <YAxis
               stroke="#6b7280"
               style={{ fontSize: '12px' }}
-              label={{ value: 'Wilks Score', angle: -90, position: 'insideLeft', style: { fontSize: '12px' } }}
+              label={{ value: 'Percentile', angle: -90, position: 'insideLeft', style: { fontSize: '12px' } }}
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend 
@@ -222,8 +222,8 @@ function WilksProgressChart({ weeks = 12 }) {
       {/* Legend Info */}
       <div className="mt-4 pt-4 border-t border-gray-200">
         <p className="text-xs text-gray-500">
-          Wilks coefficient normalizes strength across bodyweights, allowing fair comparison.
-          Higher scores indicate greater relative strength.
+          Percentile shows how your lifts compare to population standards.
+          Higher percentiles indicate greater relative strength for your bodyweight.
         </p>
       </div>
     </div>
