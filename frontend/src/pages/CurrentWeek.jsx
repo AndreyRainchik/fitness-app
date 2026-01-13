@@ -13,10 +13,13 @@ const CurrentWeek = () => {
   const [advancing, setAdvancing] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [updatingStatus, setUpdatingStatus] = useState(new Set()); // Track which exercises are being updated
-  
+
   // NEW: State for tracking all statuses across the cycle
   const [allStatuses, setAllStatuses] = useState(null);
   const [loadingStatuses, setLoadingStatuses] = useState(false);
+
+  // State for tracking collapsed lifts (completed/failed lifts collapse by default)
+  const [collapsedLifts, setCollapsedLifts] = useState(new Set());
 
   // Collect all weights from workout for batch fetching (INCLUDING WARMUP SETS)
   const allWeights = useMemo(() => {
@@ -131,6 +134,35 @@ const CurrentWeek = () => {
     }
   }, [programId]);
 
+  // Initialize collapsed state when workout loads - collapse completed/failed lifts
+  useEffect(() => {
+    if (workout && workout.lifts) {
+      const initialCollapsed = new Set();
+      workout.lifts.forEach(lift => {
+        if (lift.status === 'completed' || lift.status === 'failed') {
+          initialCollapsed.add(lift.exercise_id);
+        }
+      });
+      setCollapsedLifts(initialCollapsed);
+    }
+  }, [workout?.program_id, workout?.week, workout?.cycle, workout?.session_number]);
+
+  // Toggle collapse state for a lift
+  const toggleLiftCollapse = (exerciseId) => {
+    setCollapsedLifts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(exerciseId)) {
+        newSet.delete(exerciseId);
+      } else {
+        newSet.add(exerciseId);
+      }
+      return newSet;
+    });
+  };
+
+  // Check if a lift is collapsed
+  const isLiftCollapsed = (exerciseId) => collapsedLifts.has(exerciseId);
+
   // NEW: Effect to load all statuses when workout is loaded
   useEffect(() => {
     if (workout && workout.program_id && workout.program_type === '531') {
@@ -234,16 +266,21 @@ const CurrentWeek = () => {
     try {
       // Add to updating set
       setUpdatingStatus(prev => new Set(prev).add(exerciseId));
-      
+
       await programsAPI.setLiftStatus(workout.program_id, exerciseId, status);
-      
+
+      // Auto-collapse if marking as completed or failed
+      if (status === 'completed' || status === 'failed') {
+        setCollapsedLifts(prev => new Set(prev).add(exerciseId));
+      }
+
       // Reload workout to get updated status
       if (programId) {
         await loadCurrentWeek();
       } else {
         await loadActiveProgram();
       }
-      
+
       // Show success message briefly
       const statusText = status === 'completed' ? 'completed' : status === 'failed' ? 'failed' : 'skipped';
       setMessage({ type: 'success', text: `Marked as ${statusText}` });
@@ -267,16 +304,23 @@ const CurrentWeek = () => {
   const handleClearStatus = async (exerciseId) => {
     try {
       setUpdatingStatus(prev => new Set(prev).add(exerciseId));
-      
+
       await programsAPI.clearLiftStatus(workout.program_id, exerciseId);
-      
+
+      // Expand the lift when status is cleared
+      setCollapsedLifts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(exerciseId);
+        return newSet;
+      });
+
       // Reload workout to get updated status
       if (programId) {
         await loadCurrentWeek();
       } else {
         await loadActiveProgram();
       }
-      
+
       setMessage({ type: 'success', text: 'Status cleared' });
       setTimeout(() => setMessage({ type: '', text: '' }), 2000);
     } catch (error) {
@@ -822,36 +866,77 @@ const CurrentWeek = () => {
               className={`bg-white border rounded-lg overflow-hidden transition-all ${getStatusBorderClass(lift.status)}`}
             >
               {/* Lift Header */}
-              <div className={`px-3 sm:px-4 md:px-6 py-3 sm:py-4 border-b border-gray-200 ${getStatusBgClass(lift.status)}`}>
+              <div
+                className={`px-3 sm:px-4 md:px-6 py-3 sm:py-4 ${!isLiftCollapsed(lift.exercise_id) ? 'border-b border-gray-200' : ''} ${getStatusBgClass(lift.status)} ${(lift.status === 'completed' || lift.status === 'failed') ? 'cursor-pointer' : ''}`}
+                onClick={(lift.status === 'completed' || lift.status === 'failed') ? () => toggleLiftCollapse(lift.exercise_id) : undefined}
+              >
                 <div className="flex flex-col gap-2.5 sm:gap-3">
                   {/* Exercise Name and Status Row */}
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                      <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900">{lift.exercise_name}</h2>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900">{lift.exercise_name}</h2>
+                        {/* Collapse/Expand indicator for completed/failed lifts */}
+                        {(lift.status === 'completed' || lift.status === 'failed') && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleLiftCollapse(lift.exercise_id);
+                            }}
+                            className="p-1 rounded hover:bg-gray-200 transition-colors"
+                            aria-label={isLiftCollapsed(lift.exercise_id) ? 'Expand workout details' : 'Collapse workout details'}
+                          >
+                            <svg
+                              className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${isLiftCollapsed(lift.exercise_id) ? '' : 'rotate-180'}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                       <StatusIndicator status={lift.status} />
                     </div>
-                    {/* Start Workout Button */}
-                    <button
-                      onClick={() => handleStartWorkout(lift)}
-                      className="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium text-sm whitespace-nowrap min-h-[44px] sm:min-h-0"
-                    >
-                      Start Workout
-                    </button>
+                    {/* Start Workout Button - hidden when collapsed */}
+                    {!isLiftCollapsed(lift.exercise_id) && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartWorkout(lift);
+                        }}
+                        className="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium text-sm whitespace-nowrap min-h-[44px] sm:min-h-0"
+                      >
+                        Start Workout
+                      </button>
+                    )}
                   </div>
-                  
+
                   {/* Training Max / Current Weight */}
                   <p className="text-xs sm:text-sm text-gray-600">
                     {workout.program_type === '531' && `Training Max: ${lift.training_max} lbs`}
                     {workout.program_type === 'starting_strength' && `Current Weight: ${lift.current_weight} lbs`}
                   </p>
 
-                  {/* Status Controls */}
-                  <StatusControls exerciseId={lift.exercise_id} currentStatus={lift.status} />
+                  {/* Status Controls - hidden when collapsed */}
+                  {!isLiftCollapsed(lift.exercise_id) && (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <StatusControls exerciseId={lift.exercise_id} currentStatus={lift.status} />
+                    </div>
+                  )}
+
+                  {/* Collapsed summary - show tap to expand hint */}
+                  {isLiftCollapsed(lift.exercise_id) && (
+                    <p className="text-xs text-gray-500 italic">
+                      Tap to expand workout details
+                    </p>
+                  )}
                 </div>
               </div>
 
-              {/* 5/3/1 Program Content */}
-              {workout.program_type === '531' && (
+              {/* 5/3/1 Program Content - Hidden when collapsed */}
+              {workout.program_type === '531' && !isLiftCollapsed(lift.exercise_id) && (
                 <>
                   {/* Warmup Sets */}
                   {lift.warmup_sets && lift.warmup_sets.length > 0 && (
@@ -947,8 +1032,8 @@ const CurrentWeek = () => {
                 </>
               )}
 
-              {/* Starting Strength Program Content */}
-              {workout.program_type === 'starting_strength' && lift.sets && (
+              {/* Starting Strength Program Content - Hidden when collapsed */}
+              {workout.program_type === 'starting_strength' && lift.sets && !isLiftCollapsed(lift.exercise_id) && (
                 <>
                   {/* Warmup Sets */}
                   {lift.warmup_sets && lift.warmup_sets.length > 0 && (
