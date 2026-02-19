@@ -202,23 +202,24 @@ class Program {
    * @param {string} notes - Optional notes
    * @returns {Object} The created/updated status record
    */
-  static setLiftStatus(program_id, exercise_id, week, cycle, status, notes = null) {
+  static setLiftStatus(program_id, exercise_id, week, cycle, status, notes = null, amrap_reps = null) {
     // Validate status
     const validStatuses = ['completed', 'failed', 'skipped'];
     if (!validStatuses.includes(status)) {
       throw new Error(`Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
     }
-    
+
     // Use UPSERT (INSERT OR REPLACE) to handle both new and existing records
     run(
-      `INSERT INTO program_lift_status (program_id, exercise_id, week, cycle, status, notes, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `INSERT INTO program_lift_status (program_id, exercise_id, week, cycle, status, notes, amrap_reps, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
        ON CONFLICT(program_id, exercise_id, week, cycle)
-       DO UPDATE SET 
+       DO UPDATE SET
          status = excluded.status,
          notes = excluded.notes,
+         amrap_reps = excluded.amrap_reps,
          updated_at = CURRENT_TIMESTAMP`,
-      [program_id, exercise_id, week, cycle, status, notes]
+      [program_id, exercise_id, week, cycle, status, notes, amrap_reps]
     );
     
     return get(
@@ -353,7 +354,8 @@ class Program {
       }
       cycleStatusMap.get(status.exercise_id).push({
         week: status.week,
-        status: status.status
+        status: status.status,
+        amrap_reps: status.amrap_reps
       });
     });
     
@@ -389,18 +391,33 @@ class Program {
             // UPDATED: Check if this lift was marked as failed in ANY week of the cycle
             const liftStatuses = cycleStatusMap.get(lift.exercise_id) || [];
             const hasFailure = liftStatuses.some(s => s.status === 'failed');
+
+            // Double the increment if any AMRAP set in the cycle achieved more than 10 reps
+            const hasExtraAmrapReps = !hasFailure && liftStatuses.some(
+              s => s.amrap_reps !== null && s.amrap_reps !== undefined && s.amrap_reps > 10
+            );
+            const effectiveIncrement = hasExtraAmrapReps ? increment * 2 : increment;
+
             let newTrainingMax;
-            
+
             if (hasFailure) {
-              // Deload: Decrease training max by the increment amount
+              // Deload: Decrease training max by the base increment amount
               newTrainingMax = lift.training_max - increment;
               const failedWeeks = liftStatuses
                 .filter(s => s.status === 'failed')
                 .map(s => s.week)
                 .join(', ');
               console.log(`Deloading ${exercise.name}: ${lift.training_max} -> ${newTrainingMax} lbs (failed in week(s) ${failedWeeks})`);
+            } else if (hasExtraAmrapReps) {
+              // Double progression: Increase by 2x increment (>10 AMRAP reps achieved)
+              newTrainingMax = lift.training_max + effectiveIncrement;
+              const extraWeeks = liftStatuses
+                .filter(s => s.amrap_reps !== null && s.amrap_reps !== undefined && s.amrap_reps > 10)
+                .map(s => `week ${s.week} (${s.amrap_reps} reps)`)
+                .join(', ');
+              console.log(`Double progressing ${exercise.name}: ${lift.training_max} -> ${newTrainingMax} lbs (>10 AMRAP reps in ${extraWeeks})`);
             } else {
-              // Progress normally: Increase training max
+              // Progress normally: Increase training max by one increment
               newTrainingMax = lift.training_max + increment;
               console.log(`Progressing ${exercise.name}: ${lift.training_max} -> ${newTrainingMax} lbs`);
             }
@@ -617,7 +634,8 @@ class Program {
       statusMap.set(status.exercise_id, {
         status: status.status,
         notes: status.notes,
-        updated_at: status.updated_at
+        updated_at: status.updated_at,
+        amrap_reps: status.amrap_reps
       });
     });
     
@@ -652,7 +670,8 @@ class Program {
           accessory_sets: bbbSets,
           status: liftStatus ? liftStatus.status : null,
           status_notes: liftStatus ? liftStatus.notes : null,
-          status_updated_at: liftStatus ? liftStatus.updated_at : null
+          status_updated_at: liftStatus ? liftStatus.updated_at : null,
+          amrap_reps: liftStatus ? liftStatus.amrap_reps : null
         });
       });
     }

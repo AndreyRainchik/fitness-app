@@ -591,11 +591,12 @@ export const programsAPI = {
    * @param {number} exerciseId - Exercise ID
    * @param {string} status - Status: 'completed', 'failed', or 'skipped'
    * @param {string} notes - Optional notes
+   * @param {number|null} amrapReps - Reps achieved on the AMRAP set (optional)
    */
-  setLiftStatus: async (programId, exerciseId, status, notes = null) => {
+  setLiftStatus: async (programId, exerciseId, status, notes = null, amrapReps = null) => {
     return await apiCall(`/programs/${programId}/lifts/${exerciseId}/status`, {
       method: 'PUT',
-      body: JSON.stringify({ status, notes }),
+      body: JSON.stringify({ status, notes, amrap_reps: amrapReps }),
     });
   },
 

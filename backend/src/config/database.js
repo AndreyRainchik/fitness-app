@@ -29,6 +29,14 @@ export async function initDatabase() {
       logger.info(`🔄 Loading database from ${dbPath}`);
       const buffer = fs.readFileSync(dbPath);
       db = new SQL.Database(buffer);
+      // Run migrations for existing databases
+      try {
+        db.run('ALTER TABLE program_lift_status ADD COLUMN amrap_reps INTEGER');
+        console.log('✅ Migration: added amrap_reps column to program_lift_status');
+        saveDatabase();
+      } catch (e) {
+        // Column already exists, ignore
+      }
     } else {
       console.log('🆕 Creating new database...');
       db = new SQL.Database();
@@ -210,6 +218,7 @@ function createTables() {
           cycle INTEGER NOT NULL,
           status TEXT CHECK(status IN ('completed', 'failed', 'skipped')) NOT NULL,
           notes TEXT,
+          amrap_reps INTEGER,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE,
           FOREIGN KEY (exercise_id) REFERENCES exercises(id),
