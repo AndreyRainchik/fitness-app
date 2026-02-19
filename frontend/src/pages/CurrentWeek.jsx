@@ -21,6 +21,9 @@ const CurrentWeek = () => {
   // State for tracking collapsed lifts (completed/failed lifts collapse by default)
   const [collapsedLifts, setCollapsedLifts] = useState(new Set());
 
+  // State for tracking AMRAP reps input per exercise (exerciseId -> rep count string)
+  const [amrapRepsInput, setAmrapRepsInput] = useState({});
+
   // Collect all weights from workout for batch fetching (INCLUDING WARMUP SETS)
   const allWeights = useMemo(() => {
     if (!workout || !workout.lifts) return [];
@@ -109,6 +112,19 @@ const CurrentWeek = () => {
     
     // Check if any status in weeks 1-4 is 'failed'
     return exerciseStatuses.some(status => status.status === 'failed');
+  };
+
+  // Check if a lift achieved >10 reps on any AMRAP set in the current cycle (triggers double increment)
+  const hasExtraAmrapReps = (exerciseId) => {
+    if (!allStatuses || !workout) return false;
+    return allStatuses.statuses.some(
+      status =>
+        status.exercise_id === exerciseId &&
+        status.cycle === workout.cycle &&
+        status.amrap_reps !== null &&
+        status.amrap_reps !== undefined &&
+        status.amrap_reps > 10
+    );
   };
 
   // NEW: Get which weeks had failures for display purposes
@@ -261,24 +277,38 @@ const CurrentWeek = () => {
 
   /**
    * Handle setting lift status (completed, failed, or skipped)
+   * @param {number} exerciseId
+   * @param {string} status
+   * @param {number|null} amrapReps - Reps achieved on the AMRAP set (for weeks 1-3)
    */
-  const handleSetStatus = async (exerciseId, status) => {
+  const handleSetStatus = async (exerciseId, status, amrapReps = null) => {
     try {
       // Add to updating set
       setUpdatingStatus(prev => new Set(prev).add(exerciseId));
 
-      await programsAPI.setLiftStatus(workout.program_id, exerciseId, status);
+      await programsAPI.setLiftStatus(workout.program_id, exerciseId, status, null, amrapReps);
+
+      // Clear the AMRAP reps input for this exercise after saving
+      setAmrapRepsInput(prev => {
+        const updated = { ...prev };
+        delete updated[exerciseId];
+        return updated;
+      });
 
       // Auto-collapse if marking as completed or failed
       if (status === 'completed' || status === 'failed') {
         setCollapsedLifts(prev => new Set(prev).add(exerciseId));
       }
 
-      // Reload workout to get updated status
+      // Reload workout and all statuses to get updated state
       if (programId) {
         await loadCurrentWeek();
       } else {
         await loadActiveProgram();
+      }
+      // Refresh all statuses so Week 4 preview reflects the latest AMRAP reps
+      if (workout && workout.program_id && workout.program_type === '531') {
+        loadAllStatuses(workout.program_id);
       }
 
       // Show success message briefly
@@ -314,11 +344,14 @@ const CurrentWeek = () => {
         return newSet;
       });
 
-      // Reload workout to get updated status
+      // Reload workout and all statuses to get updated state
       if (programId) {
         await loadCurrentWeek();
       } else {
         await loadActiveProgram();
+      }
+      if (workout && workout.program_id && workout.program_type === '531') {
+        loadAllStatuses(workout.program_id);
       }
 
       setMessage({ type: 'success', text: 'Status cleared' });
@@ -402,60 +435,108 @@ const CurrentWeek = () => {
    * Status control buttons component
    * Enhanced for mobile with better touch targets and spacing
    */
-  const StatusControls = ({ exerciseId, currentStatus }) => {
+  const StatusControls = ({ exerciseId, currentStatus, recordedAmrapReps }) => {
     const isUpdating = updatingStatus.has(exerciseId);
+    // AMRAP input is only relevant for 5/3/1 weeks 1-3 (weeks with an AMRAP set)
+    const isAmrapWeek = workout && workout.program_type === '531' && workout.week >= 1 && workout.week <= 3;
+    const inputReps = amrapRepsInput[exerciseId] || '';
+    const parsedInputReps = parseInt(inputReps, 10);
+    const inputExceedsTen = !isNaN(parsedInputReps) && parsedInputReps > 10;
 
     return (
-      <div className="flex flex-col sm:flex-row gap-2 mt-3">
-        {/* Mark Completed Button */}
-        <button
-          onClick={() => handleSetStatus(exerciseId, 'completed')}
-          disabled={isUpdating || currentStatus === 'completed'}
-          className={`flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 ${
-            currentStatus === 'completed'
-              ? 'bg-green-600 text-white cursor-default'
-              : 'bg-green-100 text-green-700 hover:bg-green-200 active:bg-green-300 disabled:opacity-50 disabled:cursor-not-allowed'
-          }`}
-        >
-          {currentStatus === 'completed' && (
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-          )}
-          <span>{isUpdating ? 'Updating...' : currentStatus === 'completed' ? 'Completed' : 'Mark Complete'}</span>
-        </button>
-
-        {/* Mark Failed Button */}
-        <button
-          onClick={() => handleSetStatus(exerciseId, 'failed')}
-          disabled={isUpdating || currentStatus === 'failed'}
-          className={`flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 ${
-            currentStatus === 'failed'
-              ? 'bg-red-600 text-white cursor-default'
-              : 'bg-red-100 text-red-700 hover:bg-red-200 active:bg-red-300 disabled:opacity-50 disabled:cursor-not-allowed'
-          }`}
-        >
-          {currentStatus === 'failed' && (
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-          )}
-          <span>{isUpdating ? 'Updating...' : currentStatus === 'failed' ? 'Failed' : 'Mark Failed'}</span>
-        </button>
-
-        {/* Clear Status Button (only show if status exists) */}
-        {currentStatus && (
-          <button
-            onClick={() => handleClearStatus(exerciseId)}
-            disabled={isUpdating}
-            className="flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 active:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] sm:min-h-0"
-          >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-            <span>{isUpdating ? 'Updating...' : 'Clear'}</span>
-          </button>
+      <div className="flex flex-col gap-2 mt-3">
+        {/* AMRAP reps input — shown on weeks 1-3 when lift has not yet been marked */}
+        {isAmrapWeek && !currentStatus && (
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-sm text-gray-600 whitespace-nowrap">AMRAP reps achieved:</label>
+            <input
+              type="number"
+              min="1"
+              max="100"
+              value={inputReps}
+              onChange={(e) =>
+                setAmrapRepsInput(prev => ({ ...prev, [exerciseId]: e.target.value }))
+              }
+              className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g. 12"
+            />
+            {inputExceedsTen && (
+              <span className="text-xs text-green-700 font-medium bg-green-100 px-2 py-0.5 rounded-full">
+                2x increment next cycle!
+              </span>
+            )}
+          </div>
         )}
+
+        {/* Show recorded AMRAP reps if already completed */}
+        {isAmrapWeek && currentStatus && recordedAmrapReps != null && (
+          <div className="text-xs text-gray-500">
+            AMRAP reps recorded: <span className="font-medium">{recordedAmrapReps}</span>
+            {recordedAmrapReps > 10 && (
+              <span className="ml-1 text-green-700 font-medium bg-green-100 px-1.5 py-0.5 rounded-full">
+                2x increment next cycle!
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-2">
+          {/* Mark Completed Button */}
+          <button
+            onClick={() =>
+              handleSetStatus(
+                exerciseId,
+                'completed',
+                isAmrapWeek ? (parsedInputReps > 0 ? parsedInputReps : null) : null
+              )
+            }
+            disabled={isUpdating || currentStatus === 'completed'}
+            className={`flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 ${
+              currentStatus === 'completed'
+                ? 'bg-green-600 text-white cursor-default'
+                : 'bg-green-100 text-green-700 hover:bg-green-200 active:bg-green-300 disabled:opacity-50 disabled:cursor-not-allowed'
+            }`}
+          >
+            {currentStatus === 'completed' && (
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            )}
+            <span>{isUpdating ? 'Updating...' : currentStatus === 'completed' ? 'Completed' : 'Mark Complete'}</span>
+          </button>
+
+          {/* Mark Failed Button */}
+          <button
+            onClick={() => handleSetStatus(exerciseId, 'failed')}
+            disabled={isUpdating || currentStatus === 'failed'}
+            className={`flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 ${
+              currentStatus === 'failed'
+                ? 'bg-red-600 text-white cursor-default'
+                : 'bg-red-100 text-red-700 hover:bg-red-200 active:bg-red-300 disabled:opacity-50 disabled:cursor-not-allowed'
+            }`}
+          >
+            {currentStatus === 'failed' && (
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            )}
+            <span>{isUpdating ? 'Updating...' : currentStatus === 'failed' ? 'Failed' : 'Mark Failed'}</span>
+          </button>
+
+          {/* Clear Status Button (only show if status exists) */}
+          {currentStatus && (
+            <button
+              onClick={() => handleClearStatus(exerciseId)}
+              disabled={isUpdating}
+              className="flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 active:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] sm:min-h-0"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <span>{isUpdating ? 'Updating...' : 'Clear'}</span>
+            </button>
+          )}
+        </div>
       </div>
     );
   };
@@ -712,18 +793,22 @@ const CurrentWeek = () => {
                   <>
                     <div className="space-y-2">
                       {workout.lifts.map((lift, idx) => {
-                        const isLowerBody = lift.exercise_name === 'Barbell Squat' || 
-                                          lift.exercise_name === 'Barbell Deadlift' || 
+                        const isLowerBody = lift.exercise_name === 'Barbell Squat' ||
+                                          lift.exercise_name === 'Barbell Deadlift' ||
                                           lift.exercise_name === 'Power Clean';
                         const increment = isLowerBody ? 10 : 5;
                         const currentMax = lift.training_max;
-                        
-                        // UPDATED: Check if failed in ANY week of the cycle, not just current week
+
+                        // Check if failed in ANY week of the cycle
                         const isFailed = hasFailureInCycle(lift.exercise_id);
                         const failedWeeks = getFailedWeeks(lift.exercise_id);
-                        
-                        const newMax = isFailed ? currentMax - increment : currentMax + increment;
-                        const change = isFailed ? -increment : +increment;
+
+                        // Check if >10 AMRAP reps were achieved in any week (triggers double increment)
+                        const doubleIncrement = !isFailed && hasExtraAmrapReps(lift.exercise_id);
+                        const effectiveIncrement = doubleIncrement ? increment * 2 : increment;
+
+                        const newMax = isFailed ? currentMax - increment : currentMax + effectiveIncrement;
+                        const change = isFailed ? -increment : +effectiveIncrement;
                         
                         return (
                           <div key={idx} className="bg-white bg-opacity-60 rounded-lg p-2.5 sm:p-3">
@@ -737,28 +822,33 @@ const CurrentWeek = () => {
                                       Week{failedWeeks.length > 1 ? 's' : ''} {failedWeeks.join(', ')}
                                     </div>
                                   )}
+                                  {doubleIncrement && (
+                                    <div className="text-xs text-blue-600 mt-0.5 font-medium">
+                                      2x increment (10+ AMRAP reps)
+                                    </div>
+                                  )}
                                 </div>
-                                <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${isFailed ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${isFailed ? 'bg-red-100 text-red-700' : doubleIncrement ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
                                   {change > 0 ? '+' : ''}{change} lbs
                                 </span>
                               </div>
                               <div className="flex items-center justify-between text-sm">
                                 <span className="text-gray-600">{currentMax} lbs</span>
                                 <div className="flex items-center gap-1.5">
-                                  <svg className={`w-4 h-4 ${isFailed ? 'text-red-500' : 'text-green-500'}`} fill="currentColor" viewBox="0 0 20 20">
+                                  <svg className={`w-4 h-4 ${isFailed ? 'text-red-500' : doubleIncrement ? 'text-blue-500' : 'text-green-500'}`} fill="currentColor" viewBox="0 0 20 20">
                                     {isFailed ? (
                                       <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                                     ) : (
                                       <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
                                     )}
                                   </svg>
-                                  <span className={`font-bold ${isFailed ? 'text-red-600' : 'text-green-600'}`}>
+                                  <span className={`font-bold ${isFailed ? 'text-red-600' : doubleIncrement ? 'text-blue-600' : 'text-green-600'}`}>
                                     {newMax} lbs
                                   </span>
                                 </div>
                               </div>
                             </div>
-                            
+
                             {/* Desktop: Horizontal layout */}
                             <div className="hidden sm:flex items-center justify-between">
                               <div className="flex-1 min-w-0">
@@ -768,20 +858,25 @@ const CurrentWeek = () => {
                                     Failed in week{failedWeeks.length > 1 ? 's' : ''}: {failedWeeks.join(', ')}
                                   </div>
                                 )}
+                                {doubleIncrement && (
+                                  <div className="text-xs text-blue-600 mt-0.5 font-medium">
+                                    2x increment (10+ AMRAP reps achieved)
+                                  </div>
+                                )}
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 <span className="text-gray-600 text-sm">{currentMax} lbs</span>
-                                <svg className={`w-4 h-4 ${isFailed ? 'text-red-500' : 'text-green-500'}`} fill="currentColor" viewBox="0 0 20 20">
+                                <svg className={`w-4 h-4 ${isFailed ? 'text-red-500' : doubleIncrement ? 'text-blue-500' : 'text-green-500'}`} fill="currentColor" viewBox="0 0 20 20">
                                   {isFailed ? (
                                     <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                                   ) : (
                                     <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
                                   )}
                                 </svg>
-                                <span className={`font-bold text-sm ${isFailed ? 'text-red-600' : 'text-green-600'}`}>
+                                <span className={`font-bold text-sm ${isFailed ? 'text-red-600' : doubleIncrement ? 'text-blue-600' : 'text-green-600'}`}>
                                   {newMax} lbs
                                 </span>
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${isFailed ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${isFailed ? 'bg-red-100 text-red-700' : doubleIncrement ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
                                   {change > 0 ? '+' : ''}{change} lbs
                                 </span>
                               </div>
@@ -791,7 +886,17 @@ const CurrentWeek = () => {
                       })}
                     </div>
                     
-                    {/* UPDATED: Show warning if ANY week in the cycle had failures */}
+                    {/* Show info if any lift earned a double increment */}
+                    {workout.lifts.some(lift => !hasFailureInCycle(lift.exercise_id) && hasExtraAmrapReps(lift.exercise_id)) && (
+                      <div className="mt-3 flex items-start gap-2 text-xs text-blue-700 bg-blue-50 rounded-lg p-2.5">
+                        <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                        <span className="leading-relaxed">Lifts where you hit <strong>10+ AMRAP reps</strong> in any week will jump by <strong>2 cycles</strong> (double increment) next cycle</span>
+                      </div>
+                    )}
+
+                    {/* Show warning if ANY week in the cycle had failures */}
                     {workout.lifts.some(lift => hasFailureInCycle(lift.exercise_id)) && (
                       <div className="mt-3 flex items-start gap-2 text-xs text-orange-700 bg-orange-50 rounded-lg p-2.5">
                         <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -922,7 +1027,11 @@ const CurrentWeek = () => {
                   {/* Status Controls - hidden when collapsed */}
                   {!isLiftCollapsed(lift.exercise_id) && (
                     <div onClick={(e) => e.stopPropagation()}>
-                      <StatusControls exerciseId={lift.exercise_id} currentStatus={lift.status} />
+                      <StatusControls
+                        exerciseId={lift.exercise_id}
+                        currentStatus={lift.status}
+                        recordedAmrapReps={lift.amrap_reps}
+                      />
                     </div>
                   )}
 

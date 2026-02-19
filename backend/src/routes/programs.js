@@ -361,22 +361,30 @@ router.put('/:id/lifts/:exercise_id/status', authenticateToken, async (req, res)
       return res.status(403).json({ error: 'Access denied' });
     }
     
-    const { status, notes } = req.body;
-    
+    const { status, notes, amrap_reps } = req.body;
+
     // Validate status
     const validStatuses = ['completed', 'failed', 'skipped'];
     if (!status || !validStatuses.includes(status)) {
-      return res.status(400).json({ 
-        error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` 
+      return res.status(400).json({
+        error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
       });
     }
-    
+
+    // Validate amrap_reps if provided
+    const parsedAmrapReps = (amrap_reps !== undefined && amrap_reps !== null)
+      ? parseInt(amrap_reps, 10)
+      : null;
+    if (parsedAmrapReps !== null && (isNaN(parsedAmrapReps) || parsedAmrapReps < 1)) {
+      return res.status(400).json({ error: 'amrap_reps must be a positive integer' });
+    }
+
     // Verify exercise exists in program
     const lift = Program.getLift(req.params.id, req.params.exercise_id);
     if (!lift) {
       return res.status(404).json({ error: 'Exercise not found in program' });
     }
-    
+
     // Set the status for current week/cycle
     const statusRecord = Program.setLiftStatus(
       req.params.id,
@@ -384,7 +392,8 @@ router.put('/:id/lifts/:exercise_id/status', authenticateToken, async (req, res)
       program.current_week,
       program.current_cycle,
       status,
-      notes || null
+      notes || null,
+      parsedAmrapReps
     );
     
     res.json(statusRecord);
