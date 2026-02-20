@@ -115,6 +115,100 @@ export function calculateWilks(totalKg, bodyweightKg, sex) {
 }
 
 // ============================================================================
+// PERCENT OF POWERLIFTING TOTAL
+// ============================================================================
+
+/**
+ * Returns the expected percentage of a powerlifting total that a given lift
+ * represents, based on sex. Deadlift is the anchor; other lifts are derived
+ * as fractions of the deadlift share.
+ *
+ * @param {string} sex - 'M' or 'F'
+ * @param {string} liftName - Normalized exercise name
+ * @returns {number} - Decimal fraction (e.g. 0.396825)
+ */
+function percentOfPLTotal(sex, liftName) {
+  const dlShare = sex === 'F' ? 0.414938 : 0.396825;
+
+  switch (liftName) {
+    case 'Barbell Deadlift':
+      return dlShare;
+    case 'Barbell Squat':
+      return (sex === 'F' ? 0.84 : 0.87) * dlShare;
+    case 'Barbell Bench Press':
+      return (sex === 'F' ? 0.57 : 0.65) * dlShare;
+    case 'Barbell Overhead Press':
+      return 0.65 * (sex === 'F' ? 0.57 : 0.65) * dlShare;
+    default:
+      return 1;
+  }
+}
+
+// ============================================================================
+// WILKS TO STRENGTH SCORE
+// ============================================================================
+
+/**
+ * Convert a Wilks score into a normalized strength score.
+ * Optionally applies an age adjustment for lifters under 23 or over 40.
+ *
+ * Strength score ranges:
+ *   >= 125  World Class
+ *   >= 112.5  Elite
+ *   >= 100  Exceptional
+ *   >= 87.5  Advanced
+ *   >= 75   Proficient
+ *   >= 60   Intermediate
+ *   >= 45   Novice
+ *   >= 30   Untrained
+ *   <  30   Subpar
+ *
+ * @param {number} wilks - Wilks score
+ * @param {number|null} age - Optional age for adjustment (null = no adjustment)
+ * @returns {number} - Strength score
+ */
+function wilksToStrengthScore(wilks, age = null) {
+  let ageMultiplier = 1;
+
+  if (typeof age === 'number' && age < 23) {
+    ageMultiplier = 0.0038961 * Math.pow(age, 2) - 0.166926 * age + 2.80303;
+  } else if (typeof age === 'number' && age > 40) {
+    ageMultiplier = 0.000467683 * Math.pow(age, 2) - 0.0299717 * age + 1.45454;
+  }
+
+  return (wilks * ageMultiplier) / 4;
+}
+
+// ============================================================================
+// SINGLE LIFT STRENGTH SCORE
+// ============================================================================
+
+/**
+ * Calculate a strength score for a single lift by extrapolating a powerlifting
+ * total, converting to Wilks, and applying an optional age adjustment.
+ *
+ * @param {string} sex - 'M' or 'F'
+ * @param {number} bodyweightLbs - Bodyweight in pounds
+ * @param {number} liftWeightLbs - Lift 1RM in pounds
+ * @param {string} liftName - Normalized exercise name
+ * @param {number|null} age - Optional age for adjustment
+ * @returns {number} - Strength score for this lift
+ */
+function singleLiftStrengthScore(sex, bodyweightLbs, liftWeightLbs, liftName, age = null) {
+  if (liftWeightLbs <= 0 || bodyweightLbs <= 0) return 0;
+
+  const lbToKg = 0.453592;
+
+  // Extrapolate what the full PL total would be based on this single lift
+  const plTotalLbs = liftWeightLbs / percentOfPLTotal(sex, liftName);
+
+  // Convert to kg and compute Wilks
+  const wilks = calculateWilks(plTotalLbs * lbToKg, bodyweightLbs * lbToKg, sex);
+
+  return wilksToStrengthScore(wilks, age);
+}
+
+// ============================================================================
 // STRENGTH STANDARDS DATABASE
 // ============================================================================
 
@@ -556,39 +650,37 @@ export function detectImbalances(ratios, lifts) {
 }
 
 /**
- * Calculate overall symmetry score (0-100)
- * 
- * @param {object} ratios - Calculated ratios
- * @returns {number} - Score from 0 to 100
+ * Calculate overall symmetry score (0-100) using the variance method.
+ * Computes a per-lift strength score for each provided lift, then returns
+ * 100 minus the variance of those scores. A perfect 100 means all lifts
+ * imply the same overall strength level.
+ *
+ * @param {object} lifts - { squat, bench, deadlift, ohp } as 1RM in lbs
+ * @param {string} sex - 'M' or 'F'
+ * @param {number} bodyweightLbs - Bodyweight in pounds
+ * @param {number|null} age - Optional age for adjustment
+ * @returns {number} - Symmetry score (higher = more balanced)
  */
-export function calculateSymmetryScore(ratios) {
-  let totalScore = 0;
-  let count = 0;
-  
-  // Score each ratio
-  for (const [key, value] of Object.entries(ratios)) {
-    if (value > 0 && IDEAL_RATIOS[key]) {
-      const { min, max, ideal } = IDEAL_RATIOS[key];
-      
-      // Calculate how close to ideal (0 = at boundaries, 100 = perfect)
-      let score;
-      if (value >= min && value <= max) {
-        // Within acceptable range
-        const distanceFromIdeal = Math.abs(value - ideal);
-        const rangeSize = (max - min) / 2;
-        score = 100 * (1 - distanceFromIdeal / rangeSize);
-      } else {
-        // Outside acceptable range
-        const distanceOutside = value < min ? min - value : value - max;
-        score = Math.max(0, 50 - distanceOutside * 50);
-      }
-      
-      totalScore += score;
-      count++;
-    }
-  }
-  
-  return count > 0 ? Math.round(totalScore / count) : 0;
+export function calculateSymmetryScore(lifts, sex, bodyweightLbs, age = null) {
+  const liftMap = {
+    squat: 'Barbell Squat',
+    bench: 'Barbell Bench Press',
+    deadlift: 'Barbell Deadlift',
+    ohp: 'Barbell Overhead Press',
+  };
+
+  // Build array of strength scores for lifts that have values
+  const scores = Object.entries(liftMap)
+    .filter(([key]) => lifts[key] > 0)
+    .map(([key, name]) => singleLiftStrengthScore(sex, bodyweightLbs, lifts[key], name, age));
+
+  if (scores.length === 0) return 0;
+
+  // Variance-based symmetry: 100 - variance(scores)
+  const mean = scores.reduce((sum, s) => sum + s, 0) / scores.length;
+  const variance = scores.reduce((sum, s) => sum + Math.pow(s - mean, 2), 0) / scores.length;
+
+  return Math.round(100 - variance);
 }
 
 // ============================================================================

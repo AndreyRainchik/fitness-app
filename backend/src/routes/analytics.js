@@ -437,7 +437,8 @@ router.get('/symmetry', authenticateToken, (req, res) => {
     const imbalances = detectImbalances(ratios, lifts);
     
     // Calculate overall symmetry score
-    const overallScore = calculateSymmetryScore(ratios);
+    //const overallScore = calculateSymmetryScore(ratios);
+    const overallScore = calculateSymmetryScore(lifts, user.sex, bodyweightLbs)
     
     res.json({
       ratios: {
