@@ -1,9 +1,19 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
-import { Workout, Set } from '../models/index.js';
+import { Workout, Set, Exercise } from '../models/index.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { all } from '../config/database.js';
 import { estimate1RM } from '../utils/strengthCalculations.js';
+
+/**
+ * Returns true when the exercise supports negative weights (i.e. machine
+ * assistance is recorded as a negative number rather than an absolute stack
+ * weight).  Exercises whose name contains the word "assisted" (case-
+ * insensitive) are treated as assisted.
+ */
+function isAssistedExercise(exercise) {
+  return exercise && exercise.name.toLowerCase().includes('assisted');
+}
 
 const router = express.Router();
 
@@ -166,14 +176,17 @@ function detectPRsForWorkout(workout, userId) {
       [userId, exerciseId, workout.id]
     );
     
-    // Calculate historical bests
-    let historicalBestVolume = 0;
-    let historicalBest1RM = 0;
-    
+    // Calculate historical bests.
+    // Initialize to -Infinity so that negative values (e.g. assisted pull-up
+    // volumes / 1RMs) are captured correctly — Math.max semantics apply and
+    // "higher is better" remains true across the full numeric range.
+    let historicalBestVolume = -Infinity;
+    let historicalBest1RM = -Infinity;
+
     previousSets.forEach(prevSet => {
       const prevVolume = prevSet.weight * prevSet.reps;
       const prev1RM = estimate1RM(prevSet.weight, prevSet.reps);
-      
+
       if (prevVolume > historicalBestVolume) {
         historicalBestVolume = prevVolume;
       }
@@ -380,7 +393,7 @@ router.post('/:id/sets',
     body('exercise_id').isInt().withMessage('Exercise ID is required'),
     body('set_number').isInt({ min: 1 }).withMessage('Set number must be positive'),
     body('reps').isInt({ min: 0 }).withMessage('Reps must be positive'),
-    body('weight').isFloat({ min: 0 }).withMessage('Weight must be positive'),
+    body('weight').isFloat().withMessage('Weight must be a number'),
     body('rpe').optional().isFloat({ min: 0, max: 10 }),
     body('is_warmup').optional().isBoolean(),
     body('notes').optional().isString()
@@ -390,20 +403,29 @@ router.post('/:id/sets',
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    
+
     try {
       const { id } = req.params;
       const workout = Workout.findById(id);
-      
+
       if (!workout) {
         return res.status(404).json({ error: 'Workout not found' });
       }
-      
+
       if (workout.user_id !== req.user.id) {
         return res.status(403).json({ error: 'Access denied' });
       }
-      
+
       const { exercise_id, set_number, reps, weight, rpe, is_warmup, notes } = req.body;
+
+      // Negative weights are only meaningful for assisted exercises (e.g.
+      // Machine-Assisted Pull-up where the stack reduces effective load).
+      if (weight < 0) {
+        const exercise = Exercise.findById(exercise_id);
+        if (!isAssistedExercise(exercise)) {
+          return res.status(400).json({ error: 'Weight must be positive for this exercise' });
+        }
+      }
       
       const set = Set.create({
         workout_id: id,
@@ -435,7 +457,7 @@ router.put('/sets/:set_id',
   [
     body('set_number').optional().isInt({ min: 1 }),
     body('reps').optional().isInt({ min: 0 }),
-    body('weight').optional().isFloat({ min: 0 }),
+    body('weight').optional().isFloat(),
     body('rpe').optional().isFloat({ min: 0, max: 10 }),
     body('is_warmup').optional().isBoolean(),
     body('notes').optional().isString()
@@ -445,22 +467,30 @@ router.put('/sets/:set_id',
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    
+
     try {
       const { set_id } = req.params;
       const set = Set.findById(set_id);
-      
+
       if (!set) {
         return res.status(404).json({ error: 'Set not found' });
       }
-      
+
       // Verify ownership through workout
       const workout = Workout.findById(set.workout_id);
       if (workout.user_id !== req.user.id) {
         return res.status(403).json({ error: 'Access denied' });
       }
-      
+
       const { set_number, reps, weight, rpe, is_warmup, notes } = req.body;
+
+      // Negative weights are only valid for assisted exercises.
+      if (weight !== undefined && weight < 0) {
+        const exercise = Exercise.findById(set.exercise_id);
+        if (!isAssistedExercise(exercise)) {
+          return res.status(400).json({ error: 'Weight must be positive for this exercise' });
+        }
+      }
       const updatedSet = Set.update(set_id, { set_number, reps, weight, rpe, is_warmup, notes });
       
       res.json({

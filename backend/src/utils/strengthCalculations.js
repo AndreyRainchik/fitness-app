@@ -42,17 +42,42 @@ function interpolate(weight, reps) {
 /**
  * Hybrid 1RM Estimation
  * Automatically selects the most accurate formula based on rep range
- * 
- * @param {number} weight - Weight lifted
+ *
+ * For assisted exercises (negative weight = assistance from machine):
+ * Uses an inverted formula so the estimated 1RM is less negative (less
+ * assistance required) than the working weight — reflecting that you need
+ * less assistance to grind out a single max rep than to complete a full set.
+ * When the 1RM reaches 0 the lifter can do an unassisted rep; once they log
+ * positive (added) weight the standard formulas take over and the 1RM
+ * continues to increase normally.
+ *
+ * @param {number} weight - Weight lifted (negative = machine assistance)
  * @param {number} reps - Number of reps completed
  * @returns {number} - Estimated 1RM
  */
 export function estimate1RM(weight, reps) {
   // Validate inputs
-  if (weight <= 0 || reps <= 0) return 0;
+  if (reps <= 0) return 0;
   if (reps === 1) return weight;
-  
-  // Choose formula based on rep range
+
+  if (weight < 0) {
+    // Assisted exercise: invert the multiplier so the 1RM is less negative
+    // (i.e. needs less assistance) than the working weight.
+    if (reps >= 37) return weight / 2; // Safety fallback
+    if (reps < 8) {
+      return weight / (36 / (37 - reps));
+    } else if (reps > 10) {
+      return weight / (1 + reps / 30);
+    } else {
+      // Interpolate for 8-10 rep range
+      const factor = (reps - 8) / 2;
+      const brzyckiResult = weight / (36 / (37 - reps));
+      const epleyResult = weight / (1 + reps / 30);
+      return brzyckiResult * (1 - factor) + epleyResult * factor;
+    }
+  }
+
+  // weight === 0 (unassisted bodyweight) or positive (added weight)
   if (reps < 8) {
     return brzycki(weight, reps);
   } else if (reps > 10) {
