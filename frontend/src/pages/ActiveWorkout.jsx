@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout/Layout';
 import WorkoutTimer from '../components/Timers/WorkoutTimer';
 import RestTimer from '../components/Timers/RestTimer';
+import { getLocalDateString } from '../utils/dateUtils';
 
 function ActiveWorkout() {
   const navigate = useNavigate();
@@ -13,9 +14,7 @@ function ActiveWorkout() {
   
   // Core workout state
   const [workoutName, setWorkoutName] = useState('');
-  const [workoutDate, setWorkoutDate] = useState(
-    new Date().toISOString().split('T')[0]
-  );
+  const [workoutDate, setWorkoutDate] = useState(getLocalDateString());
   const [exercises, setExercises] = useState([]);
   const [notes, setNotes] = useState('');
   

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { profileAPI } from '../../services/api';
+import { getLocalDateString } from '../../utils/dateUtils';
 
 function BodyweightLog({ units, onLogAdded }) {
   const [logs, setLogs] = useState([]);
@@ -7,7 +8,7 @@ function BodyweightLog({ units, onLogAdded }) {
   const [isAdding, setIsAdding] = useState(false);
   const [formData, setFormData] = useState({
     weight: '',
-    date: new Date().toISOString().split('T')[0], // Today's date in YYYY-MM-DD
+    date: getLocalDateString(), // Today's date in YYYY-MM-DD
     units: units || 'lbs'
   });
   const [error, setError] = useState('');
@@ -56,7 +57,7 @@ function BodyweightLog({ units, onLogAdded }) {
       setSuccessMessage('Bodyweight logged successfully!');
       setFormData({
         weight: '',
-        date: new Date().toISOString().split('T')[0],
+        date: getLocalDateString(),
         units: units || 'lbs'
       });
       setIsAdding(false);
@@ -151,7 +152,7 @@ function BodyweightLog({ units, onLogAdded }) {
                   name="date"
                   value={formData.date}
                   onChange={handleChange}
-                  max={new Date().toISOString().split('T')[0]}
+                  max={getLocalDateString()}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 />
@@ -172,7 +173,7 @@ function BodyweightLog({ units, onLogAdded }) {
                   setError('');
                   setFormData({
                     weight: '',
-                    date: new Date().toISOString().split('T')[0],
+                    date: getLocalDateString(),
                     units: units || 'lbs'
                   });
                 }}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { analyticsAPI } from '../../services/api';
+import { localDateStringFromDate } from '../../utils/dateUtils';
 
 const MuscleGroupHeatmap = () => {
   const [muscleData, setMuscleData] = useState([]);
@@ -17,7 +18,7 @@ const MuscleGroupHeatmap = () => {
       setLoading(true);
       setError(null);
       const data = await analyticsAPI.getMuscleGroupsWeekly(
-        date.toISOString().split('T')[0]
+        localDateStringFromDate(date)
       );
       
       setMuscleData(data.muscleGroups);
