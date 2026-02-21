@@ -194,7 +194,7 @@ function wilksToStrengthScore(wilks, age = null) {
  * @param {number|null} age - Optional age for adjustment
  * @returns {number} - Strength score for this lift
  */
-function singleLiftStrengthScore(sex, bodyweightLbs, liftWeightLbs, liftName, age = null) {
+export function singleLiftStrengthScore(sex, bodyweightLbs, liftWeightLbs, liftName, age = null) {
   if (liftWeightLbs <= 0 || bodyweightLbs <= 0) return 0;
 
   const lbToKg = 0.453592;
@@ -747,6 +747,7 @@ export default {
   calculateSymmetryRatios,
   detectImbalances,
   calculateSymmetryScore,
+  singleLiftStrengthScore,
   getBestWorkingSet,
   getBestSetsFromWorkouts,
   normalizeExerciseName

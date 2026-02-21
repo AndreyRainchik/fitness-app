@@ -6,6 +6,7 @@ import {
   calculateWilks,
   getStrengthStandard,
   calculateSymmetryRatios,
+  singleLiftStrengthScore,
   detectImbalances,
   calculateSymmetryScore,
   getBestWorkingSet
@@ -424,7 +425,7 @@ router.get('/symmetry', authenticateToken, (req, res) => {
       );
       
       if (bestSet) {
-        lifts[lift.key] = estimate1RM(bestSet.weight, bestSet.reps);
+        lifts[lift.key] = Math.round(estimate1RM(bestSet.weight, bestSet.reps) * 10) / 10;
       } else {
         lifts[lift.key] = 0;
       }
@@ -448,10 +449,10 @@ router.get('/symmetry', authenticateToken, (req, res) => {
         deadliftToSquat: Math.round(ratios.deadliftToSquat * 100) / 100
       },
       lifts: {
-        squat: Math.round(lifts.squat * 10) / 10,
-        bench: Math.round(lifts.bench * 10) / 10,
-        deadlift: Math.round(lifts.deadlift * 10) / 10,
-        ohp: Math.round(lifts.ohp * 10) / 10
+        squat: Math.round(singleLiftStrengthScore(user.sex, bodyweightLbs, lifts.squat, 'Barbell Squat') * 10) / 10,
+        bench: Math.round(singleLiftStrengthScore(user.sex, bodyweightLbs, lifts.bench, 'Barbell Bench Press') * 10) / 10,
+        deadlift: Math.round(singleLiftStrengthScore(user.sex, bodyweightLbs, lifts.deadlift, 'Barbell Deadlift') * 10) / 10,
+        ohp: Math.round(singleLiftStrengthScore(user.sex, bodyweightLbs, lifts.ohp, 'Barbell Overhead Press') * 10) / 10
       },
       imbalances,
       overallScore,
