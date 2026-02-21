@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { programsAPI, exercisesAPI } from '../services/api';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout/Layout';
+import { getLocalDateString } from '../utils/dateUtils';
 
 // Program Types Configuration
 const PROGRAM_TYPES = {
@@ -102,7 +103,7 @@ const Programs = () => {
       const programData = {
         name: programName,
         type: selectedProgramType,
-        start_date: new Date().toISOString().split('T')[0],
+        start_date: getLocalDateString(),
         is_active: programs.length === 0 ? 1 : 0, // Auto-activate if first program
         lifts: validLifts.map(lift => ({
           exercise_id: parseInt(lift.exercise_id),

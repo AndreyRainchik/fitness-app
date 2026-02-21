@@ -99,22 +99,22 @@ router.get('/lift-progression/:exerciseName', authenticateToken, (req, res) => {
     const { exerciseName } = req.params;
     const weeks = parseInt(req.query.weeks) || 12;
     const userId = req.user.id;
-    
+
     // Get exercise ID
     const exerciseId = getExerciseIdByName(exerciseName);
     if (!exerciseId) {
-      return res.status(404).json({ 
-        error: `Exercise "${exerciseName}" not found` 
+      return res.status(404).json({
+        error: `Exercise "${exerciseName}" not found`
       });
     }
-    
-    // Calculate date range
-    const endDate = new Date();
-    const startDate = new Date();
+
+    // Calculate date range. Use the client-supplied local date when available
+    // so the range reflects the user's calendar day rather than the server's UTC date.
+    const endDateStr = req.query.localDate || new Date().toISOString().split('T')[0];
+    const endDate = new Date(endDateStr + 'T12:00:00');
+    const startDate = new Date(endDate);
     startDate.setDate(startDate.getDate() - (weeks * 7));
-    
     const startDateStr = startDate.toISOString().split('T')[0];
-    const endDateStr = endDate.toISOString().split('T')[0];
     
     // Get user info for Wilks and standards
     const user = get('SELECT sex, units FROM users WHERE id = ?', [userId]);
@@ -235,14 +235,13 @@ router.get('/strength-score', authenticateToken, (req, res) => {
   try {
     const weeks = parseInt(req.query.weeks) || 12;
     const userId = req.user.id;
-    
-    // Calculate date range
-    const endDate = new Date();
-    const startDate = new Date();
+
+    // Calculate date range. Use the client-supplied local date when available.
+    const endDateStr = req.query.localDate || new Date().toISOString().split('T')[0];
+    const endDate = new Date(endDateStr + 'T12:00:00');
+    const startDate = new Date(endDate);
     startDate.setDate(startDate.getDate() - (weeks * 7));
-    
     const startDateStr = startDate.toISOString().split('T')[0];
-    const endDateStr = endDate.toISOString().split('T')[0];
     
     // Get user info
     const user = get('SELECT sex, units FROM users WHERE id = ?', [userId]);
@@ -500,8 +499,10 @@ router.get('/dashboard-summary', authenticateToken, (req, res) => {
     );
     const totalWorkouts = totalResult.count;
     
-    // Get this week's workouts
-    const today = new Date();
+    // Get this week's workouts. Use the client-supplied local date when
+    // available so "this week" reflects the user's calendar, not the server UTC date.
+    const todayStr = req.query.localDate || new Date().toISOString().split('T')[0];
+    const today = new Date(todayStr + 'T12:00:00');
     const startOfWeek = new Date(today);
     startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
     const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
@@ -541,7 +542,7 @@ router.get('/dashboard-summary', authenticateToken, (req, res) => {
     }
     
     // Get recent PRs (personal records from last 30 days)
-    const thirtyDaysAgo = new Date();
+    const thirtyDaysAgo = new Date(today);
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
     

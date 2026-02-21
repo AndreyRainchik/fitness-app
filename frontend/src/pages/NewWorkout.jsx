@@ -3,14 +3,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsAPI, exercisesAPI, templatesAPI } from '../services/api';
 import Layout from '../components/Layout/Layout';
+import { getLocalDateString } from '../utils/dateUtils';
 
 function NewWorkout() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [workoutName, setWorkoutName] = useState('');
-  const [workoutDate, setWorkoutDate] = useState(
-    new Date().toISOString().split('T')[0]
-  );
+  const [workoutDate, setWorkoutDate] = useState(getLocalDateString());
   const [exercises, setExercises] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');

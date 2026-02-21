@@ -69,11 +69,12 @@ function BodyweightChart({ units }) {
             {data.weight} {units}
           </p>
           <p className="text-xs text-gray-500">
-            {new Date(data.date).toLocaleDateString('en-US', { 
+            {new Date(data.date).toLocaleDateString('en-US', {
               weekday: 'short',
-              month: 'short', 
+              month: 'short',
               day: 'numeric',
-              year: 'numeric'
+              year: 'numeric',
+              timeZone: 'UTC'
             })}
           </p>
         </div>

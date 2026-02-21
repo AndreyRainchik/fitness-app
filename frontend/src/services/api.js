@@ -1,3 +1,5 @@
+import { getLocalDateString } from '../utils/dateUtils';
+
 // Determine the base URL based on environment
 const getBaseURL = () => {
   // In production (when served from same server), use relative paths
@@ -354,7 +356,8 @@ export const analyticsAPI = {
    * @param {number} weeks - Number of weeks to look back (default: 12)
    */
   getLiftProgression: async (exerciseName, weeks = 12) => {
-    return await apiCall(`/analytics/lift-progression/${encodeURIComponent(exerciseName)}?weeks=${weeks}`);
+    const localDate = getLocalDateString();
+    return await apiCall(`/analytics/lift-progression/${encodeURIComponent(exerciseName)}?weeks=${weeks}&localDate=${localDate}`);
   },
 
   /**
@@ -362,7 +365,8 @@ export const analyticsAPI = {
    * @param {number} weeks - Number of weeks to analyze (default: 12)
    */
   getStrengthScore: async (weeks = 12) => {
-    return await apiCall(`/analytics/strength-score?weeks=${weeks}`);
+    const localDate = getLocalDateString();
+    return await apiCall(`/analytics/strength-score?weeks=${weeks}&localDate=${localDate}`);
   },
 
   /**
@@ -376,7 +380,8 @@ export const analyticsAPI = {
    * Get dashboard summary stats
    */
   getDashboardSummary: async () => {
-    return await apiCall('/analytics/dashboard-summary');
+    const localDate = getLocalDateString();
+    return await apiCall(`/analytics/dashboard-summary?localDate=${localDate}`);
   },
   
   /**
