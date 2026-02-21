@@ -37,6 +37,33 @@ function SymmetryDisplay({ symmetryData }) {
     return 'bg-red-50';
   };
 
+  // Strength score label and color based on score ranges
+  const getLiftLabel = (score) => {
+    if (score >= 125) return 'World Class';
+    if (score >= 112.5) return 'Elite';
+    if (score >= 100) return 'Exceptional';
+    if (score >= 87.5) return 'Advanced';
+    if (score >= 75) return 'Proficient';
+    if (score >= 60) return 'Intermediate';
+    if (score >= 45) return 'Novice';
+    if (score >= 30) return 'Untrained';
+    return 'Subpar';
+  };
+
+  // Uses same colors as getStandardColor in StrengthStandardsTable for matching labels;
+  // additional colors chosen for labels not present there.
+  const getLiftColors = (score) => {
+    if (score >= 125) return { bg: 'bg-amber-100', text: 'text-amber-800' };
+    if (score >= 112.5) return { bg: 'bg-purple-100', text: 'text-purple-800' };
+    if (score >= 100) return { bg: 'bg-indigo-100', text: 'text-indigo-800' };
+    if (score >= 87.5) return { bg: 'bg-red-100', text: 'text-red-800' };
+    if (score >= 75) return { bg: 'bg-teal-100', text: 'text-teal-800' };
+    if (score >= 60) return { bg: 'bg-orange-100', text: 'text-orange-800' };
+    if (score >= 45) return { bg: 'bg-yellow-100', text: 'text-yellow-800' };
+    if (score >= 30) return { bg: 'bg-gray-100', text: 'text-gray-700' };
+    return { bg: 'bg-slate-100', text: 'text-slate-700' };
+  };
+
   // Ratio display component
   const RatioCard = ({ title, actual, ideal, description }) => {
     const deviation = Math.abs(actual - ideal);
@@ -115,22 +142,21 @@ function SymmetryDisplay({ symmetryData }) {
 
         {/* Lift Values */}
         <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="text-xs text-gray-600 mb-1">Squat</p>
-            <p className="text-lg font-bold text-gray-900">{lifts.squat || 0}</p>
-          </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="text-xs text-gray-600 mb-1">Bench</p>
-            <p className="text-lg font-bold text-gray-900">{lifts.bench || 0}</p>
-          </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="text-xs text-gray-600 mb-1">Deadlift</p>
-            <p className="text-lg font-bold text-gray-900">{lifts.deadlift || 0}</p>
-          </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="text-xs text-gray-600 mb-1">OHP</p>
-            <p className="text-lg font-bold text-gray-900">{lifts.ohp || 0}</p>
-          </div>
+          {[
+            { label: 'Squat', value: lifts.squat || 0 },
+            { label: 'Bench', value: lifts.bench || 0 },
+            { label: 'Deadlift', value: lifts.deadlift || 0 },
+            { label: 'OHP', value: lifts.ohp || 0 },
+          ].map(({ label, value }) => {
+            const { bg, text } = getLiftColors(value);
+            return (
+              <div key={label} className={`text-center p-3 rounded-lg ${bg}`}>
+                <p className={`text-xs font-medium mb-1 ${text}`}>{label}</p>
+                <p className={`text-lg font-bold ${text}`}>{value}</p>
+                <p className={`text-xs font-semibold mt-1 ${text}`}>{getLiftLabel(value)}</p>
+              </div>
+            );
+          })}
         </div>
       </div>
 
