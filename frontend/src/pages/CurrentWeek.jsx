@@ -24,6 +24,10 @@ const CurrentWeek = () => {
   // State for tracking AMRAP reps input per exercise (exerciseId -> rep count string)
   const [amrapRepsInput, setAmrapRepsInput] = useState({});
 
+  // State for week 4 per-lift override: set of exercise IDs that the user wants to
+  // take only a single increment even though they earned a double increment in week 3
+  const [singleIncrementOverrides, setSingleIncrementOverrides] = useState(new Set());
+
   // Collect all weights from workout for batch fetching (INCLUDING WARMUP SETS)
   const allWeights = useMemo(() => {
     if (!workout || !workout.lifts) return [];
@@ -114,13 +118,14 @@ const CurrentWeek = () => {
     return exerciseStatuses.some(status => status.status === 'failed');
   };
 
-  // Check if a lift achieved >10 reps on any AMRAP set in the current cycle (triggers double increment)
+  // Check if week 3's AMRAP set achieved >10 reps (the only week that triggers double increment)
   const hasExtraAmrapReps = (exerciseId) => {
     if (!allStatuses || !workout) return false;
     return allStatuses.statuses.some(
       status =>
         status.exercise_id === exerciseId &&
         status.cycle === workout.cycle &&
+        status.week === 3 &&
         status.amrap_reps !== null &&
         status.amrap_reps !== undefined &&
         status.amrap_reps > 10
@@ -250,7 +255,7 @@ const CurrentWeek = () => {
 
     try {
       setAdvancing(true);
-      await programsAPI.advanceWeek(workout.program_id);
+      await programsAPI.advanceWeek(workout.program_id, Array.from(singleIncrementOverrides));
       
       if (failedLifts.length > 0) {
         setMessage({ 
@@ -439,6 +444,7 @@ const CurrentWeek = () => {
     const isUpdating = updatingStatus.has(exerciseId);
     // AMRAP input is only relevant for 5/3/1 weeks 1-3 (weeks with an AMRAP set)
     const isAmrapWeek = workout && workout.program_type === '531' && workout.week >= 1 && workout.week <= 3;
+    const isWeek3 = workout && workout.week === 3;
     const inputReps = amrapRepsInput[exerciseId] || '';
     const parsedInputReps = parseInt(inputReps, 10);
     const inputExceedsTen = !isNaN(parsedInputReps) && parsedInputReps > 10;
@@ -460,7 +466,7 @@ const CurrentWeek = () => {
               className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="e.g. 12"
             />
-            {inputExceedsTen && (
+            {inputExceedsTen && isWeek3 && (
               <span className="text-xs text-green-700 font-medium bg-green-100 px-2 py-0.5 rounded-full">
                 2x increment next cycle!
               </span>
@@ -472,7 +478,7 @@ const CurrentWeek = () => {
         {isAmrapWeek && currentStatus && recordedAmrapReps != null && (
           <div className="text-xs text-gray-500">
             AMRAP reps recorded: <span className="font-medium">{recordedAmrapReps}</span>
-            {recordedAmrapReps > 10 && (
+            {recordedAmrapReps > 10 && isWeek3 && (
               <span className="ml-1 text-green-700 font-medium bg-green-100 px-1.5 py-0.5 rounded-full">
                 2x increment next cycle!
               </span>
@@ -803,13 +809,28 @@ const CurrentWeek = () => {
                         const isFailed = hasFailureInCycle(lift.exercise_id);
                         const failedWeeks = getFailedWeeks(lift.exercise_id);
 
-                        // Check if >10 AMRAP reps were achieved in any week (triggers double increment)
-                        const doubleIncrement = !isFailed && hasExtraAmrapReps(lift.exercise_id);
+                        // Double increment is earned by hitting >10 AMRAP reps in week 3
+                        const earnedDoubleIncrement = !isFailed && hasExtraAmrapReps(lift.exercise_id);
+                        // User can opt down to a single increment even if they earned double
+                        const isOverridden = singleIncrementOverrides.has(lift.exercise_id);
+                        const doubleIncrement = earnedDoubleIncrement && !isOverridden;
                         const effectiveIncrement = doubleIncrement ? increment * 2 : increment;
 
                         const newMax = isFailed ? currentMax - increment : currentMax + effectiveIncrement;
                         const change = isFailed ? -increment : +effectiveIncrement;
-                        
+
+                        const toggleOverride = () => {
+                          setSingleIncrementOverrides(prev => {
+                            const next = new Set(prev);
+                            if (next.has(lift.exercise_id)) {
+                              next.delete(lift.exercise_id);
+                            } else {
+                              next.add(lift.exercise_id);
+                            }
+                            return next;
+                          });
+                        };
+
                         return (
                           <div key={idx} className="bg-white bg-opacity-60 rounded-lg p-2.5 sm:p-3">
                             {/* Mobile: Stack layout */}
@@ -822,9 +843,9 @@ const CurrentWeek = () => {
                                       Week{failedWeeks.length > 1 ? 's' : ''} {failedWeeks.join(', ')}
                                     </div>
                                   )}
-                                  {doubleIncrement && (
-                                    <div className="text-xs text-blue-600 mt-0.5 font-medium">
-                                      2x increment (10+ AMRAP reps)
+                                  {earnedDoubleIncrement && (
+                                    <div className="text-xs mt-0.5 font-medium text-blue-600">
+                                      {doubleIncrement ? '2x increment (week 3 10+ AMRAP reps)' : '1x increment (manually selected)'}
                                     </div>
                                   )}
                                 </div>
@@ -847,10 +868,18 @@ const CurrentWeek = () => {
                                   </span>
                                 </div>
                               </div>
+                              {earnedDoubleIncrement && (
+                                <button
+                                  onClick={toggleOverride}
+                                  className="text-xs text-purple-700 underline text-left"
+                                >
+                                  {isOverridden ? 'Use 2x increment instead' : 'Use 1x increment instead'}
+                                </button>
+                              )}
                             </div>
 
                             {/* Desktop: Horizontal layout */}
-                            <div className="hidden sm:flex items-center justify-between">
+                            <div className="hidden sm:flex items-center justify-between gap-3">
                               <div className="flex-1 min-w-0">
                                 <span className="font-medium text-gray-900 text-sm">{lift.exercise_name}</span>
                                 {isFailed && failedWeeks.length > 0 && (
@@ -858,13 +887,21 @@ const CurrentWeek = () => {
                                     Failed in week{failedWeeks.length > 1 ? 's' : ''}: {failedWeeks.join(', ')}
                                   </div>
                                 )}
-                                {doubleIncrement && (
-                                  <div className="text-xs text-blue-600 mt-0.5 font-medium">
-                                    2x increment (10+ AMRAP reps achieved)
+                                {earnedDoubleIncrement && (
+                                  <div className="text-xs mt-0.5 font-medium text-blue-600">
+                                    {doubleIncrement ? '2x increment (week 3 10+ AMRAP reps)' : '1x increment (manually selected)'}
                                   </div>
                                 )}
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
+                                {earnedDoubleIncrement && (
+                                  <button
+                                    onClick={toggleOverride}
+                                    className="text-xs text-purple-700 underline"
+                                  >
+                                    {isOverridden ? 'Use 2x' : 'Use 1x'}
+                                  </button>
+                                )}
                                 <span className="text-gray-600 text-sm">{currentMax} lbs</span>
                                 <svg className={`w-4 h-4 ${isFailed ? 'text-red-500' : doubleIncrement ? 'text-blue-500' : 'text-green-500'}`} fill="currentColor" viewBox="0 0 20 20">
                                   {isFailed ? (
@@ -892,7 +929,7 @@ const CurrentWeek = () => {
                         <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                         </svg>
-                        <span className="leading-relaxed">Lifts where you hit <strong>10+ AMRAP reps</strong> in any week will jump by <strong>2 cycles</strong> (double increment) next cycle</span>
+                        <span className="leading-relaxed">Lifts where you hit <strong>10+ AMRAP reps on week 3</strong> earn a <strong>double increment</strong> next cycle. Use the <strong>1x / 2x</strong> toggle above to choose a single increment instead.</span>
                       </div>
                     )}
 

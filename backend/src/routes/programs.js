@@ -238,7 +238,10 @@ router.post('/:id/advance-week', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     
-    const updatedProgram = Program.advanceWeek(req.params.id);
+    const singleIncrementOverrides = Array.isArray(req.body.single_increment_overrides)
+      ? req.body.single_increment_overrides
+      : [];
+    const updatedProgram = Program.advanceWeek(req.params.id, singleIncrementOverrides);
     res.json(updatedProgram);
   } catch (error) {
     console.error('Error advancing week:', error);

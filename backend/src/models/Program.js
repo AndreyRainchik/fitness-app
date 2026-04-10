@@ -330,7 +330,7 @@ class Program {
    * 
    * UPDATED: Now checks ALL weeks in the current cycle for failed lifts
    */
-  static advanceWeek(id) {
+  static advanceWeek(id, singleIncrementOverrides = []) {
     const program = this.findById(id);
     if (!program) {
       return null;
@@ -392,10 +392,12 @@ class Program {
             const liftStatuses = cycleStatusMap.get(lift.exercise_id) || [];
             const hasFailure = liftStatuses.some(s => s.status === 'failed');
 
-            // Double the increment if any AMRAP set in the cycle achieved more than 10 reps
-            const hasExtraAmrapReps = !hasFailure && liftStatuses.some(
-              s => s.amrap_reps !== null && s.amrap_reps !== undefined && s.amrap_reps > 10
+            // Double the increment only if week 3's AMRAP set achieved more than 10 reps,
+            // and the user hasn't opted to take only the single increment
+            const week3ExtraAmrapReps = !hasFailure && liftStatuses.some(
+              s => s.week === 3 && s.amrap_reps !== null && s.amrap_reps !== undefined && s.amrap_reps > 10
             );
+            const hasExtraAmrapReps = week3ExtraAmrapReps && !singleIncrementOverrides.includes(lift.exercise_id);
             const effectiveIncrement = hasExtraAmrapReps ? increment * 2 : increment;
 
             let newTrainingMax;
@@ -409,13 +411,10 @@ class Program {
                 .join(', ');
               console.log(`Deloading ${exercise.name}: ${lift.training_max} -> ${newTrainingMax} lbs (failed in week(s) ${failedWeeks})`);
             } else if (hasExtraAmrapReps) {
-              // Double progression: Increase by 2x increment (>10 AMRAP reps achieved)
+              // Double progression: Increase by 2x increment (>10 AMRAP reps on week 3)
               newTrainingMax = lift.training_max + effectiveIncrement;
-              const extraWeeks = liftStatuses
-                .filter(s => s.amrap_reps !== null && s.amrap_reps !== undefined && s.amrap_reps > 10)
-                .map(s => `week ${s.week} (${s.amrap_reps} reps)`)
-                .join(', ');
-              console.log(`Double progressing ${exercise.name}: ${lift.training_max} -> ${newTrainingMax} lbs (>10 AMRAP reps in ${extraWeeks})`);
+              const week3Status = liftStatuses.find(s => s.week === 3);
+              console.log(`Double progressing ${exercise.name}: ${lift.training_max} -> ${newTrainingMax} lbs (>10 AMRAP reps in week 3 (${week3Status?.amrap_reps} reps))`);
             } else {
               // Progress normally: Increase training max by one increment
               newTrainingMax = lift.training_max + increment;

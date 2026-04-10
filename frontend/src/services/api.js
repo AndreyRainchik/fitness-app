@@ -555,9 +555,10 @@ export const programsAPI = {
   /**
    * Advance to next week
    */
-  advanceWeek: async (id) => {
+  advanceWeek: async (id, singleIncrementOverrides = []) => {
     return await apiCall(`/programs/${id}/advance-week`, {
       method: 'POST',
+      body: JSON.stringify({ single_increment_overrides: singleIncrementOverrides }),
     });
   },
 
