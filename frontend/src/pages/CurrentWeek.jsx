@@ -1003,8 +1003,8 @@ const CurrentWeek = () => {
         {/* Lifts */}
         <div className="space-y-6">
           {workout.lifts && workout.lifts.map((lift, liftIndex) => (
-            <div 
-              key={liftIndex} 
+            <div
+              key={lift.exercise_id}
               className={`bg-white border rounded-lg overflow-hidden transition-all ${getStatusBorderClass(lift.status)}`}
             >
               {/* Lift Header */}
