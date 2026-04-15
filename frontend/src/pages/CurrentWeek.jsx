@@ -440,7 +440,12 @@ const CurrentWeek = () => {
    * Status control buttons component
    * Enhanced for mobile with better touch targets and spacing
    */
-  const StatusControls = ({ exerciseId, currentStatus, recordedAmrapReps }) => {
+  // NOTE: This is intentionally invoked as a regular function (not as a JSX
+  // component element) at the call site below. Defining a component inside the
+  // parent's render would give it a new identity on every render of
+  // CurrentWeek, causing React to unmount/remount the subtree on every
+  // keystroke — which makes the AMRAP <input> lose focus mid-typing.
+  const renderStatusControls = ({ exerciseId, currentStatus, recordedAmrapReps }) => {
     const isUpdating = updatingStatus.has(exerciseId);
     // AMRAP input is only relevant for 5/3/1 weeks 1-3 (weeks with an AMRAP set)
     const isAmrapWeek = workout && workout.program_type === '531' && workout.week >= 1 && workout.week <= 3;
@@ -1064,11 +1069,11 @@ const CurrentWeek = () => {
                   {/* Status Controls - hidden when collapsed */}
                   {!isLiftCollapsed(lift.exercise_id) && (
                     <div onClick={(e) => e.stopPropagation()}>
-                      <StatusControls
-                        exerciseId={lift.exercise_id}
-                        currentStatus={lift.status}
-                        recordedAmrapReps={lift.amrap_reps}
-                      />
+                      {renderStatusControls({
+                        exerciseId: lift.exercise_id,
+                        currentStatus: lift.status,
+                        recordedAmrapReps: lift.amrap_reps,
+                      })}
                     </div>
                   )}
 
