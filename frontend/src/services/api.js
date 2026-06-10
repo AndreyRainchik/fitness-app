@@ -554,11 +554,15 @@ export const programsAPI = {
 
   /**
    * Advance to next week
+   * @param {string|number} id - Program id
+   * @param {Object<string, string>} adjustmentOverrides - Map of exercise_id ->
+   *   adjustment choice (increment_2x | increment_1x | keep | decrement_1x).
+   *   Only lifts the user explicitly overrode need to be included.
    */
-  advanceWeek: async (id, singleIncrementOverrides = []) => {
+  advanceWeek: async (id, adjustmentOverrides = {}) => {
     return await apiCall(`/programs/${id}/advance-week`, {
       method: 'POST',
-      body: JSON.stringify({ single_increment_overrides: singleIncrementOverrides }),
+      body: JSON.stringify({ adjustment_overrides: adjustmentOverrides }),
     });
   },
 

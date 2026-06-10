@@ -238,10 +238,21 @@ router.post('/:id/advance-week', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     
-    const singleIncrementOverrides = Array.isArray(req.body.single_increment_overrides)
-      ? req.body.single_increment_overrides
-      : [];
-    const updatedProgram = Program.advanceWeek(req.params.id, singleIncrementOverrides);
+    // Per-lift adjustment overrides: a map of exercise_id -> adjustment choice
+    // (increment_2x | increment_1x | keep | decrement_1x).
+    let adjustmentOverrides = {};
+    const rawOverrides = req.body.adjustment_overrides;
+    if (rawOverrides && typeof rawOverrides === 'object' && !Array.isArray(rawOverrides)) {
+      adjustmentOverrides = rawOverrides;
+    } else if (Array.isArray(req.body.single_increment_overrides)) {
+      // Backward compatibility: older clients send an array of exercise IDs that
+      // should take a single increment instead of the earned double increment.
+      req.body.single_increment_overrides.forEach(exerciseId => {
+        adjustmentOverrides[exerciseId] = 'increment_1x';
+      });
+    }
+
+    const updatedProgram = Program.advanceWeek(req.params.id, adjustmentOverrides);
     res.json(updatedProgram);
   } catch (error) {
     console.error('Error advancing week:', error);
