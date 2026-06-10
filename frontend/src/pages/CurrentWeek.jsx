@@ -5,6 +5,28 @@ import PlateCalculator from '../components/PlateCalculator/PlateCalculator';
 import Layout from '../components/Layout/Layout';
 import { useBatchPlateAdjustedWeights } from '../utils/usePlateAdjustedWeight';
 
+// Per-lift training max adjustment choices shown on the week 4 preview.
+// `delta(increment)` returns the change in lbs for the given lift increment.
+const ADJUSTMENT_OPTIONS = [
+  { value: 'increment_2x', label: 'Increase 2x', delta: (inc) => inc * 2, text: 'text-blue-600', badge: 'bg-blue-100 text-blue-700' },
+  { value: 'increment_1x', label: 'Increase 1x', delta: (inc) => inc, text: 'text-green-600', badge: 'bg-green-100 text-green-700' },
+  { value: 'keep', label: 'Keep the same', delta: () => 0, text: 'text-gray-600', badge: 'bg-gray-100 text-gray-700' },
+  { value: 'decrement_1x', label: 'Decrease 1x', delta: (inc) => -inc, text: 'text-red-600', badge: 'bg-red-100 text-red-700' },
+];
+
+const getAdjustmentOption = (value) =>
+  ADJUSTMENT_OPTIONS.find(opt => opt.value === value) || ADJUSTMENT_OPTIONS[1];
+
+// Preview of what a given week 3 (1-rep week) AMRAP rep count means for next cycle.
+// Returns a label + tailwind classes, or null if reps aren't a positive number.
+const getWeek3OutcomeBadge = (reps) => {
+  if (reps === null || reps === undefined || isNaN(reps)) return null;
+  if (reps >= 11) return { label: '2x increment next cycle!', classes: 'text-blue-700 bg-blue-100' };
+  if (reps >= 5) return { label: '1x increment next cycle', classes: 'text-green-700 bg-green-100' };
+  if (reps >= 1) return { label: 'Training max stays the same', classes: 'text-gray-700 bg-gray-100' };
+  return { label: 'Training max will decrease', classes: 'text-red-700 bg-red-100' };
+};
+
 const CurrentWeek = () => {
   const { programId } = useParams();
   const navigate = useNavigate();
@@ -24,9 +46,10 @@ const CurrentWeek = () => {
   // State for tracking AMRAP reps input per exercise (exerciseId -> rep count string)
   const [amrapRepsInput, setAmrapRepsInput] = useState({});
 
-  // State for week 4 per-lift override: set of exercise IDs that the user wants to
-  // take only a single increment even though they earned a double increment in week 3
-  const [singleIncrementOverrides, setSingleIncrementOverrides] = useState(new Set());
+  // State for week 4 per-lift training max adjustment overrides.
+  // Map of exercise_id -> adjustment choice (increment_2x | increment_1x | keep | decrement_1x).
+  // Only lifts the user explicitly overrode are present; others use the suggested default.
+  const [adjustmentOverrides, setAdjustmentOverrides] = useState({});
 
   // Collect all weights from workout for batch fetching (INCLUDING WARMUP SETS)
   const allWeights = useMemo(() => {
@@ -118,18 +141,44 @@ const CurrentWeek = () => {
     return exerciseStatuses.some(status => status.status === 'failed');
   };
 
-  // Check if week 3's AMRAP set achieved >10 reps (the only week that triggers double increment)
-  const hasExtraAmrapReps = (exerciseId) => {
-    if (!allStatuses || !workout) return false;
-    return allStatuses.statuses.some(
-      status =>
-        status.exercise_id === exerciseId &&
-        status.cycle === workout.cycle &&
-        status.week === 3 &&
-        status.amrap_reps !== null &&
-        status.amrap_reps !== undefined &&
-        status.amrap_reps > 10
+  // Get the recorded week 3 (1-rep week) AMRAP reps for an exercise, or null if none
+  const getWeek3AmrapReps = (exerciseId) => {
+    if (!allStatuses || !workout) return null;
+    const status = allStatuses.statuses.find(
+      s =>
+        s.exercise_id === exerciseId &&
+        s.cycle === workout.cycle &&
+        s.week === 3
     );
+    if (status && status.amrap_reps !== null && status.amrap_reps !== undefined) {
+      return status.amrap_reps;
+    }
+    return null;
+  };
+
+  // Determine the suggested training max adjustment based on this cycle's performance.
+  // Mirrors the backend logic in Program.getDefault531Adjustment().
+  //   11+ week 3 AMRAP reps -> increment_2x
+  //   5-10 reps             -> increment_1x
+  //   1-4 reps             -> keep
+  //   0 reps or a failure  -> decrement_1x
+  //   no reps recorded     -> increment_1x (progress normally)
+  const getDefaultAdjustment = (exerciseId) => {
+    if (hasFailureInCycle(exerciseId)) return 'decrement_1x';
+    const reps = getWeek3AmrapReps(exerciseId);
+    if (reps === null) return 'increment_1x';
+    if (reps >= 11) return 'increment_2x';
+    if (reps >= 5) return 'increment_1x';
+    if (reps >= 1) return 'keep';
+    return 'decrement_1x';
+  };
+
+  // The effective adjustment for a lift: the user's override if set, else the suggestion
+  const getEffectiveAdjustment = (exerciseId) => {
+    if (Object.prototype.hasOwnProperty.call(adjustmentOverrides, exerciseId)) {
+      return adjustmentOverrides[exerciseId];
+    }
+    return getDefaultAdjustment(exerciseId);
   };
 
   // NEW: Get which weeks had failures for display purposes
@@ -255,7 +304,7 @@ const CurrentWeek = () => {
 
     try {
       setAdvancing(true);
-      await programsAPI.advanceWeek(workout.program_id, Array.from(singleIncrementOverrides));
+      await programsAPI.advanceWeek(workout.program_id, adjustmentOverrides);
       
       if (failedLifts.length > 0) {
         setMessage({ 
@@ -452,7 +501,8 @@ const CurrentWeek = () => {
     const isWeek3 = workout && workout.week === 3;
     const inputReps = amrapRepsInput[exerciseId] || '';
     const parsedInputReps = parseInt(inputReps, 10);
-    const inputExceedsTen = !isNaN(parsedInputReps) && parsedInputReps > 10;
+    const inputOutcomeBadge = isWeek3 && inputReps !== '' ? getWeek3OutcomeBadge(parsedInputReps) : null;
+    const recordedOutcomeBadge = isWeek3 ? getWeek3OutcomeBadge(recordedAmrapReps) : null;
 
     return (
       <div className="flex flex-col gap-2 mt-3">
@@ -471,9 +521,9 @@ const CurrentWeek = () => {
               className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="e.g. 12"
             />
-            {inputExceedsTen && isWeek3 && (
-              <span className="text-xs text-green-700 font-medium bg-green-100 px-2 py-0.5 rounded-full">
-                2x increment next cycle!
+            {inputOutcomeBadge && (
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${inputOutcomeBadge.classes}`}>
+                {inputOutcomeBadge.label}
               </span>
             )}
           </div>
@@ -483,9 +533,9 @@ const CurrentWeek = () => {
         {isAmrapWeek && currentStatus && recordedAmrapReps != null && (
           <div className="text-xs text-gray-500">
             AMRAP reps recorded: <span className="font-medium">{recordedAmrapReps}</span>
-            {recordedAmrapReps > 10 && isWeek3 && (
-              <span className="ml-1 text-green-700 font-medium bg-green-100 px-1.5 py-0.5 rounded-full">
-                2x increment next cycle!
+            {recordedOutcomeBadge && (
+              <span className={`ml-1 font-medium px-1.5 py-0.5 rounded-full ${recordedOutcomeBadge.classes}`}>
+                {recordedOutcomeBadge.label}
               </span>
             )}
           </div>
@@ -810,143 +860,104 @@ const CurrentWeek = () => {
                         const increment = isLowerBody ? 10 : 5;
                         const currentMax = lift.training_max;
 
-                        // Check if failed in ANY week of the cycle
-                        const isFailed = hasFailureInCycle(lift.exercise_id);
                         const failedWeeks = getFailedWeeks(lift.exercise_id);
+                        const week3Reps = getWeek3AmrapReps(lift.exercise_id);
 
-                        // Double increment is earned by hitting >10 AMRAP reps in week 3
-                        const earnedDoubleIncrement = !isFailed && hasExtraAmrapReps(lift.exercise_id);
-                        // User can opt down to a single increment even if they earned double
-                        const isOverridden = singleIncrementOverrides.has(lift.exercise_id);
-                        const doubleIncrement = earnedDoubleIncrement && !isOverridden;
-                        const effectiveIncrement = doubleIncrement ? increment * 2 : increment;
+                        // Suggested adjustment (from performance) vs. the effective
+                        // one (the user's override, if they picked a different option)
+                        const defaultAdjustment = getDefaultAdjustment(lift.exercise_id);
+                        const adjustment = getEffectiveAdjustment(lift.exercise_id);
+                        const isOverridden = adjustment !== defaultAdjustment;
 
-                        const newMax = isFailed ? currentMax - increment : currentMax + effectiveIncrement;
-                        const change = isFailed ? -increment : +effectiveIncrement;
+                        const option = getAdjustmentOption(adjustment);
+                        const change = option.delta(increment);
+                        const newMax = Math.max(45, currentMax + change);
 
-                        const toggleOverride = () => {
-                          setSingleIncrementOverrides(prev => {
-                            const next = new Set(prev);
-                            if (next.has(lift.exercise_id)) {
-                              next.delete(lift.exercise_id);
-                            } else {
-                              next.add(lift.exercise_id);
-                            }
+                        const handleChange = (e) => {
+                          const value = e.target.value;
+                          setAdjustmentOverrides(prev => ({ ...prev, [lift.exercise_id]: value }));
+                        };
+
+                        const resetToSuggested = () => {
+                          setAdjustmentOverrides(prev => {
+                            const next = { ...prev };
+                            delete next[lift.exercise_id];
                             return next;
                           });
                         };
 
+                        // Short explanation of where the suggestion comes from
+                        let reasonText;
+                        if (failedWeeks.length > 0) {
+                          reasonText = `Failed in week${failedWeeks.length > 1 ? 's' : ''} ${failedWeeks.join(', ')}`;
+                        } else if (week3Reps !== null) {
+                          reasonText = `Week 3 AMRAP: ${week3Reps} rep${week3Reps === 1 ? '' : 's'}`;
+                        } else {
+                          reasonText = 'No week 3 AMRAP reps recorded';
+                        }
+
                         return (
                           <div key={idx} className="bg-white bg-opacity-60 rounded-lg p-2.5 sm:p-3">
-                            {/* Mobile: Stack layout */}
-                            <div className="flex flex-col gap-2 sm:hidden">
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium text-gray-900 text-sm truncate">{lift.exercise_name}</div>
-                                  {isFailed && failedWeeks.length > 0 && (
-                                    <div className="text-xs text-red-600 mt-0.5">
-                                      Week{failedWeeks.length > 1 ? 's' : ''} {failedWeeks.join(', ')}
-                                    </div>
-                                  )}
-                                  {earnedDoubleIncrement && (
-                                    <div className="text-xs mt-0.5 font-medium text-blue-600">
-                                      {doubleIncrement ? '2x increment (week 3 10+ AMRAP reps)' : '1x increment (manually selected)'}
-                                    </div>
-                                  )}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-gray-900 text-sm">{lift.exercise_name}</div>
+                                <div className={`text-xs mt-0.5 ${failedWeeks.length > 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                                  {reasonText}
                                 </div>
-                                <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${isFailed ? 'bg-red-100 text-red-700' : doubleIncrement ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <div className="flex items-center justify-end gap-1.5 text-sm">
+                                  <span className="text-gray-600">{currentMax}</span>
+                                  <span className="text-gray-400">→</span>
+                                  <span className={`font-bold ${option.text}`}>{newMax} lbs</span>
+                                </div>
+                                <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${option.badge}`}>
                                   {change > 0 ? '+' : ''}{change} lbs
                                 </span>
                               </div>
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-600">{currentMax} lbs</span>
-                                <div className="flex items-center gap-1.5">
-                                  <svg className={`w-4 h-4 ${isFailed ? 'text-red-500' : doubleIncrement ? 'text-blue-500' : 'text-green-500'}`} fill="currentColor" viewBox="0 0 20 20">
-                                    {isFailed ? (
-                                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                                    ) : (
-                                      <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                                    )}
-                                  </svg>
-                                  <span className={`font-bold ${isFailed ? 'text-red-600' : doubleIncrement ? 'text-blue-600' : 'text-green-600'}`}>
-                                    {newMax} lbs
-                                  </span>
-                                </div>
-                              </div>
-                              {earnedDoubleIncrement && (
+                            </div>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <select
+                                value={adjustment}
+                                onChange={handleChange}
+                                className="text-xs border border-gray-300 rounded-md px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                              >
+                                {ADJUSTMENT_OPTIONS.map(opt => {
+                                  const d = opt.delta(increment);
+                                  const deltaLabel = d === 0 ? '0' : `${d > 0 ? '+' : ''}${d}`;
+                                  return (
+                                    <option key={opt.value} value={opt.value}>
+                                      {opt.label} ({deltaLabel} lbs){opt.value === defaultAdjustment ? ' — suggested' : ''}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                              {isOverridden && (
                                 <button
-                                  onClick={toggleOverride}
-                                  className="text-xs text-purple-700 underline text-left"
+                                  onClick={resetToSuggested}
+                                  className="text-xs text-purple-700 underline"
                                 >
-                                  {isOverridden ? 'Use 2x increment instead' : 'Use 1x increment instead'}
+                                  Reset to suggested
                                 </button>
                               )}
-                            </div>
-
-                            {/* Desktop: Horizontal layout */}
-                            <div className="hidden sm:flex items-center justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                <span className="font-medium text-gray-900 text-sm">{lift.exercise_name}</span>
-                                {isFailed && failedWeeks.length > 0 && (
-                                  <div className="text-xs text-red-600 mt-0.5">
-                                    Failed in week{failedWeeks.length > 1 ? 's' : ''}: {failedWeeks.join(', ')}
-                                  </div>
-                                )}
-                                {earnedDoubleIncrement && (
-                                  <div className="text-xs mt-0.5 font-medium text-blue-600">
-                                    {doubleIncrement ? '2x increment (week 3 10+ AMRAP reps)' : '1x increment (manually selected)'}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                {earnedDoubleIncrement && (
-                                  <button
-                                    onClick={toggleOverride}
-                                    className="text-xs text-purple-700 underline"
-                                  >
-                                    {isOverridden ? 'Use 2x' : 'Use 1x'}
-                                  </button>
-                                )}
-                                <span className="text-gray-600 text-sm">{currentMax} lbs</span>
-                                <svg className={`w-4 h-4 ${isFailed ? 'text-red-500' : doubleIncrement ? 'text-blue-500' : 'text-green-500'}`} fill="currentColor" viewBox="0 0 20 20">
-                                  {isFailed ? (
-                                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                                  ) : (
-                                    <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                                  )}
-                                </svg>
-                                <span className={`font-bold text-sm ${isFailed ? 'text-red-600' : doubleIncrement ? 'text-blue-600' : 'text-green-600'}`}>
-                                  {newMax} lbs
-                                </span>
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${isFailed ? 'bg-red-100 text-red-700' : doubleIncrement ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
-                                  {change > 0 ? '+' : ''}{change} lbs
-                                </span>
-                              </div>
                             </div>
                           </div>
                         );
                       })}
                     </div>
-                    
-                    {/* Show info if any lift earned a double increment */}
-                    {workout.lifts.some(lift => !hasFailureInCycle(lift.exercise_id) && hasExtraAmrapReps(lift.exercise_id)) && (
-                      <div className="mt-3 flex items-start gap-2 text-xs text-blue-700 bg-blue-50 rounded-lg p-2.5">
-                        <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                        <span className="leading-relaxed">Lifts where you hit <strong>10+ AMRAP reps on week 3</strong> earn a <strong>double increment</strong> next cycle. Use the <strong>1x / 2x</strong> toggle above to choose a single increment instead.</span>
-                      </div>
-                    )}
 
-                    {/* Show warning if ANY week in the cycle had failures */}
-                    {workout.lifts.some(lift => hasFailureInCycle(lift.exercise_id)) && (
-                      <div className="mt-3 flex items-start gap-2 text-xs text-orange-700 bg-orange-50 rounded-lg p-2.5">
-                        <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                        <span className="leading-relaxed">Lifts with failures in ANY week of this cycle will be <strong>decreased</strong> to allow recovery</span>
-                      </div>
-                    )}
+                    {/* Explanation of how the suggested adjustments are derived */}
+                    <div className="mt-3 flex items-start gap-2 text-xs text-purple-700 bg-purple-50 rounded-lg p-2.5">
+                      <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                      <span className="leading-relaxed">
+                        Suggested changes are based on your <strong>week 3 (1-rep week) AMRAP reps</strong>:
+                        {' '}<strong>11+</strong> → increase 2x, <strong>5-10</strong> → increase 1x,
+                        {' '}<strong>1-4</strong> → keep the same, <strong>0 or a failed week</strong> → decrease.
+                        {' '}Use the dropdown to choose a different adjustment for any lift.
+                      </span>
+                    </div>
                   </>
                 )}
               </div>

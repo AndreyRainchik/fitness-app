@@ -1,6 +1,16 @@
 import { get, all, run } from '../config/database.js';
 
 /**
+ * Valid per-lift training max adjustment choices applied at the end of a
+ * 5/3/1 cycle:
+ *   - increment_2x:  increase the training max by 2x the increment
+ *   - increment_1x:  increase the training max by 1x the increment
+ *   - keep:          keep the training max the same
+ *   - decrement_1x:  decrease the training max by 1x the increment
+ */
+export const ADJUSTMENT_CHOICES = ['increment_2x', 'increment_1x', 'keep', 'decrement_1x'];
+
+/**
  * Program Model
  * Handles training program management (5/3/1, Starting Strength, custom programs, etc.)
  */
@@ -323,14 +333,76 @@ class Program {
   // =====================================================
   
   /**
+   * Determine the default 5/3/1 training max adjustment for a lift based on its
+   * performance during the cycle.
+   *
+   * Based on the AMRAP set on the "1-rep week" (week 3):
+   *   - 11+ reps:        increment by 2x the increase
+   *   - 5-10 reps:       increment by 1x the increase
+   *   - 1-4 reps:        keep the training max the same
+   *   - 0 reps or a failure in any week of the cycle: decrement by 1x the increase
+   *
+   * Falls back to a single increment when no week 3 AMRAP reps were recorded
+   * (preserves the historical "progress normally" default).
+   *
+   * @param {Array<{week:number,status:string,amrap_reps:number|null}>} liftStatuses
+   * @returns {('increment_2x'|'increment_1x'|'keep'|'decrement_1x')}
+   */
+  static getDefault531Adjustment(liftStatuses = []) {
+    const hasFailure = liftStatuses.some(s => s.status === 'failed');
+    if (hasFailure) {
+      return 'decrement_1x';
+    }
+
+    const week3 = liftStatuses.find(s => s.week === 3);
+    const reps = week3 ? week3.amrap_reps : null;
+
+    if (reps === null || reps === undefined) {
+      // No AMRAP reps recorded for the 1-rep week - progress normally
+      return 'increment_1x';
+    }
+    if (reps >= 11) return 'increment_2x';
+    if (reps >= 5) return 'increment_1x';
+    if (reps >= 1) return 'keep';
+    return 'decrement_1x'; // 0 reps
+  }
+
+  /**
+   * Apply an adjustment choice to a training max.
+   * @param {string} adjustment - One of the ADJUSTMENT_CHOICES values
+   * @param {number} trainingMax
+   * @param {number} increment
+   * @returns {number} The new training max
+   */
+  static applyAdjustment(adjustment, trainingMax, increment) {
+    switch (adjustment) {
+      case 'increment_2x':
+        return trainingMax + increment * 2;
+      case 'keep':
+        return trainingMax;
+      case 'decrement_1x':
+        return trainingMax - increment;
+      case 'increment_1x':
+      default:
+        return trainingMax + increment;
+    }
+  }
+
+  /**
    * Advance to next session/week
    * Automatically adjusts training maxes/weights based on lift status:
    * - Failed lifts: Decrease by increment (deload)
    * - Completed/No status: Increase by increment (progress)
-   * 
-   * UPDATED: Now checks ALL weeks in the current cycle for failed lifts
+   *
+   * UPDATED: Now checks ALL weeks in the current cycle for failed lifts and
+   * derives the per-lift adjustment from the week 3 AMRAP reps. Users may
+   * override the suggested adjustment per lift via `adjustmentOverrides`,
+   * a map of exercise_id -> one of the ADJUSTMENT_CHOICES values.
+   *
+   * @param {number} id - Program id
+   * @param {Object<string, string>} adjustmentOverrides - exercise_id -> adjustment choice
    */
-  static advanceWeek(id, singleIncrementOverrides = []) {
+  static advanceWeek(id, adjustmentOverrides = {}) {
     const program = this.findById(id);
     if (!program) {
       return null;
@@ -388,44 +460,27 @@ class Program {
               increment = 10;
             }
             
-            // UPDATED: Check if this lift was marked as failed in ANY week of the cycle
+            // Determine the suggested adjustment from this cycle's performance
+            // (week 3 AMRAP reps / failures), then apply any per-lift override.
             const liftStatuses = cycleStatusMap.get(lift.exercise_id) || [];
-            const hasFailure = liftStatuses.some(s => s.status === 'failed');
+            const defaultAdjustment = Program.getDefault531Adjustment(liftStatuses);
 
-            // Double the increment only if week 3's AMRAP set achieved more than 10 reps,
-            // and the user hasn't opted to take only the single increment
-            const week3ExtraAmrapReps = !hasFailure && liftStatuses.some(
-              s => s.week === 3 && s.amrap_reps !== null && s.amrap_reps !== undefined && s.amrap_reps > 10
-            );
-            const hasExtraAmrapReps = week3ExtraAmrapReps && !singleIncrementOverrides.includes(lift.exercise_id);
-            const effectiveIncrement = hasExtraAmrapReps ? increment * 2 : increment;
+            const override = adjustmentOverrides[lift.exercise_id] ?? adjustmentOverrides[String(lift.exercise_id)];
+            const adjustment = ADJUSTMENT_CHOICES.includes(override) ? override : defaultAdjustment;
 
-            let newTrainingMax;
+            let newTrainingMax = Program.applyAdjustment(adjustment, lift.training_max, increment);
 
-            if (hasFailure) {
-              // Deload: Decrease training max by the base increment amount
-              newTrainingMax = lift.training_max - increment;
-              const failedWeeks = liftStatuses
-                .filter(s => s.status === 'failed')
-                .map(s => s.week)
-                .join(', ');
-              console.log(`Deloading ${exercise.name}: ${lift.training_max} -> ${newTrainingMax} lbs (failed in week(s) ${failedWeeks})`);
-            } else if (hasExtraAmrapReps) {
-              // Double progression: Increase by 2x increment (>10 AMRAP reps on week 3)
-              newTrainingMax = lift.training_max + effectiveIncrement;
-              const week3Status = liftStatuses.find(s => s.week === 3);
-              console.log(`Double progressing ${exercise.name}: ${lift.training_max} -> ${newTrainingMax} lbs (>10 AMRAP reps in week 3 (${week3Status?.amrap_reps} reps))`);
-            } else {
-              // Progress normally: Increase training max by one increment
-              newTrainingMax = lift.training_max + increment;
-              console.log(`Progressing ${exercise.name}: ${lift.training_max} -> ${newTrainingMax} lbs`);
-            }
-            
             // Ensure training max doesn't go below a reasonable minimum (45 lbs - empty bar)
             if (newTrainingMax < 45) {
               newTrainingMax = 45;
             }
-            
+
+            const week3Status = liftStatuses.find(s => s.week === 3);
+            const overrideNote = ADJUSTMENT_CHOICES.includes(override) && override !== defaultAdjustment
+              ? ` [user override; suggested ${defaultAdjustment}]`
+              : '';
+            console.log(`Adjusting ${exercise.name} (${adjustment}): ${lift.training_max} -> ${newTrainingMax} lbs (week 3 AMRAP: ${week3Status?.amrap_reps ?? 'n/a'})${overrideNote}`);
+
             this.updateLift(id, lift.exercise_id, newTrainingMax);
           }
         });

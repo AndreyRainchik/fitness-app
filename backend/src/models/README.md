@@ -128,7 +128,14 @@ Manages training programs (5/3/1, custom programs).
 - `updateLift(program_id, exercise_id, training_max)` - Update training max
 - `getLift(program_id, exercise_id)` - Get lift details
 - `removeLift(program_id, exercise_id)` - Remove lift
-- `advanceWeek(id)` - Progress to next week
+- `advanceWeek(id, adjustmentOverrides)` - Progress to next week. At the end of a
+  5/3/1 cycle, the per-lift training max change is derived from the week 3 (1-rep
+  week) AMRAP reps: 11+ → increase 2x, 5-10 → increase 1x, 1-4 → keep the same,
+  0 reps or a failed week → decrease 1x. `adjustmentOverrides` is an optional map
+  of `exercise_id` → `increment_2x | increment_1x | keep | decrement_1x` to override
+  the suggestion for individual lifts.
+- `getDefault531Adjustment(liftStatuses)` - Suggested adjustment for a lift's cycle
+- `applyAdjustment(adjustment, trainingMax, increment)` - Apply a choice to a TM
 
 **Example:**
 ```javascript
