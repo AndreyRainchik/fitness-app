@@ -39,7 +39,7 @@ function Analytics() {
       // Load strength score and symmetry in parallel
       const [strengthData, symmetryResult] = await Promise.all([
         analyticsAPI.getStrengthScore(weeks),
-        analyticsAPI.getSymmetry(),
+        analyticsAPI.getSymmetry(weeks),
       ]);
 
       setStrengthScore(strengthData);

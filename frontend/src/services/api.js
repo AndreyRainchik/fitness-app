@@ -371,9 +371,11 @@ export const analyticsAPI = {
 
   /**
    * Get symmetry analysis (balance between lifts)
+   * @param {number} weeks - Number of weeks to look back (default: 12)
    */
-  getSymmetry: async () => {
-    return await apiCall('/analytics/symmetry');
+  getSymmetry: async (weeks = 12) => {
+    const localDate = getLocalDateString();
+    return await apiCall(`/analytics/symmetry?weeks=${weeks}&localDate=${localDate}`);
   },
 
   /**
