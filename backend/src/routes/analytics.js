@@ -386,12 +386,21 @@ router.get('/strength-score', authenticateToken, (req, res) => {
 router.get('/symmetry', authenticateToken, (req, res) => {
   try {
     const userId = req.user.id;
-    
+    const weeks = parseInt(req.query.weeks) || 12;
+
+    // Calculate date range. Use the client-supplied local date when available
+    // so the range reflects the user's calendar day rather than the server's UTC date.
+    const endDateStr = req.query.localDate || new Date().toISOString().split('T')[0];
+    const endDate = new Date(endDateStr + 'T12:00:00');
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - (weeks * 7));
+    const startDateStr = startDate.toISOString().split('T')[0];
+
     // Get user info
     const user = get('SELECT sex, units FROM users WHERE id = ?', [userId]);
     const bodyweightData = getUserBodyweight(userId);
     const bodyweightLbs = convertToLbs(bodyweightData.weight, bodyweightData.units);
-    
+
     // Get latest estimated 1RMs for all main lifts
     const mainLifts = [
       { name: 'Barbell Squat', key: 'squat' },
@@ -399,30 +408,32 @@ router.get('/symmetry', authenticateToken, (req, res) => {
       { name: 'Barbell Deadlift', key: 'deadlift' },
       { name: 'Barbell Overhead Press', key: 'ohp' }
     ];
-    
+
     const lifts = {};
-    
+
     mainLifts.forEach(lift => {
       const exerciseId = getExerciseIdByName(lift.name);
-      
+
       if (!exerciseId) {
         lifts[lift.key] = 0;
         return;
       }
-      
-      // Get all-time best set
+
+      // Get best set within the selected timeframe
       const bestSet = get(
         `SELECT s.weight, s.reps
          FROM sets s
          JOIN workouts w ON s.workout_id = w.id
-         WHERE w.user_id = ? 
+         WHERE w.user_id = ?
            AND s.exercise_id = ?
            AND s.is_warmup = 0
+           AND w.date >= ?
+           AND w.date <= ?
          ORDER BY s.weight DESC, s.reps DESC
          LIMIT 1`,
-        [userId, exerciseId]
+        [userId, exerciseId, startDateStr, endDateStr]
       );
-      
+
       if (bestSet) {
         lifts[lift.key] = Math.round(estimate1RM(bestSet.weight, bestSet.reps) * 10) / 10;
       } else {
@@ -455,6 +466,7 @@ router.get('/symmetry', authenticateToken, (req, res) => {
       },
       imbalances,
       overallScore,
+      weeks,
       interpretation: overallScore >= 85 ? 'Excellent balance' :
                       overallScore >= 70 ? 'Good balance' :
                       overallScore >= 50 ? 'Fair balance - some work needed' :
