@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { workoutsAPI, exercisesAPI, templatesAPI } from '../services/api';
 import Layout from '../components/Layout/Layout';
 import { getLocalDateString } from '../utils/dateUtils';
+import { buildSetsPayload, findUnmatchedExercise } from '../utils/workoutPayload';
 
 function NewWorkout() {
   const navigate = useNavigate();
@@ -293,55 +294,24 @@ function NewWorkout() {
       return;
     }
 
+    const unmatched = findUnmatchedExercise(exercises);
+    if (unmatched) {
+      setError(unmatched);
+      return;
+    }
+
     setIsSaving(true);
-    let createdWorkout = null;
 
     try {
-      // Create workout
-      const workoutData = {
+      // Workout and all sets are saved in one request / one transaction
+      const workout = await workoutsAPI.create({
         name: workoutName,
         date: workoutDate,
-        duration: 0 // We can add a timer later
-      };
+        sets: buildSetsPayload(exercises)
+      });
 
-      const workout = await workoutsAPI.create(workoutData);
-      createdWorkout = workout;
-
-      // Add all sets for all exercises
-      for (const exercise of exercises) {
-        for (const set of exercise.sets) {
-          if (set.rpe) {
-            await workoutsAPI.addSet(workout.workout.id, {
-              exercise_id: exercise.exerciseId,
-              set_number: set.setNumber,
-              weight: parseFloat(set.weight) || 0,
-              reps: parseInt(set.reps) || 0,
-              rpe: set.rpe ? parseInt(set.rpe) : null,
-              is_warmup: set.isWarmup
-            });
-          } else {
-            await workoutsAPI.addSet(workout.workout.id, {
-              exercise_id: exercise.exerciseId,
-              set_number: set.setNumber,
-              weight: parseFloat(set.weight) || 0,
-              reps: parseInt(set.reps) || 0,
-              is_warmup: set.isWarmup
-            });
-          }
-        }
-      }
-
-      // Success! Navigate to workout page
       navigate(`/workout/${workout.workout.id}`);
     } catch (err) {
-      if (createdWorkout?.id) {
-        try {
-          await workoutsAPI.delete(createdWorkout.id);
-          console.warn('Rolled back workout', createdWorkout.id);
-        } catch (deleteErr) {
-          console.error('Rollback failed:', deleteErr);
-        }
-      }
       setError(err.message || 'Failed to save workout');
     } finally {
       setIsSaving(false);

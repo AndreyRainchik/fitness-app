@@ -17,6 +17,57 @@ function isAssistedExercise(exercise) {
 
 const router = express.Router();
 
+// Validation rules for an optional `sets` array in workout create/update bodies
+const bulkSetValidators = [
+  body('sets').optional().isArray().withMessage('sets must be an array'),
+  body('sets.*.id').optional({ nullable: true }).isInt(),
+  body('sets.*.exercise_id').isInt().withMessage('Each set needs an exercise_id'),
+  body('sets.*.set_number').isInt({ min: 1 }).withMessage('Set number must be positive'),
+  body('sets.*.reps').isInt({ min: 0 }).withMessage('Reps must be positive'),
+  body('sets.*.weight').isFloat().withMessage('Weight must be a number'),
+  body('sets.*.rpe').optional({ nullable: true }).isFloat({ min: 0, max: 10 }),
+  body('sets.*.is_warmup').optional().isBoolean(),
+  body('sets.*.notes').optional({ nullable: true }).isString()
+];
+
+/**
+ * Normalize and check a bulk `sets` array. Returns { sets } or { error }.
+ * Unknown exercises and negative weights on non-assisted exercises are rejected.
+ */
+function prepareBulkSets(rawSets) {
+  const exercises = new Map();
+  const sets = [];
+
+  for (const raw of rawSets) {
+    const exerciseId = Number(raw.exercise_id);
+    if (!exercises.has(exerciseId)) {
+      exercises.set(exerciseId, Exercise.findById(exerciseId));
+    }
+    const exercise = exercises.get(exerciseId);
+    if (!exercise) {
+      return { error: `Exercise ${exerciseId} not found` };
+    }
+
+    const weight = Number(raw.weight);
+    if (weight < 0 && !isAssistedExercise(exercise)) {
+      return { error: `Weight must be positive for ${exercise.name}` };
+    }
+
+    sets.push({
+      id: raw.id ? Number(raw.id) : null,
+      exercise_id: exerciseId,
+      set_number: Number(raw.set_number),
+      reps: Number(raw.reps),
+      weight,
+      rpe: raw.rpe === undefined || raw.rpe === null || raw.rpe === '' ? null : Number(raw.rpe),
+      is_warmup: raw.is_warmup === true || raw.is_warmup === 1 || raw.is_warmup === 'true',
+      notes: raw.notes || null
+    });
+  }
+
+  return { sets };
+}
+
 // All workout routes require authentication
 router.use(authenticateToken);
 
@@ -285,7 +336,9 @@ router.post('/',
     body('date').isISO8601().withMessage('Valid date is required (YYYY-MM-DD)'),
     body('name').optional().isString(),
     body('notes').optional().isString(),
-    body('duration_minutes').optional().isInt({ min: 0 })
+    body('duration_minutes').optional({ nullable: true }).isInt({ min: 0 }),
+    body('duration').optional({ nullable: true }).isInt({ min: 0 }),
+    ...bulkSetValidators
   ],
   (req, res) => {
     const errors = validationResult(req);
@@ -294,15 +347,28 @@ router.post('/',
     }
     
     try {
-      const { date, name, notes, duration_minutes } = req.body;
-      
-      const workout = Workout.create({
+      const { date, name, notes, sets: rawSets } = req.body;
+      // Accept the legacy `duration` field that older clients send
+      const duration_minutes = req.body.duration_minutes ?? req.body.duration ?? null;
+
+      const workoutData = {
         user_id: req.user.id,
         date,
         name: name || null,
         notes: notes || null,
         duration_minutes: duration_minutes || null
-      });
+      };
+
+      let workout;
+      if (Array.isArray(rawSets)) {
+        const { sets, error } = prepareBulkSets(rawSets);
+        if (error) {
+          return res.status(400).json({ error });
+        }
+        workout = Workout.createWithSets(workoutData, sets);
+      } else {
+        workout = Workout.create(workoutData);
+      }
       
       res.status(201).json({
         message: 'Workout created successfully',
@@ -323,8 +389,9 @@ router.put('/:id',
   [
     body('date').optional().isISO8601(),
     body('name').optional().isString(),
-    body('notes').optional().isString(),
-    body('duration_minutes').optional().isInt({ min: 0 })
+    body('notes').optional({ nullable: true }).isString(),
+    body('duration_minutes').optional({ nullable: true }).isInt({ min: 0 }),
+    ...bulkSetValidators
   ],
   (req, res) => {
     const errors = validationResult(req);
@@ -344,8 +411,20 @@ router.put('/:id',
         return res.status(403).json({ error: 'Access denied' });
       }
       
-      const { date, name, notes, duration_minutes } = req.body;
-      const updatedWorkout = Workout.update(id, { date, name, notes, duration_minutes });
+      const { date, name, notes, duration_minutes, sets: rawSets } = req.body;
+      const fields = { date, name, notes, duration_minutes };
+
+      let updatedWorkout;
+      if (Array.isArray(rawSets)) {
+        // Replace the workout's sets with this list in a single transaction
+        const { sets, error } = prepareBulkSets(rawSets);
+        if (error) {
+          return res.status(400).json({ error });
+        }
+        updatedWorkout = Workout.updateWithSets(workout.id, fields, sets);
+      } else {
+        updatedWorkout = Workout.update(id, fields);
+      }
       
       res.json({
         message: 'Workout updated successfully',

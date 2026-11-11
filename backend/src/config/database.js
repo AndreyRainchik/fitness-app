@@ -356,6 +356,12 @@ export function query(sql, params = []) {
   return db.exec(sql, params);
 }
 
+// Nesting depth of transaction() calls. While > 0, run() skips the per-statement
+// disk write and the outermost transaction() writes the database once on commit.
+// This matters in production, where the DB file sits on a Cloud Storage (GCSFuse)
+// mount and every saveDatabase() uploads the whole file.
+let transactionDepth = 0;
+
 /**
  * Run a query that modifies data
  */
@@ -364,7 +370,56 @@ export function run(sql, params = []) {
   const stmt = db.prepare(sql);
   stmt.run(params);
   stmt.free();
-  saveDatabase();
+  if (transactionDepth === 0) {
+    saveDatabase();
+  }
+}
+
+/**
+ * Run a query that inserts a row and return the new row's id
+ */
+export function insert(sql, params = []) {
+  const db = getDatabase();
+  const stmt = db.prepare(sql);
+  stmt.run(params);
+  stmt.free();
+  // Read the id before saving: sql.js export() closes and reopens the
+  // database, which resets last_insert_rowid().
+  const id = db.exec('SELECT last_insert_rowid()')[0].values[0][0];
+  if (transactionDepth === 0) {
+    saveDatabase();
+  }
+  return id;
+}
+
+/**
+ * Run fn inside a single SQL transaction and persist to disk once at the end.
+ * Rolls back (and skips the disk write) if fn throws. Nested calls join the
+ * outer transaction. fn must be synchronous.
+ */
+export function transaction(fn) {
+  const db = getDatabase();
+  if (transactionDepth > 0) {
+    return fn();
+  }
+
+  db.run('BEGIN TRANSACTION');
+  transactionDepth = 1;
+  try {
+    const result = fn();
+    db.run('COMMIT');
+    transactionDepth = 0;
+    saveDatabase();
+    return result;
+  } catch (error) {
+    transactionDepth = 0;
+    try {
+      db.run('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Rollback failed:', rollbackError);
+    }
+    throw error;
+  }
 }
 
 /**
@@ -400,6 +455,8 @@ export default {
   getDatabase,
   query,
   run,
+  insert,
+  transaction,
   get,
   all
 };
