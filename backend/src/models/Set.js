@@ -1,4 +1,4 @@
-import { get, all, run } from '../config/database.js';
+import { get, all, run, insert } from '../config/database.js';
 
 /**
  * Set Model
@@ -9,17 +9,12 @@ class Set {
    * Create a new set
    */
   static create({ workout_id, exercise_id, set_number, reps, weight, rpe = null, is_warmup = 0, notes = null }) {
-    run(
+    const id = insert(
       `INSERT INTO sets (workout_id, exercise_id, set_number, reps, weight, rpe, is_warmup, notes)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [workout_id, exercise_id, set_number, reps, weight, rpe, is_warmup ? 1 : 0, notes]
     );
-    
-    // Get the created set
-    return get(
-      'SELECT * FROM sets WHERE workout_id = ? ORDER BY id DESC LIMIT 1',
-      [workout_id]
-    );
+    return this.findById(id);
   }
   
   /**

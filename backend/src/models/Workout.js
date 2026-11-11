@@ -1,4 +1,19 @@
-import { get, all, run } from '../config/database.js';
+import { get, all, run, insert, transaction } from '../config/database.js';
+
+const SET_COLUMNS = '(workout_id, exercise_id, set_number, reps, weight, rpe, is_warmup, notes)';
+
+function setParams(workout_id, set) {
+  return [
+    workout_id,
+    set.exercise_id,
+    set.set_number,
+    set.reps,
+    set.weight,
+    set.rpe ?? null,
+    set.is_warmup ? 1 : 0,
+    set.notes ?? null
+  ];
+}
 
 /**
  * Workout Model
@@ -9,19 +24,66 @@ class Workout {
    * Create a new workout
    */
   static create({ user_id, date, name = null, notes = null, duration_minutes = null }) {
-    run(
+    const id = insert(
       `INSERT INTO workouts (user_id, date, name, notes, duration_minutes)
        VALUES (?, ?, ?, ?, ?)`,
       [user_id, date, name, notes, duration_minutes]
     );
-    
-    // Get the created workout
-    return get(
-      'SELECT * FROM workouts WHERE user_id = ? ORDER BY id DESC LIMIT 1',
-      [user_id]
-    );
+    return this.findById(id);
   }
-  
+
+  /**
+   * Create a workout and all of its sets in one transaction (one disk write).
+   * sets: [{ exercise_id, set_number, reps, weight, rpe?, is_warmup?, notes? }]
+   */
+  static createWithSets(workoutData, sets = []) {
+    const id = transaction(() => {
+      const workout = this.create(workoutData);
+      for (const set of sets) {
+        run(`INSERT INTO sets ${SET_COLUMNS} VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, setParams(workout.id, set));
+      }
+      return workout.id;
+    });
+    return this.getWithDetails(id);
+  }
+
+  /**
+   * Update a workout's fields and make its sets match `sets` exactly, in one
+   * transaction. Sets with an `id` belonging to this workout are updated in
+   * place (keeping their ids); sets without one are inserted; existing sets not
+   * in the list are deleted.
+   */
+  static updateWithSets(id, workoutFields, sets = []) {
+    transaction(() => {
+      this.update(id, workoutFields);
+
+      const existingIds = new globalThis.Set(
+        all('SELECT id FROM sets WHERE workout_id = ?', [id]).map(row => row.id)
+      );
+      const keptIds = new globalThis.Set();
+
+      for (const set of sets) {
+        if (set.id && existingIds.has(set.id)) {
+          keptIds.add(set.id);
+          run(
+            `UPDATE sets SET exercise_id = ?, set_number = ?, reps = ?, weight = ?, rpe = ?, is_warmup = ?, notes = ?
+             WHERE id = ?`,
+            [...setParams(id, set).slice(1), set.id]
+          );
+        } else {
+          run(`INSERT INTO sets ${SET_COLUMNS} VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, setParams(id, set));
+        }
+      }
+
+      for (const existingId of existingIds) {
+        if (!keptIds.has(existingId)) {
+          run('DELETE FROM sets WHERE id = ?', [existingId]);
+        }
+      }
+    });
+    return this.getWithDetails(id);
+  }
+
   /**
    * Get workout by ID
    */
@@ -59,24 +121,37 @@ class Workout {
    * Helper: Add exercise names to workouts
    */
   static _enrichWorkoutsWithExercises(workouts) {
-    return workouts.map(workout => {
-      // Get unique exercises for this workout
-      const exercises = all(
-        `SELECT DISTINCT e.name
+    if (workouts.length === 0) {
+      return workouts;
+    }
+
+    // One query per chunk of workouts instead of one query per workout
+    const namesByWorkout = new Map();
+    const CHUNK = 500;
+    for (let i = 0; i < workouts.length; i += CHUNK) {
+      const ids = workouts.slice(i, i + CHUNK).map(w => w.id);
+      const rows = all(
+        `SELECT DISTINCT s.workout_id, e.name
          FROM sets s
          JOIN exercises e ON s.exercise_id = e.id
-         WHERE s.workout_id = ?
+         WHERE s.workout_id IN (${ids.map(() => '?').join(',')})
          ORDER BY e.name`,
-        [workout.id]
+        ids
       );
-      
-      return {
-        ...workout,
-        exercises: exercises.map(ex => ({ name: ex.name }))
-      };
-    });
+      for (const row of rows) {
+        if (!namesByWorkout.has(row.workout_id)) {
+          namesByWorkout.set(row.workout_id, []);
+        }
+        namesByWorkout.get(row.workout_id).push({ name: row.name });
+      }
+    }
+
+    return workouts.map(workout => ({
+      ...workout,
+      exercises: namesByWorkout.get(workout.id) || []
+    }));
   }
-  
+
   /**
    * Get workouts for a user within a date range WITH summary data
    */

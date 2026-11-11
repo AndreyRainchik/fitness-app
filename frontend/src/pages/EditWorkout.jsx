@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsAPI, exercisesAPI } from '../services/api';
 import Layout from '../components/Layout/Layout';
+import { buildSetsPayload, findUnmatchedExercise } from '../utils/workoutPayload';
 
 function EditWorkout() {
   const { id } = useParams();
@@ -269,77 +270,23 @@ function EditWorkout() {
       return;
     }
 
+    const unmatched = findUnmatchedExercise(exercises);
+    if (unmatched) {
+      setError(unmatched);
+      return;
+    }
+
     setIsSaving(true);
 
     try {
-      // Update workout metadata
+      // Updates metadata and replaces the set list (keeping ids of existing
+      // sets) in one request / one transaction
       await workoutsAPI.update(id, {
         name: workoutName,
-        date: workoutDate
+        date: workoutDate,
+        sets: buildSetsPayload(exercises)
       });
 
-      // Get all current set IDs from the workout
-      const currentWorkout = await workoutsAPI.getById(id);
-      const existingSetIds = currentWorkout.workout.sets.map(s => s.id);
-
-      // Track which sets to keep
-      const setsToKeep = new Set();
-
-      // Process all exercises and sets
-      for (const exercise of exercises) {
-        for (const set of exercise.sets) {
-          if (set.existingSetId) {
-            // Update existing set
-            setsToKeep.add(set.existingSetId);
-            if (set.rpe) {
-                await workoutsAPI.updateSet(set.existingSetId, {
-                    set_number: set.setNumber,
-                    weight: parseFloat(set.weight) || 0,
-                    reps: parseInt(set.reps) || 0,
-                    rpe: set.rpe ? parseInt(set.rpe) : null,
-                    is_warmup: set.isWarmup
-                });
-            } else {
-                await workoutsAPI.updateSet(set.existingSetId, {
-                    set_number: set.setNumber,
-                    weight: parseFloat(set.weight) || 0,
-                    reps: parseInt(set.reps) || 0,
-                    is_warmup: set.isWarmup
-                });
-            }
-          } else {
-            if (set.rpe) {
-                const newSet = await workoutsAPI.addSet(id, {
-                    exercise_id: exercise.exerciseId,
-                    set_number: set.setNumber,
-                    weight: parseFloat(set.weight) || 0,
-                    reps: parseInt(set.reps) || 0,
-                    rpe: set.rpe ? parseInt(set.rpe) : null,
-                    is_warmup: set.isWarmup
-                });
-                setsToKeep.add(newSet.set.id);
-            } else {
-                const newSet = await workoutsAPI.addSet(id, {
-                    exercise_id: exercise.exerciseId,
-                    set_number: set.setNumber,
-                    weight: parseFloat(set.weight) || 0,
-                    reps: parseInt(set.reps) || 0,
-                    is_warmup: set.isWarmup
-                });
-                setsToKeep.add(newSet.set.id);
-            }
-          }
-        }
-      }
-
-      // Delete sets that were removed
-      for (const existingId of existingSetIds) {
-        if (!setsToKeep.has(existingId)) {
-          await workoutsAPI.deleteSet(existingId);
-        }
-      }
-
-      // Success! Navigate to workout detail page
       navigate(`/workout/${id}`);
     } catch (err) {
       setError(err.message || 'Failed to update workout');

@@ -6,6 +6,7 @@ import Layout from '../components/Layout/Layout';
 import WorkoutTimer from '../components/Timers/WorkoutTimer';
 import RestTimer from '../components/Timers/RestTimer';
 import { getLocalDateString } from '../utils/dateUtils';
+import { buildSetsPayload, findUnmatchedExercise } from '../utils/workoutPayload';
 
 function ActiveWorkout() {
   const navigate = useNavigate();
@@ -346,6 +347,12 @@ function ActiveWorkout() {
       return;
     }
 
+    const unmatched = findUnmatchedExercise(exercises);
+    if (unmatched) {
+      setError(unmatched);
+      return;
+    }
+
     const confirmFinish = window.confirm(
       `Finish workout "${workoutName}"?\n\nDuration: ${Math.floor(totalSeconds / 60)} minutes\nExercises: ${exercises.length}`
     );
@@ -355,11 +362,12 @@ function ActiveWorkout() {
     setIsSaving(true);
 
     try {
-      // Create workout with duration
-      var workoutData = {
-          name: workoutName,
-          date: workoutDate,
-          duration: Math.floor(totalSeconds / 60), // Convert to minutes
+      // Workout and all sets are saved in one request / one transaction
+      const workoutData = {
+        name: workoutName,
+        date: workoutDate,
+        duration_minutes: Math.floor(totalSeconds / 60),
+        sets: buildSetsPayload(exercises)
       };
       if (notes) {
         workoutData.notes = notes.trim();
@@ -367,31 +375,6 @@ function ActiveWorkout() {
 
       const workout = await workoutsAPI.create(workoutData);
 
-      // Add all sets
-      for (const exercise of exercises) {
-        for (const set of exercise.sets) {
-          if (set.rpe) {
-                await workoutsAPI.addSet(workout.workout.id, {
-                exercise_id: exercise.exerciseId,
-                set_number: set.setNumber,
-                weight: parseFloat(set.weight) || 0,
-                reps: parseInt(set.reps) || 0,
-                rpe: set.rpe ? parseInt(set.rpe) : null,
-                is_warmup: set.isWarmup
-                });
-            } else {
-                await workoutsAPI.addSet(workout.workout.id, {
-                exercise_id: exercise.exerciseId,
-                set_number: set.setNumber,
-                weight: parseFloat(set.weight) || 0,
-                reps: parseInt(set.reps) || 0,
-                is_warmup: set.isWarmup
-                });
-            }
-        }
-      }
-
-      // Navigate to workout detail
       navigate(`/workout/${workout.workout.id}`, { replace: true });
     } catch (err) {
       console.error('Failed to save workout:', err);
