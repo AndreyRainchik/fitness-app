@@ -48,17 +48,17 @@ function WorkoutTimer({ isRunning, onTimeUpdate }) {
   return (
     <div className="bg-white rounded-lg shadow-lg p-6 text-center">
       <div className="text-sm font-medium text-gray-600 mb-2">Workout Duration</div>
-      <div className="text-5xl font-bold text-blue-600 font-mono">
+      <div className="text-5xl font-bold text-primary-600 font-mono">
         {formatTime(seconds)}
       </div>
       <div className="mt-2">
         <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
           isRunning 
-            ? 'bg-green-100 text-green-800' 
+            ? 'bg-success-100 text-success-800' 
             : 'bg-yellow-100 text-yellow-800'
         }`}>
           <span className={`w-2 h-2 rounded-full mr-2 ${
-            isRunning ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'
+            isRunning ? 'bg-success-500 animate-pulse' : 'bg-yellow-500'
           }`}></span>
           {isRunning ? 'Active' : 'Paused'}
         </span>

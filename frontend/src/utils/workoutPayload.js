@@ -28,38 +28,53 @@ export function emptyExercise() {
 }
 
 /**
- * Group API sets (from a workout, a template, or a program day) into editor
- * exercise blocks, in the order they were saved.
+ * Group API sets (from a workout, a template, or a program day) into blocks,
+ * one per exercise, in the order they were saved. Sets inside a block are
+ * the original API objects, sorted by set number.
  *
  * A new block starts when the exercise changes or when the set number resets
  * for the same exercise (e.g. 5/3/1 main sets followed by BBB sets).
  *
- * keepIds: true when editing a saved workout, so each set keeps its database
- * id (existingSetId) and is updated in place instead of re-created.
+ * Returns [{ exercise_id, exercise_name, sets }].
  */
-export function setsToExerciseBlocks(sets = [], { keepIds = false } = {}) {
+export function groupSetsByExercise(sets = []) {
   const sortedSets = [...sets].sort((a, b) => a.id - b.id);
-  const blocks = [];
+  const groups = [];
   let current = null;
   let lastSetNumber = 0;
 
   for (const set of sortedSets) {
     const setNumberReset = current
-      && current.exerciseId === set.exercise_id
+      && current.exercise_id === set.exercise_id
       && set.set_number <= lastSetNumber;
 
-    if (!current || current.exerciseId !== set.exercise_id || setNumberReset) {
-      current = {
-        id: newLocalId(),
-        exerciseId: set.exercise_id,
-        exerciseName: set.exercise_name,
-        sets: []
-      };
-      blocks.push(current);
+    if (!current || current.exercise_id !== set.exercise_id || setNumberReset) {
+      current = { exercise_id: set.exercise_id, exercise_name: set.exercise_name, sets: [] };
+      groups.push(current);
       lastSetNumber = 0;
     }
+    current.sets.push(set);
+    lastSetNumber = set.set_number;
+  }
 
-    current.sets.push({
+  for (const group of groups) {
+    group.sets.sort((a, b) => a.set_number - b.set_number);
+  }
+  return groups;
+}
+
+/**
+ * Same grouping as groupSetsByExercise, converted to the editor's shape.
+ *
+ * keepIds: true when editing a saved workout, so each set keeps its database
+ * id (existingSetId) and is updated in place instead of re-created.
+ */
+export function setsToExerciseBlocks(sets = [], { keepIds = false } = {}) {
+  return groupSetsByExercise(sets).map((group) => ({
+    id: newLocalId(),
+    exerciseId: group.exercise_id,
+    exerciseName: group.exercise_name,
+    sets: group.sets.map((set) => ({
       id: newLocalId(),
       ...(keepIds ? { existingSetId: set.id } : {}),
       setNumber: set.set_number,
@@ -67,11 +82,8 @@ export function setsToExerciseBlocks(sets = [], { keepIds = false } = {}) {
       reps: String(set.reps ?? ''),
       rpe: set.rpe === null || set.rpe === undefined ? '' : String(set.rpe),
       isWarmup: set.is_warmup === 1 || set.is_warmup === true
-    });
-    lastSetNumber = set.set_number;
-  }
-
-  return blocks;
+    }))
+  }));
 }
 
 /**

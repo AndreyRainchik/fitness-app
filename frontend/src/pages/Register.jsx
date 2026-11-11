@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { Alert, Button } from '../components/ui';
 
 function Register() {
   const navigate = useNavigate();
@@ -73,9 +74,9 @@ function Register() {
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <Alert className="mb-4">
             {error}
-          </div>
+          </Alert>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -89,7 +90,7 @@ function Register() {
               name="username"
               value={formData.username}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               placeholder="JohnDoe"
               required
             />
@@ -105,7 +106,7 @@ function Register() {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               placeholder="you@example.com"
               required
             />
@@ -121,7 +122,7 @@ function Register() {
               name="password"
               value={formData.password}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               placeholder="••••••••"
               required
               minLength="6"
@@ -137,7 +138,7 @@ function Register() {
               name="sex"
               value={formData.sex}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="">Prefer not to say</option>
               <option value="M">Male</option>
@@ -160,7 +161,7 @@ function Register() {
                 value={formData.bodyweight}
                 onChange={handleChange}
                 step="0.1"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="185.5"
                 min="0"
               />
@@ -175,7 +176,7 @@ function Register() {
                 name="units"
                 value={formData.units}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="lbs">lbs</option>
                 <option value="kg">kg</option>
@@ -183,19 +184,20 @@ function Register() {
             </div>
           </div>
 
-          <button
+          <Button
+            size="lg"
+            fullWidth
             type="submit"
             disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3 px-4 rounded-lg transition duration-200"
           >
             {isLoading ? 'Creating Account...' : 'Create Account'}
-          </button>
+          </Button>
         </form>
 
         <div className="mt-6 text-center">
           <p className="text-gray-600">
             Already have an account?{' '}
-            <Link to="/login" className="text-blue-600 hover:text-blue-700 font-semibold">
+            <Link to="/login" className="text-primary-600 hover:text-primary-700 font-semibold">
               Sign in
             </Link>
           </p>

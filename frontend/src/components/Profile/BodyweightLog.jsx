@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { profileAPI } from '../../services/api';
 import { getLocalDateString } from '../../utils/dateUtils';
+import { Alert, Button, useConfirm } from '../ui';
+
+function formatDate(dateString) {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC'
+  });
+}
 
 function BodyweightLog({ units, onLogAdded }) {
+  const confirm = useConfirm();
   const [logs, setLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
@@ -74,10 +86,16 @@ function BodyweightLog({ units, onLogAdded }) {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this bodyweight entry?')) {
-      return;
-    }
+  const handleDelete = async (log) => {
+    const confirmed = await confirm({
+      title: 'Delete bodyweight entry?',
+      message: `${log.weight} ${log.units || units} on ${formatDate(log.date)} will be permanently deleted.`,
+      confirmLabel: 'Delete',
+      tone: 'danger'
+    });
+    if (!confirmed) return;
+
+    const id = log.id;
 
     try {
       await profileAPI.deleteBodyweightLog(id);
@@ -97,25 +115,24 @@ function BodyweightLog({ units, onLogAdded }) {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
         <h2 className="text-xl md:text-2xl font-bold text-gray-900">Bodyweight Log</h2>
         {!isAdding && (
-          <button
+          <Button
             onClick={() => setIsAdding(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 text-sm md:text-base"
           >
             + Add Entry
-          </button>
+          </Button>
         )}
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+        <Alert className="mb-4">
           {error}
-        </div>
+        </Alert>
       )}
 
       {successMessage && (
-        <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+        <Alert tone="success" className="mb-4">
           {successMessage}
-        </div>
+        </Alert>
       )}
 
       {/* Add New Entry Form */}
@@ -136,7 +153,7 @@ function BodyweightLog({ units, onLogAdded }) {
                   onChange={handleChange}
                   step="0.1"
                   min="0"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="185.5"
                   required
                 />
@@ -153,21 +170,22 @@ function BodyweightLog({ units, onLogAdded }) {
                   value={formData.date}
                   onChange={handleChange}
                   max={getLocalDateString()}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   required
                 />
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
-              <button
+              <Button
+                className="flex-1"
                 type="submit"
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
               >
                 Save Entry
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
+                className="flex-1"
                 onClick={() => {
                   setIsAdding(false);
                   setError('');
@@ -177,10 +195,9 @@ function BodyweightLog({ units, onLogAdded }) {
                     units: units || 'lbs'
                   });
                 }}
-                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition duration-200"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -206,21 +223,17 @@ function BodyweightLog({ units, onLogAdded }) {
                     {log.weight} {log.units}
                   </p>
                   <p className="text-xs md:text-sm text-gray-500 truncate">
-                    {new Date(log.date).toLocaleDateString('en-US', {
-                      weekday: 'short',
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      timeZone: 'UTC'
-                    })}
+                    {formatDate(log.date)}
                   </p>
                 </div>
-                <button
-                  onClick={() => handleDelete(log.id)}
-                  className="ml-3 text-red-600 hover:text-red-700 text-xs md:text-sm font-semibold whitespace-nowrap"
+                <Button
+                  variant="danger-subtle"
+                  size="sm"
+                  className="ml-3"
+                  onClick={() => handleDelete(log)}
                 >
                   Delete
-                </button>
+                </Button>
               </div>
             ))}
           </div>

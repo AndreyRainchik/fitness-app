@@ -96,12 +96,12 @@ function RestTimer({ duration = 180, isActive, onComplete, onSkip }) {
       {/* Hidden audio element for completion sound */}
       <audio ref={audioRef} src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZTA8OVqzn77BdGAg+ltryxnMpBSl+zPLaizsIGGS57OihUBELTKXh8bllHAU2jdXzz3oqBSd4yO/ekEIKElyx6OytWBUIQ5ziT" preload="auto" />
       
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-blue-600 shadow-2xl z-50 animate-slideUp">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-primary-600 shadow-2xl z-50 animate-slideUp">
         {/* Progress Bar */}
         <div className="h-2 bg-gray-200">
           <div 
             className={`h-full transition-all duration-1000 ease-linear ${
-              isAlmostDone ? 'bg-red-500' : 'bg-blue-600'
+              isAlmostDone ? 'bg-danger-500' : 'bg-primary-600'
             }`}
             style={{ width: `${getProgressPercentage()}%` }}
           ></div>
@@ -112,7 +112,7 @@ function RestTimer({ duration = 180, isActive, onComplete, onSkip }) {
             {/* Timer Display */}
             <div className="flex items-center space-x-4">
               <div className={`text-5xl font-bold font-mono ${
-                isAlmostDone ? 'text-red-600 animate-pulse' : 'text-blue-600'
+                isAlmostDone ? 'text-danger-600 animate-pulse' : 'text-primary-600'
               }`}>
                 {formatTime(secondsLeft)}
               </div>

@@ -8,16 +8,16 @@ const getPlateColor = (weight) => {
   const w = parseFloat(weight);
   
   // Red plates: 45 lbs, 25 kg
-  if (w === 45 || w === 25) return 'bg-red-500';
+  if (w === 45 || w === 25) return 'bg-danger-500';
   
   // Blue plates: 20 kg, 20 lbs
-  if (w === 20) return 'bg-blue-500';
+  if (w === 20) return 'bg-primary-500';
   
   // Yellow plates: 15 kg, 25 lbs
   if (w === 15 || w === 25) return 'bg-yellow-500';
   
   // Green plates: 10 kg, 10 lbs, 5 lbs, 5 kg
-  if (w === 10 || w === 5) return 'bg-green-500';
+  if (w === 10 || w === 5) return 'bg-success-500';
   
   // Gray/White plates: 2.5 and smaller
   if (w === 2.5) return 'bg-gray-400';
@@ -86,7 +86,7 @@ const PlateCalculator = ({ targetWeight, className = '' }) => {
       {/* Toggle Button */}
       <button
         onClick={toggleExpanded}
-        className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
+        className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 transition-colors"
         aria-expanded={isExpanded}
       >
         <svg
@@ -108,7 +108,7 @@ const PlateCalculator = ({ targetWeight, className = '' }) => {
           )}
 
           {error && (
-            <div className="text-sm text-red-600">{error}</div>
+            <div className="text-sm text-danger-600">{error}</div>
           )}
 
           {platesData && !loading && (

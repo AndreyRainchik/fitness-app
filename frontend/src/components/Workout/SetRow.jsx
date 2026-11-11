@@ -40,7 +40,7 @@ function RemoveSetButton({ onClick, disabled, setNumber }) {
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors"
+      className="text-danger-500 hover:text-danger-700 p-2 -m-1 rounded hover:bg-danger-50 transition-colors"
       title="Delete set"
       aria-label={`Delete set ${setNumber}`}
     >

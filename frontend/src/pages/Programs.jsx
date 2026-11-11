@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { programsAPI, exercisesAPI } from '../services/api';
-import { Link } from 'react-router-dom';
 import Layout from '../components/Layout/Layout';
+import { useAuth } from '../context/AuthContext';
 import { getLocalDateString } from '../utils/dateUtils';
+import { Alert, Button, EmptyState, LoadingState, PageHeader, useConfirm } from '../components/ui';
 
 // Program Types Configuration
 const PROGRAM_TYPES = {
@@ -12,7 +13,7 @@ const PROGRAM_TYPES = {
     shortName: '5/3/1 BBB',
     description: 'Progressive strength program with submaximal training and high-volume accessory work',
     available: true,
-    badge: { bg: 'bg-blue-100', text: 'text-blue-800' }
+    badge: { bg: 'bg-primary-100', text: 'text-primary-800' }
   },
   'gzclp': {
     id: 'gzclp',
@@ -28,7 +29,7 @@ const PROGRAM_TYPES = {
     shortName: 'SS',
     description: 'Simple linear progression for novice lifters with focus on basic barbell movements',
     available: true,
-    badge: { bg: 'bg-green-100', text: 'text-green-800' }
+    badge: { bg: 'bg-success-100', text: 'text-success-800' }
   },
   'nsuns': {
     id: 'nsuns',
@@ -41,6 +42,9 @@ const PROGRAM_TYPES = {
 };
 
 const Programs = () => {
+  const { user } = useAuth();
+  const units = user?.units || 'lbs';
+  const confirm = useConfirm();
   const [programs, setPrograms] = useState([]);
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -122,10 +126,16 @@ const Programs = () => {
     }
   };
 
-  const handleDeleteProgram = async (id) => {
-    if (!confirm('Are you sure you want to delete this program?')) {
-      return;
-    }
+  const handleDeleteProgram = async (program) => {
+    const confirmed = await confirm({
+      title: 'Delete program?',
+      message: `“${program.name}” and its progress (week, cycle, lift status) will be permanently deleted. Logged workouts are not affected.`,
+      confirmLabel: 'Delete',
+      tone: 'danger'
+    });
+    if (!confirmed) return;
+
+    const id = program.id;
 
     try {
       await programsAPI.delete(id);
@@ -188,42 +198,38 @@ const Programs = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
+      <Layout>
+        <div className="max-w-5xl mx-auto">
+          <LoadingState label="Loading programs..." />
+        </div>
+      </Layout>
     );
   }
 
   return (
     <Layout>
-      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Training Programs</h1>
-          <p className="mt-2 text-sm sm:text-base text-gray-600">Create and manage your strength training programs</p>
-        </div>
+      <div className="max-w-5xl mx-auto">
+        <PageHeader title="Training Programs" subtitle="Create and manage your strength training programs" />
 
-        {/* Message */}
         {message.text && (
-          <div
-            className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg text-sm ${
-              message.type === 'success'
-                ? 'bg-green-50 text-green-800 border border-green-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
-            }`}
+          <Alert
+            tone={message.type === 'success' ? 'success' : 'error'}
+            className="mb-4 sm:mb-6"
+            onDismiss={() => setMessage({ type: '', text: '' })}
           >
             {message.text}
-          </div>
+          </Alert>
         )}
 
         {/* Create Button */}
         {!showCreateForm && (
-          <button
+          <Button
+            fullWidth
+            className="mb-4 sm:mb-6 sm:w-auto min-h-[44px] sm:min-h-0"
             onClick={() => setShowCreateForm(true)}
-            className="mb-4 sm:mb-6 w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium text-sm min-h-[44px] sm:min-h-0"
           >
             + Create New Program
-          </button>
+          </Button>
         )}
 
         {/* Create Form */}
@@ -246,7 +252,7 @@ const Programs = () => {
                       disabled={!type.available}
                       className={`relative p-3 sm:p-4 border-2 rounded-lg text-left transition-all min-h-[80px] ${
                         selectedProgramType === type.id
-                          ? 'border-blue-500 bg-blue-50'
+                          ? 'border-primary-500 bg-primary-50'
                           : type.available
                           ? 'border-gray-200 hover:border-gray-300 active:border-gray-400 bg-white'
                           : 'border-gray-200 bg-gray-50 cursor-not-allowed'
@@ -274,7 +280,7 @@ const Programs = () => {
                         </div>
                         {selectedProgramType === type.id && type.available && (
                           <div className="flex-shrink-0">
-                            <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
+                            <div className="w-5 h-5 bg-primary-600 rounded-full flex items-center justify-center">
                               <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
@@ -296,7 +302,7 @@ const Programs = () => {
                   type="text"
                   value={programName}
                   onChange={(e) => setProgramName(e.target.value)}
-                  className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base min-h-[44px] sm:min-h-0"
+                  className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm sm:text-base min-h-[44px] sm:min-h-0"
                   placeholder={`e.g., ${PROGRAM_TYPES[selectedProgramType]?.shortName} - Cycle 1`}
                   required
                 />
@@ -318,7 +324,7 @@ const Programs = () => {
                           <select
                             value={lift.exercise_id}
                             onChange={(e) => handleLiftChange(index, 'exercise_id', e.target.value)}
-                            className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                            className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           >
                             <option value="">Select exercise...</option>
                             <optgroup label="Main Lifts (Recommended)">
@@ -335,7 +341,7 @@ const Programs = () => {
                         </div>
                         <div className="w-full sm:w-40">
                           <label className="block text-xs font-medium text-gray-600 mb-1 sm:hidden">
-                            Training Max (lbs)
+                            Training Max ({units})
                           </label>
                           <input
                             type="number"
@@ -344,7 +350,7 @@ const Programs = () => {
                             placeholder="Training Max"
                             step="2.5"
                             min="0"
-                            className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                            className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           />
                         </div>
                       </div>
@@ -375,7 +381,7 @@ const Programs = () => {
                         <select
                           value={selectedLifts[0]?.exercise_id || ''}
                           onChange={(e) => handleLiftChange(0, 'exercise_id', e.target.value)}
-                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           required
                         >
                           <option value="">Select Squat...</option>
@@ -386,7 +392,7 @@ const Programs = () => {
                       </div>
                       <div className="w-full sm:w-40">
                         <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Weight (lbs)
+                          Weight ({units})
                         </label>
                         <input
                           type="number"
@@ -395,7 +401,7 @@ const Programs = () => {
                           placeholder="0"
                           step="5"
                           min="0"
-                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           required
                         />
                       </div>
@@ -410,7 +416,7 @@ const Programs = () => {
                         <select
                           value={selectedLifts[1]?.exercise_id || ''}
                           onChange={(e) => handleLiftChange(1, 'exercise_id', e.target.value)}
-                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           required
                         >
                           <option value="">Select Bench...</option>
@@ -421,7 +427,7 @@ const Programs = () => {
                       </div>
                       <div className="w-full sm:w-40">
                         <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Weight (lbs)
+                          Weight ({units})
                         </label>
                         <input
                           type="number"
@@ -430,7 +436,7 @@ const Programs = () => {
                           placeholder="0"
                           step="5"
                           min="0"
-                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           required
                         />
                       </div>
@@ -445,7 +451,7 @@ const Programs = () => {
                         <select
                           value={selectedLifts[2]?.exercise_id || ''}
                           onChange={(e) => handleLiftChange(2, 'exercise_id', e.target.value)}
-                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           required
                         >
                           <option value="">Select OHP...</option>
@@ -456,7 +462,7 @@ const Programs = () => {
                       </div>
                       <div className="w-full sm:w-40">
                         <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Weight (lbs)
+                          Weight ({units})
                         </label>
                         <input
                           type="number"
@@ -465,7 +471,7 @@ const Programs = () => {
                           placeholder="0"
                           step="5"
                           min="0"
-                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           required
                         />
                       </div>
@@ -480,7 +486,7 @@ const Programs = () => {
                         <select
                           value={selectedLifts[3]?.exercise_id || ''}
                           onChange={(e) => handleLiftChange(3, 'exercise_id', e.target.value)}
-                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           required
                         >
                           <option value="">Select Deadlift...</option>
@@ -491,7 +497,7 @@ const Programs = () => {
                       </div>
                       <div className="w-full sm:w-40">
                         <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Weight (lbs)
+                          Weight ({units})
                         </label>
                         <input
                           type="number"
@@ -500,7 +506,7 @@ const Programs = () => {
                           placeholder="0"
                           step="5"
                           min="0"
-                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
                           required
                         />
                       </div>
@@ -523,23 +529,25 @@ const Programs = () => {
 
               {/* Actions */}
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                <button
+                <Button
+                  fullWidth
+                  className="sm:w-auto min-h-[44px] sm:min-h-0"
                   type="submit"
                   disabled={!PROGRAM_TYPES[selectedProgramType]?.available}
-                  className="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm min-h-[44px] sm:min-h-0"
                 >
                   Create Program
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  className="sm:w-auto min-h-[44px] sm:min-h-0"
                   onClick={() => {
                     setShowCreateForm(false);
                     resetForm();
                   }}
-                  className="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 active:bg-gray-400 transition-colors font-medium text-sm min-h-[44px] sm:min-h-0"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -547,16 +555,18 @@ const Programs = () => {
 
         {/* Programs List */}
         {programs.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-            <p className="text-sm sm:text-base text-gray-600">No programs yet. Create your first training program!</p>
-          </div>
+          <EmptyState
+            icon="📅"
+            title="No programs yet"
+            description="Create a 5/3/1 or Starting Strength program and the app will plan each week's weights for you."
+          />
         ) : (
           <div className="space-y-3 sm:space-y-4">
             {programs.map(program => (
               <div
                 key={program.id}
                 className={`bg-white border rounded-lg p-4 sm:p-6 ${
-                  program.is_active ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'
+                  program.is_active ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200'
                 }`}
               >
                 <div className="flex flex-col gap-4">
@@ -566,7 +576,7 @@ const Programs = () => {
                       <h3 className="text-base sm:text-lg font-semibold text-gray-900">{program.name}</h3>
                       {getProgramTypeBadge(program.type)}
                       {program.is_active === 1 && (
-                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
+                        <span className="px-2 py-1 bg-success-100 text-success-800 text-xs font-medium rounded">
                           ACTIVE
                         </span>
                       )}
@@ -583,7 +593,7 @@ const Programs = () => {
                             key={idx}
                             className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded"
                           >
-                            {getExerciseName(lift.exercise_id)}: {lift.training_max} lbs
+                            {getExerciseName(lift.exercise_id)}: {lift.training_max} {units}
                           </span>
                         ))}
                       </div>
@@ -593,25 +603,27 @@ const Programs = () => {
                   {/* Actions */}
                   <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     {!program.is_active && (
-                      <button
+                      <Button
+                        className="min-h-[44px] sm:min-h-0"
                         onClick={() => handleSetActive(program.id)}
-                        className="flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 bg-blue-600 text-white"
                       >
                         Set Active
-                      </button>
+                      </Button>
                     )}
-                    <Link
+                    <Button
+                      variant="secondary"
                       to={`/programs/${program.id}`}
-                      className="flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 bg-gray-200 text-gray-700"
+                      className="min-h-[44px] sm:min-h-0"
                     >
                       View Details
-                    </Link>
-                    <button
-                      onClick={() => handleDeleteProgram(program.id)}
-                      className="flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 bg-red-600 text-white"
+                    </Button>
+                    <Button
+                      variant="danger-subtle"
+                      className="min-h-[44px] sm:min-h-0"
+                      onClick={() => handleDeleteProgram(program)}
                     >
                       Delete
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>

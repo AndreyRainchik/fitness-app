@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import ExerciseNameInput from './ExerciseNameInput';
 import SetRow from './SetRow';
+import { Alert, Button, Card } from '../ui';
 import {
   buildSetsPayload,
   emptyExercise,
@@ -124,12 +125,12 @@ function WorkoutEditor({
   return (
     <>
       {error && (
-        <div role="alert" className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+        <Alert className="mb-4" onDismiss={() => setError('')}>
           {error}
-        </div>
+        </Alert>
       )}
 
-      <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+      <Card>
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="flex-1">
             <label htmlFor="workout-name" className="block text-sm font-medium text-gray-700 mb-1">
@@ -175,14 +176,16 @@ function WorkoutEditor({
                     <p className="text-xs text-gray-500 mt-1">Type at least 2 characters, then pick from the list</p>
                   )}
                 </div>
-                <button
-                  type="button"
+                <Button
+                  variant="danger-subtle"
+                  size="sm"
                   onClick={() => handleRemoveExercise(exercise.id)}
-                  className="ml-4 flex-shrink-0 text-sm text-red-600 hover:underline"
+                  className="ml-4 flex-shrink-0 mt-6"
                   disabled={isSaving}
+                  aria-label={`Remove ${exercise.exerciseName || 'exercise'}`}
                 >
                   Remove
-                </button>
+                </Button>
               </div>
 
               {exercise.sets.length > 0 && (
@@ -209,14 +212,9 @@ function WorkoutEditor({
               )}
 
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleAddSet(exercise.id)}
-                  disabled={isSaving}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-md text-sm font-medium transition-colors"
-                >
+                <Button variant="secondary" onClick={() => handleAddSet(exercise.id)} disabled={isSaving}>
                   + Add Set
-                </button>
+                </Button>
                 {renderExerciseActions?.(exercise, { disabled: isSaving })}
                 <span className="text-sm text-gray-500">
                   {exercise.sets.length} {exercise.sets.length === 1 ? 'set' : 'sets'}
@@ -227,14 +225,9 @@ function WorkoutEditor({
         </div>
 
         <div className="mt-6 space-y-6">
-          <button
-            type="button"
-            onClick={handleAddExercise}
-            disabled={isSaving}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3 px-4 rounded-lg transition duration-200"
-          >
+          <Button variant="secondary" size="lg" fullWidth onClick={handleAddExercise} disabled={isSaving}>
             + Add Exercise
-          </button>
+          </Button>
 
           <div>
             <label htmlFor="workout-notes" className="block text-sm font-medium text-gray-700 mb-1">
@@ -252,25 +245,15 @@ function WorkoutEditor({
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isSaving}
-              className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-bold py-3 px-4 rounded-lg transition duration-200"
-            >
-              {isSaving ? savingLabel : submitLabel}
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={isSaving}
-              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-200"
-            >
+            <Button size="lg" className="flex-1" onClick={handleSubmit} loading={isSaving} loadingText={savingLabel}>
+              {submitLabel}
+            </Button>
+            <Button variant="secondary" size="lg" className="flex-1" onClick={onCancel} disabled={isSaving}>
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
+      </Card>
     </>
   );
 }

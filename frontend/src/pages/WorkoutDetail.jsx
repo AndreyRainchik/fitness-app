@@ -1,13 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { workoutsAPI, templatesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout/Layout';
+import {
+  Button,
+  Card,
+  EmptyState,
+  LoadingState,
+  Modal,
+  PageHeader,
+  StatTile,
+  useConfirm,
+  useToast
+} from '../components/ui';
+import { groupSetsByExercise } from '../utils/workoutPayload';
 
 function WorkoutDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const units = user?.units || 'lbs';
+  const confirm = useConfirm();
+  const toast = useToast();
   const [workout, setWorkout] = useState(null);
   const [prSummary, setPRSummary] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,61 +33,69 @@ function WorkoutDetail() {
   const [savingTemplate, setSavingTemplate] = useState(false);
 
   useEffect(() => {
-    fetchWorkout();
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setLoading(true);
+        // Includes PR detection for each set
+        const data = await workoutsAPI.getByIdWithPRs(id);
+        if (cancelled) return;
+        setWorkout(data.workout);
+        setPRSummary(data.prSummary || []);
+      } catch (err) {
+        if (!cancelled) setError(err.message || 'Failed to load workout');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
-  const fetchWorkout = async () => {
-    try {
-      setLoading(true);
-      // Call the new endpoint with PR detection
-      const data = await workoutsAPI.getByIdWithPRs(id);
-      setWorkout(data.workout);
-      setPRSummary(data.prSummary || []);
-    } catch (err) {
-      setError(err.message || 'Failed to load workout');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this workout?')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Delete workout?',
+      message: `“${workout.name || 'Untitled workout'}” and all its sets will be permanently deleted.`,
+      confirmLabel: 'Delete',
+      tone: 'danger'
+    });
+    if (!confirmed) return;
 
     try {
       await workoutsAPI.delete(id);
+      toast({ tone: 'success', message: 'Workout deleted' });
       navigate('/workouts');
     } catch (err) {
-      alert('Failed to delete workout: ' + err.message);
+      toast({ tone: 'error', message: `Couldn't delete workout: ${err.message}` });
     }
+  };
+
+  const closeTemplateModal = () => {
+    setShowTemplateModal(false);
+    setTemplateName('');
+    setTemplateDescription('');
   };
 
   const handleSaveAsTemplate = async (e) => {
     e.preventDefault();
-    
-    if (!templateName.trim()) {
-      alert('Please enter a template name');
-      return;
-    }
+    if (!templateName.trim()) return; // the input is `required`
 
     setSavingTemplate(true);
     try {
       await templatesAPI.createFromWorkout(id, {
-        name: templateName,
-        description: templateDescription
+        name: templateName.trim(),
+        description: templateDescription.trim()
       });
-      
-      setShowTemplateModal(false);
-      setTemplateName('');
-      setTemplateDescription('');
-      
-      // Show success message
-      if (window.confirm('Template saved successfully! Would you like to view your templates?')) {
-        navigate('/templates');
-      }
+      closeTemplateModal();
+      toast({
+        tone: 'success',
+        message: `Saved “${templateName.trim()}” as a template`,
+        action: { label: 'View templates', to: '/templates' }
+      });
     } catch (err) {
-      alert('Failed to save template: ' + err.message);
+      toast({ tone: 'error', message: `Couldn't save template: ${err.message}` });
     } finally {
       setSavingTemplate(false);
     }
@@ -89,50 +112,6 @@ function WorkoutDetail() {
     });
   };
 
-  const groupSetsByExercise = (sets) => {
-    // Sort sets by ID to maintain insertion order
-    const sortedSets = [...sets].sort((a, b) => a.id - b.id);
-    
-    // Group consecutive sets of the same exercise together
-    // BUT start a new group if set_number resets (indicates new instance)
-    const grouped = [];
-    let currentGroup = null;
-    let lastSetNumber = 0;
-    
-    sortedSets.forEach(set => {
-      // Start a new group if:
-      // 1. Exercise changes, OR
-      // 2. Set number decreases/resets (indicates new block of same exercise)
-      const setNumberReset = currentGroup && 
-                            currentGroup.exercise_id === set.exercise_id && 
-                            set.set_number <= lastSetNumber;
-      
-      if (!currentGroup || 
-          currentGroup.exercise_id !== set.exercise_id || 
-          setNumberReset) {
-        if (currentGroup) {
-          grouped.push(currentGroup);
-        }
-        currentGroup = {
-          exercise_id: set.exercise_id,
-          exercise_name: set.exercise_name,
-          sets: []
-        };
-        lastSetNumber = 0;
-      }
-      
-      currentGroup.sets.push(set);
-      lastSetNumber = set.set_number;
-    });
-    
-    // Push the last group
-    if (currentGroup) {
-      grouped.push(currentGroup);
-    }
-    
-    return grouped;
-  };
-
   const getTotalPRCount = () => {
     let count = 0;
     prSummary.forEach(exercise => {
@@ -144,9 +123,8 @@ function WorkoutDetail() {
   if (loading) {
     return (
       <Layout>
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Loading workout...</p>
+        <div className="max-w-4xl mx-auto">
+          <LoadingState label="Loading workout..." />
         </div>
       </Layout>
     );
@@ -155,15 +133,13 @@ function WorkoutDetail() {
   if (error || !workout) {
     return (
       <Layout>
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <p className="text-xl text-red-600 mb-4">Failed to load workout</p>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <Link
-            to="/workouts"
-            className="text-blue-600 hover:text-blue-700 font-semibold"
-          >
-            ← Back to Workouts
-          </Link>
+        <div className="max-w-4xl mx-auto">
+          <EmptyState
+            tone="error"
+            title="Couldn't load this workout"
+            description={error}
+            action={<Button variant="secondary" to="/workouts">← Back to Workouts</Button>}
+          />
         </div>
       </Layout>
     );
@@ -176,51 +152,24 @@ function WorkoutDetail() {
   return (
     <Layout>
       <div className="max-w-4xl mx-auto">
-        {/* Header - Mobile Optimized */}
-        <div className="mb-6">
-          <Link
-            to="/workouts"
-            className="text-blue-600 hover:text-blue-700 font-medium mb-4 inline-block"
-          >
-            ← Back to Workouts
-          </Link>
-          
-          {/* Mobile & Desktop Responsive Layout */}
-          <div className="flex flex-col gap-4">
-            {/* Title Section */}
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-                {workout.name}
-              </h1>
-              <p className="text-sm md:text-base text-gray-600">
-                {formatDate(workout.date)}
-                {workout.duration > 0 && ` • ${workout.duration} minutes`}
-              </p>
-            </div>
-            
-            {/* Action Buttons - Responsive Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <button
-                onClick={() => setShowTemplateModal(true)}
-                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 text-sm md:text-base"
-              >
-                Save as Template
-              </button>
-              <Link
-                to={`/workouts/${id}/edit`}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 text-center text-sm md:text-base"
-              >
-                Edit Workout
-              </Link>
-              <button
-                onClick={handleDelete}
-                className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 text-sm md:text-base sm:col-span-2 lg:col-span-1"
-              >
-                Delete Workout
-              </button>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          backTo="/workouts"
+          backLabel="Back to Workouts"
+          title={workout.name || 'Untitled workout'}
+          subtitle={(
+            <>
+              {formatDate(workout.date)}
+              {workout.duration_minutes > 0 && ` • ${workout.duration_minutes} minutes`}
+            </>
+          )}
+          actions={(
+            <>
+              <Button to={`/workouts/${id}/edit`}>Edit Workout</Button>
+              <Button variant="secondary" onClick={() => setShowTemplateModal(true)}>Save as Template</Button>
+              <Button variant="danger-subtle" onClick={handleDelete}>Delete</Button>
+            </>
+          )}
+        />
 
         {/* PR Celebration Banner */}
         {prSummary.length > 0 && totalPRs > 0 && (
@@ -244,10 +193,10 @@ function WorkoutDetail() {
                       <div key={`vol-${prIdx}`} className="flex items-start md:items-center gap-2">
                         <span className="text-lg md:text-xl flex-shrink-0">🏆</span>
                         <span className="break-words">
-                          Set {pr.setNumber}: {pr.weight} {user?.units || 'lbs'} × {pr.reps} reps
+                          Set {pr.setNumber}: {pr.weight} {units} × {pr.reps} reps
                           <span className="font-bold ml-2">Volume PR!</span>
                           <span className="ml-1 text-white text-opacity-80">
-                            ({pr.volume.toLocaleString()} {user?.units || 'lbs'} total)
+                            ({pr.volume.toLocaleString()} {units} total)
                           </span>
                         </span>
                       </div>
@@ -256,10 +205,10 @@ function WorkoutDetail() {
                       <div key={`1rm-${prIdx}`} className="flex items-start md:items-center gap-2">
                         <span className="text-lg md:text-xl flex-shrink-0">🏆</span>
                         <span className="break-words">
-                          Set {pr.setNumber}: {pr.weight} {user?.units || 'lbs'} × {pr.reps} reps
+                          Set {pr.setNumber}: {pr.weight} {units} × {pr.reps} reps
                           <span className="font-bold ml-2">1RM PR!</span>
                           <span className="ml-1 text-white text-opacity-80">
-                            (Est. {pr.estimated1RM} {user?.units || 'lbs'})
+                            (Est. {pr.estimated1RM} {units})
                           </span>
                         </span>
                       </div>
@@ -271,32 +220,16 @@ function WorkoutDetail() {
           </div>
         )}
 
-        {/* Summary Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600 mb-1">Total Volume</p>
-            <p className="text-2xl md:text-3xl font-bold text-blue-600">
-              {totalVolume.toLocaleString()} <span className="text-base md:text-lg">{user?.units || 'lbs'}</span>
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600 mb-1">Exercises</p>
-            <p className="text-2xl md:text-3xl font-bold text-green-600">
-              {exerciseGroups.length}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600 mb-1">Total Sets</p>
-            <p className="text-2xl md:text-3xl font-bold text-orange-600">
-              {workout.sets?.length || 0}
-            </p>
-          </div>
+          <StatTile label="Total Volume" value={totalVolume.toLocaleString()} unit={units} tone="primary" />
+          <StatTile label="Exercises" value={exerciseGroups.length} tone="success" />
+          <StatTile label="Total Sets" value={workout.sets?.length || 0} tone="warning" />
         </div>
 
         {/* Exercises */}
         <div className="space-y-6">
           {exerciseGroups.map((group, index) => (
-            <div key={index} className="bg-white rounded-lg shadow p-4 md:p-6">
+            <Card key={index}>
               <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">
                 {group.exercise_name}
               </h2>
@@ -309,7 +242,7 @@ function WorkoutDetail() {
                       <tr className="border-b">
                         <th className="text-left py-2 px-2 md:px-3 text-xs md:text-sm font-medium text-gray-700">Set</th>
                         <th className="text-left py-2 px-2 md:px-3 text-xs md:text-sm font-medium text-gray-700">
-                          Weight<span className="hidden sm:inline"> ({user?.units || 'lbs'})</span>
+                          Weight<span className="hidden sm:inline"> ({units})</span>
                         </th>
                         <th className="text-left py-2 px-2 md:px-3 text-xs md:text-sm font-medium text-gray-700">Reps</th>
                         <th className="text-left py-2 px-2 md:px-3 text-xs md:text-sm font-medium text-gray-700">RPE</th>
@@ -321,10 +254,10 @@ function WorkoutDetail() {
                       </tr>
                     </thead>
                     <tbody>
-                      {group.sets.sort((a, b) => a.set_number - b.set_number).map((set) => {
+                      {group.sets.map((set) => {
                         const hasPR = set.isVolumePR || set.is1RMPR;
                         const rowClass = hasPR 
-                          ? "border-b last:border-0 bg-green-50 hover:bg-green-100" 
+                          ? "border-b last:border-0 bg-success-50 hover:bg-success-100" 
                           : "border-b last:border-0 hover:bg-gray-50";
                         
                         return (
@@ -334,7 +267,7 @@ function WorkoutDetail() {
                             <td className="py-2 md:py-3 px-2 md:px-3 text-sm md:text-base text-gray-900 font-medium">{set.reps}</td>
                             <td className="py-2 md:py-3 px-2 md:px-3 text-sm md:text-base text-gray-900">
                               {set.is_warmup === 1 ? (
-                                <span className="text-green-600 font-bold text-base md:text-lg">W</span>
+                                <span className="text-success-600 font-bold text-base md:text-lg">W</span>
                               ) : (
                                 set.rpe || '-'
                               )}
@@ -352,7 +285,7 @@ function WorkoutDetail() {
                                     <span className="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 bg-orange-100 text-orange-800 rounded font-semibold whitespace-nowrap">
                                       🏆 <span className="hidden sm:inline ml-1">1RM PR</span>
                                       <span className="ml-1 text-gray-600 hidden md:inline">
-                                        ({set.estimated1RM} {user?.units || 'lbs'})
+                                        ({set.estimated1RM} {units})
                                       </span>
                                     </span>
                                   )}
@@ -378,80 +311,69 @@ function WorkoutDetail() {
                   </table>
                 </div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
 
         {/* Workout Notes */}
         {workout.notes && (
-          <div className="mt-6 bg-white rounded-lg shadow p-4 md:p-6">
-            <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-2">Workout Notes</h3>
+          <Card className="mt-6">
+            <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-2">Workout Notes</h2>
             <p className="text-sm md:text-base text-gray-700 whitespace-pre-wrap">{workout.notes}</p>
-          </div>
+          </Card>
         )}
 
         {/* No Sets Message */}
         {workout.sets?.length === 0 && (
-          <div className="bg-white rounded-lg shadow p-8 md:p-12 text-center">
-            <p className="text-lg md:text-xl text-gray-600">No sets logged for this workout</p>
-          </div>
+          <EmptyState title="No sets logged for this workout" />
         )}
 
-        {/* Save as Template Modal - Mobile Optimized */}
-        {showTemplateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 md:p-6 max-h-[90vh] overflow-y-auto">
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">Save as Template</h2>
-              <form onSubmit={handleSaveAsTemplate}>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Template Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={templateName}
-                    onChange={(e) => setTemplateName(e.target.value)}
-                    placeholder="e.g., Upper Body A"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    required
-                  />
-                </div>
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description (optional)
-                  </label>
-                  <textarea
-                    value={templateDescription}
-                    onChange={(e) => setTemplateDescription(e.target.value)}
-                    placeholder="e.g., Chest and back focus"
-                    rows="3"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    type="submit"
-                    disabled={savingTemplate}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white font-bold py-3 px-4 rounded-lg transition duration-200 text-sm md:text-base"
-                  >
-                    {savingTemplate ? 'Saving...' : 'Save Template'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowTemplateModal(false);
-                      setTemplateName('');
-                      setTemplateDescription('');
-                    }}
-                    className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-200 text-sm md:text-base"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
+        <Modal
+          open={showTemplateModal}
+          onClose={closeTemplateModal}
+          title="Save as Template"
+          dismissible={!savingTemplate}
+          footer={(
+            <>
+              <Button variant="secondary" onClick={closeTemplateModal} disabled={savingTemplate}>
+                Cancel
+              </Button>
+              <Button type="submit" form="save-template-form" loading={savingTemplate} loadingText="Saving...">
+                Save Template
+              </Button>
+            </>
+          )}
+        >
+          <form id="save-template-form" onSubmit={handleSaveAsTemplate} className="space-y-4">
+            <div>
+              <label htmlFor="template-name" className="block text-sm font-medium text-gray-700 mb-1">
+                Template name
+              </label>
+              <input
+                id="template-name"
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="e.g., Upper Body A"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                required
+              />
             </div>
-          </div>
-        )}
+            <div>
+              <label htmlFor="template-description" className="block text-sm font-medium text-gray-700 mb-1">
+                Description (optional)
+              </label>
+              <textarea
+                id="template-description"
+                value={templateDescription}
+                onChange={(e) => setTemplateDescription(e.target.value)}
+                placeholder="e.g., Chest and back focus"
+                rows={3}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+          </form>
+        </Modal>
       </div>
     </Layout>
   );

@@ -69,10 +69,10 @@ function LiftProgressionChart({ data, exerciseName }) {
             <p className="text-sm">
               <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
                 data.standard === 'Elite' ? 'bg-purple-100 text-purple-700' :
-                data.standard === 'Advanced' ? 'bg-red-100 text-red-700' :
+                data.standard === 'Advanced' ? 'bg-danger-100 text-danger-700' :
                 data.standard === 'Intermediate' ? 'bg-orange-100 text-orange-700' :
                 data.standard === 'Novice' ? 'bg-yellow-100 text-yellow-700' :
-                'bg-green-100 text-green-700'
+                'bg-success-100 text-success-700'
               }`}>
                 {data.standard}
               </span>
@@ -98,16 +98,16 @@ function LiftProgressionChart({ data, exerciseName }) {
 
       {/* Summary Stats */}
       <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6">
-        <div className="text-center p-2 md:p-3 bg-blue-50 rounded-lg">
+        <div className="text-center p-2 md:p-3 bg-primary-50 rounded-lg">
           <p className="text-xs md:text-sm text-gray-600 mb-1">Current</p>
-          <p className="text-lg md:text-2xl font-bold text-blue-600">
+          <p className="text-lg md:text-2xl font-bold text-primary-600">
             {latestValue.estimated1RM}
           </p>
           <p className="text-xs text-gray-500">lbs</p>
         </div>
-        <div className="text-center p-2 md:p-3 bg-green-50 rounded-lg">
+        <div className="text-center p-2 md:p-3 bg-success-50 rounded-lg">
           <p className="text-xs md:text-sm text-gray-600 mb-1">Improved</p>
-          <p className={`text-lg md:text-2xl font-bold ${improvement >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <p className={`text-lg md:text-2xl font-bold ${improvement >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
             {improvement >= 0 ? '+' : ''}{improvement.toFixed(1)}
           </p>
           <p className="text-xs text-gray-500">{improvementPercent}%</p>

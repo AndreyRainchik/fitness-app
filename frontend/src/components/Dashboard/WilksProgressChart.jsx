@@ -104,7 +104,7 @@ function WilksProgressChart({ weeks = 12 }) {
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-xl font-bold text-gray-900 mb-4">Percentile Progress</h3>
         <div className="h-64 flex items-center justify-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
         </div>
       </div>
     );
@@ -115,7 +115,7 @@ function WilksProgressChart({ weeks = 12 }) {
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-xl font-bold text-gray-900 mb-4">Percentile Progress</h3>
         <div className="h-64 flex items-center justify-center">
-          <p className="text-red-600">{error}</p>
+          <p className="text-danger-600">{error}</p>
         </div>
       </div>
     );

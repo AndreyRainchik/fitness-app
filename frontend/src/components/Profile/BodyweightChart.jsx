@@ -45,16 +45,6 @@ function BodyweightChart({ units }) {
     }
   };
 
-  const getMinMaxWeight = () => {
-    if (chartData.length === 0) return { min: 0, max: 0 };
-    const weights = chartData.map(log => log.weight);
-    return {
-      min: Math.min(...weights),
-      max: Math.max(...weights)
-    };
-  };
-
-  const { min, max } = getMinMaxWeight();
   const weightChange = chartData.length >= 2 
     ? chartData[chartData.length - 1].weight - chartData[0].weight 
     : 0;
@@ -90,7 +80,7 @@ function BodyweightChart({ units }) {
         <select
           value={days}
           onChange={(e) => setDays(parseInt(e.target.value))}
-          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
         >
           <option value={7}>Last 7 days</option>
           <option value={30}>Last 30 days</option>
@@ -115,16 +105,16 @@ function BodyweightChart({ units }) {
         <>
           {/* Summary Stats */}
           <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6">
-            <div className="text-center p-2 md:p-3 bg-blue-50 rounded-lg">
+            <div className="text-center p-2 md:p-3 bg-primary-50 rounded-lg">
               <p className="text-xs md:text-sm text-gray-600 mb-1">Latest</p>
-              <p className="text-lg md:text-xl font-bold text-blue-600">
+              <p className="text-lg md:text-xl font-bold text-primary-600">
                 {chartData[chartData.length - 1].weight}
               </p>
               <p className="text-xs text-gray-500">{units}</p>
             </div>
             <div className="text-center p-2 md:p-3 bg-gray-50 rounded-lg">
               <p className="text-xs md:text-sm text-gray-600 mb-1">Change</p>
-              <p className={`text-lg md:text-xl font-bold ${weightChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <p className={`text-lg md:text-xl font-bold ${weightChange >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
                 {weightChange >= 0 ? '+' : ''}{weightChange.toFixed(1)}
               </p>
               <p className="text-xs text-gray-500">{units}</p>

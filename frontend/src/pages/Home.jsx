@@ -1,12 +1,13 @@
 import React, { useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { Button } from '../components/ui';
 
 function Home() {
 
   // Redirect if already logged in
   const navigate = useNavigate();
-  const { register, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/dashboard');
@@ -14,7 +15,7 @@ function Home() {
   }, [isAuthenticated, navigate]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">
+    <div className="min-h-screen bg-gradient-to-br from-primary-500 to-purple-600">
       <div className="container mx-auto px-4 py-16">
         <div className="text-center text-white mb-12">
           <h1 className="text-6xl font-bold mb-4">💪 Fitness Tracker</h1>
@@ -30,8 +31,8 @@ function Home() {
           </h2>
           
           <div className="grid md:grid-cols-2 gap-6 mb-8">
-            <div className="p-6 bg-blue-50 rounded-lg">
-              <h3 className="text-xl font-semibold mb-2 text-blue-900">
+            <div className="p-6 bg-primary-50 rounded-lg">
+              <h3 className="text-xl font-semibold mb-2 text-primary-900">
                 📊 Muscle Group Visualization
               </h3>
               <p className="text-gray-700">
@@ -39,8 +40,8 @@ function Home() {
               </p>
             </div>
             
-            <div className="p-6 bg-green-50 rounded-lg">
-              <h3 className="text-xl font-semibold mb-2 text-green-900">
+            <div className="p-6 bg-success-50 rounded-lg">
+              <h3 className="text-xl font-semibold mb-2 text-success-900">
                 🏆 Performance Benchmarking
               </h3>
               <p className="text-gray-700">
@@ -68,18 +69,8 @@ function Home() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
-            <Link
-              to="/register"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition duration-200 text-center"
-            >
-              Get Started
-            </Link>
-            <Link
-              to="/login"
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-lg text-lg transition duration-200 text-center"
-            >
-              Sign In
-            </Link>
+            <Button size="lg" to="/register">Get Started</Button>
+            <Button size="lg" variant="secondary" to="/login">Sign In</Button>
           </div>
         </div>
 
@@ -89,7 +80,7 @@ function Home() {
                 href="https://github.com/AndreyRainchik/fitness-app" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-white text-sm hover:text-blue-700 font-medium transition-colors underline"
+                className="text-white text-sm hover:text-primary-700 font-medium transition-colors underline"
               >
                 Andrey Rainchik
               </a>

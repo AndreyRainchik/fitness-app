@@ -5,8 +5,19 @@ import StrengthScoreCard from '../components/Analytics/StrengthScoreCard';
 import LiftProgressionChart from '../components/Analytics/LiftProgressionChart';
 import SymmetryDisplay from '../components/Analytics/SymmetryDisplay';
 import StrengthStandardsTable from '../components/Analytics/StrengthStandardsTable';
+import { useAuth } from '../context/AuthContext';
+import { Button, Card, EmptyState, LoadingState, PageHeader, Tabs } from '../components/ui';
+
+const TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'progression', label: 'Progression' },
+  { id: 'standards', label: 'Standards' },
+  { id: 'symmetry', label: 'Balance' },
+];
 
 function Analytics() {
+  const { user } = useAuth();
+  const units = user?.units || 'lbs';
   // State for all analytics data
   const [strengthScore, setStrengthScore] = useState(null);
   const [symmetryData, setSymmetryData] = useState(null);
@@ -76,10 +87,7 @@ function Analytics() {
   if (loading) {
     return (
       <Layout>
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Loading analytics...</p>
-        </div>
+        <LoadingState label="Loading analytics..." />
       </Layout>
     );
   }
@@ -87,16 +95,12 @@ function Analytics() {
   if (error) {
     return (
       <Layout>
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <p className="text-xl text-red-600 mb-4">Failed to load analytics</p>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <button
-            onClick={loadAnalyticsData}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-200"
-          >
-            Try Again
-          </button>
-        </div>
+        <EmptyState
+          tone="error"
+          title="Couldn't load analytics"
+          description={error}
+          action={<Button onClick={loadAnalyticsData}>Try Again</Button>}
+        />
       </Layout>
     );
   }
@@ -105,20 +109,19 @@ function Analytics() {
     <Layout>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Analytics Dashboard</h1>
-          <p className="text-gray-600">
-            Track your progress, analyze your strength, and identify areas for improvement
-          </p>
-        </div>
+        <PageHeader
+          title="Analytics"
+          subtitle="Track your progress, analyze your strength, and identify areas for improvement"
+        />
 
         {/* Time Range Selector */}
         <div className="mb-6 flex flex-wrap items-center gap-4">
-          <label className="text-sm font-medium text-gray-700">Time Range:</label>
+          <label htmlFor="analytics-range" className="text-sm font-medium text-gray-700">Time Range:</label>
           <select
+            id="analytics-range"
             value={weeks}
             onChange={(e) => setWeeks(parseInt(e.target.value))}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
             <option value={4}>Last 4 weeks</option>
             <option value={8}>Last 8 weeks</option>
@@ -128,51 +131,7 @@ function Analytics() {
           </select>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="mb-6 border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8 overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                activeTab === 'overview'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setActiveTab('progression')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                activeTab === 'progression'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Progression
-            </button>
-            <button
-              onClick={() => setActiveTab('standards')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                activeTab === 'standards'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Standards
-            </button>
-            <button
-              onClick={() => setActiveTab('symmetry')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                activeTab === 'symmetry'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Balance
-            </button>
-          </nav>
-        </div>
+        <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} label="Analytics sections" className="mb-6" />
 
         {/* Tab Content */}
         <div className="space-y-6">
@@ -181,7 +140,7 @@ function Analytics() {
             <>
               {/* Strength Score Cards */}
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Your Lifts</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Your Lifts</h2>
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-700 mb-3">🏋️ Squat</h3>
@@ -204,12 +163,12 @@ function Analytics() {
 
               {/* Quick Stats */}
               {strengthScore?.total > 0 && (
-                <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
+                <div className="bg-gradient-to-r from-primary-500 to-primary-600 rounded-lg shadow-lg p-6 text-white">
                   <h3 className="text-xl font-bold mb-2">Powerlifting Total</h3>
                   <p className="text-4xl md:text-5xl font-bold mb-2">
-                    {strengthScore.total} lbs
+                    {strengthScore.total} {units}
                   </p>
-                  <p className="text-blue-100">
+                  <p className="text-primary-100">
                     Squat + Bench + Deadlift
                   </p>
                 </div>
@@ -221,26 +180,24 @@ function Analytics() {
           {activeTab === 'progression' && (
             <>
               {/* Lift Selector */}
-              <div className="bg-white rounded-lg shadow p-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <Card padding="p-4">
+                <p className="block text-sm font-medium text-gray-700 mb-2" id="lift-picker-label">
                   Select Lift to Track:
-                </label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3" role="group" aria-labelledby="lift-picker-label">
                   {availableLifts.map((lift) => (
-                    <button
+                    <Button
                       key={lift.name}
+                      size="lg"
+                      variant={selectedLift === lift.name ? 'primary' : 'secondary'}
+                      aria-pressed={selectedLift === lift.name}
                       onClick={() => setSelectedLift(lift.name)}
-                      className={`px-4 py-3 rounded-lg font-medium transition-all ${
-                        selectedLift === lift.name
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
                     >
                       {lift.label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
-              </div>
+              </Card>
 
               {/* Progression Chart */}
               <LiftProgressionChart
@@ -263,21 +220,12 @@ function Analytics() {
 
         {/* Empty State */}
         {!strengthScore && !loading && (
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <div className="text-6xl mb-4">📊</div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">
-              No Analytics Data Yet
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Start logging your workouts to see detailed analytics and track your progress.
-            </p>
-            <a
-              href="/workout/new"
-              className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200"
-            >
-              Log Your First Workout →
-            </a>
-          </div>
+          <EmptyState
+            icon="📊"
+            title="No analytics data yet"
+            description="Start logging your workouts to see detailed analytics and track your progress."
+            action={<Button to="/workout/new">Log Your First Workout</Button>}
+          />
         )}
       </div>
     </Layout>
