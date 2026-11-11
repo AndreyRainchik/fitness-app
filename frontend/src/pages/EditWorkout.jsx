@@ -1,352 +1,49 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { workoutsAPI, exercisesAPI } from '../services/api';
+import { workoutsAPI } from '../services/api';
 import Layout from '../components/Layout/Layout';
-import { buildSetsPayload, findUnmatchedExercise } from '../utils/workoutPayload';
+import WorkoutEditor from '../components/Workout/WorkoutEditor';
+import { setsToExerciseBlocks } from '../utils/workoutPayload';
 
 function EditWorkout() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  
-  const [loading, setLoading] = useState(true);
-  const [workoutName, setWorkoutName] = useState('');
-  const [workoutDate, setWorkoutDate] = useState('');
-  const [exercises, setExercises] = useState([]);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState('');
 
-  // Autocomplete state
-  const [acState, setAcState] = useState({});
-  const acDebounceTimers = useRef({});
+  const [initialValues, setInitialValues] = useState(null);
+  const [loadError, setLoadError] = useState('');
 
-  // Load existing workout data
   useEffect(() => {
-    fetchWorkout();
+    let cancelled = false;
+
+    const load = async () => {
+      setInitialValues(null);
+      setLoadError('');
+      try {
+        const { workout } = await workoutsAPI.getById(id);
+        if (cancelled) return;
+        setInitialValues({
+          name: workout.name || '',
+          date: workout.date,
+          notes: workout.notes || '',
+          // keepIds: existing sets are updated in place rather than re-created
+          exercises: setsToExerciseBlocks(workout.sets, { keepIds: true })
+        });
+      } catch (err) {
+        if (!cancelled) setLoadError(err.message || 'Failed to load workout');
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
-  const fetchWorkout = async () => {
-    try {
-      setLoading(true);
-      const data = await workoutsAPI.getById(id);
-      const workout = data.workout;
-      
-      setWorkoutName(workout.name || '');
-      setWorkoutDate(workout.date);
-
-      // Sort sets by ID to maintain order
-      const sortedSets = [...workout.sets].sort((a, b) => a.id - b.id);
-      
-      // Group sets by exercise, BUT detect set_number resets for multiple instances
-      const exerciseBlocks = [];
-      let currentBlock = null;
-      let lastSetNumber = 0;
-      
-      sortedSets.forEach(set => {
-        // Start new block if:
-        // 1. No current block
-        // 2. Exercise changes
-        // 3. Set number resets (indicates new instance of same exercise)
-        const setNumberReset = currentBlock && 
-                              currentBlock.exerciseId === set.exercise_id && 
-                              set.set_number <= lastSetNumber;
-        
-        if (!currentBlock || 
-            currentBlock.exerciseId !== set.exercise_id || 
-            setNumberReset) {
-          if (currentBlock) {
-            exerciseBlocks.push(currentBlock);
-          }
-          const localId = `existing-${set.exercise_id}-${Date.now()}-${Math.random()}`;
-          currentBlock = {
-            id: localId,
-            exerciseId: set.exercise_id,
-            exerciseName: set.exercise_name,
-            sets: []
-          };
-          lastSetNumber = 0;
-        }
-        
-        currentBlock.sets.push({
-          id: set.id, // Keep the original set ID
-          existingSetId: set.id, // Track this is an existing set
-          setNumber: set.set_number,
-          weight: set.weight.toString(),
-          reps: set.reps.toString(),
-          rpe: set.rpe?.toString() || '',
-          isWarmup: set.is_warmup === 1
-        });
-        lastSetNumber = set.set_number;
-      });
-      
-      // Push the last block
-      if (currentBlock) {
-        exerciseBlocks.push(currentBlock);
-      }
-
-      setExercises(exerciseBlocks);
-    } catch (err) {
-      setError(err.message || 'Failed to load workout');
-    } finally {
-      setLoading(false);
-    }
+  const handleSave = async ({ name, date, notes, sets }) => {
+    // Updates the workout and replaces its set list in one request
+    await workoutsAPI.update(id, { name, date, notes: notes || null, sets });
+    navigate(`/workout/${id}`);
   };
-
-  // Helper: add a new exercise entry
-  const handleAddExercise = () => {
-    const localId = Date.now() + Math.floor(Math.random() * 1000);
-    setExercises((prev) => [
-      ...prev,
-      { id: localId, exerciseId: null, exerciseName: '', sets: [] },
-    ]);
-    setAcState((s) => ({ ...s, [localId]: { query: '', suggestions: [], open: false, highlighted: -1 } }));
-  };
-
-  const handleRemoveExercise = (exerciseId) => {
-    setExercises(exercises.filter(ex => ex.id !== exerciseId));
-  };
-
-  // Exercise name change with autocomplete
-  const handleExerciseNameChange = (localId, name) => {
-    setExercises((prev) =>
-      prev.map((ex) => (ex.id === localId ? { ...ex, exerciseName: name, exerciseId: null } : ex))
-    );
-
-    setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), query: name, open: false, highlighted: -1 } }));
-
-    if (!name || name.trim().length < 2) {
-      setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), suggestions: [], open: false, highlighted: -1 } }));
-      return;
-    }
-
-    if (acDebounceTimers.current[localId]) {
-      clearTimeout(acDebounceTimers.current[localId]);
-    }
-    acDebounceTimers.current[localId] = setTimeout(async () => {
-      try {
-        const res = await exercisesAPI.search(name.trim());
-        const serverList = res?.exercises ?? res ?? [];
-        setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), suggestions: serverList, open: serverList.length > 0, highlighted: -1 } }));
-      } catch (err) {
-        setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), suggestions: [], open: false, highlighted: -1 } }));
-      } finally {
-        delete acDebounceTimers.current[localId];
-      }
-    }, 250);
-  };
-
-  const handleSelectSuggestion = (localId, suggestion) => {
-    setExercises((prev) =>
-      prev.map((ex) => {
-        if (ex.id === localId) {
-          // Update exercise info
-          const updated = { ...ex, exerciseId: suggestion.id, exerciseName: suggestion.name };
-          
-          // Auto-add first set if none exist
-          if (updated.sets.length === 0) {
-            updated.sets = [{
-              id: Date.now() + Math.floor(Math.random() * 1000),
-              setNumber: 1,
-              weight: '',
-              reps: '',
-              rpe: '',
-              isWarmup: false,
-              // No existingSetId - this is a new set
-            }];
-          }
-          
-          return updated;
-        }
-        return ex;
-      })
-    );
-    setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), open: false, suggestions: [], highlighted: -1 } }));
-  };
-
-  const handleKeyDown = (e, localId) => {
-    const state = acState[localId] || { suggestions: [], highlighted: -1, open: false };
-    const list = state.suggestions || [];
-    if (!state.open || list.length === 0) return;
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      const next = Math.min(state.highlighted + 1, list.length - 1);
-      setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), highlighted: next } }));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      const prev = Math.max(state.highlighted - 1, 0);
-      setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), highlighted: prev } }));
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      const idx = state.highlighted >= 0 ? state.highlighted : 0;
-      const suggestion = list[idx];
-      if (suggestion) {
-        handleSelectSuggestion(localId, suggestion);
-      }
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      setAcState((s) => ({ ...s, [localId]: { ...(s[localId] || {}), open: false, highlighted: -1 } }));
-    }
-  };
-
-  // Add a set for an exercise
-  const handleAddSet = (localId) => {
-    setExercises((prev) =>
-      prev.map((ex) =>
-        ex.id === localId
-          ? {
-              ...ex,
-              sets: [
-                ...ex.sets,
-                {
-                  id: Date.now() + Math.floor(Math.random() * 1000),
-                  setNumber: ex.sets.length + 1,
-                  weight: '',
-                  reps: '',
-                  rpe: '',
-                  isWarmup: false,
-                  // No existingSetId - this is a new set
-                },
-              ],
-            }
-          : ex
-      )
-    );
-  };
-
-  const handleRemoveSet = (localId, setId) => {
-    setExercises((prev) =>
-      prev.map((ex) =>
-        ex.id === localId
-          ? { ...ex, sets: ex.sets.filter((s) => s.id !== setId).map((s, i) => ({ ...s, setNumber: i + 1 })) }
-          : ex
-      )
-    );
-  };
-
-  const handleSetChange = (localId, setId, field, value) => {
-    setExercises((prev) =>
-      prev.map((ex) =>
-        ex.id === localId
-          ? {
-              ...ex,
-              sets: ex.sets.map((s) => {
-                if (s.id !== setId) return s;
-                if (field === 'isWarmup') {
-                  return { ...s, isWarmup: value, rpe: value ? null : s.rpe };
-                }
-                return { ...s, [field]: value };
-              }),
-            }
-          : ex
-      )
-    );
-  };
-
-  const handleSaveWorkout = async () => {
-    setError('');
-
-    // Validation
-    if (!workoutName.trim()) {
-      setError('Please enter a workout name');
-      return;
-    }
-
-    if (exercises.length === 0) {
-      setError('Please add at least one exercise');
-      return;
-    }
-
-    const hasEmptyExercise = exercises.some(ex => !ex.exerciseName.trim());
-    if (hasEmptyExercise) {
-      setError('Please enter names for all exercises');
-      return;
-    }
-
-    const hasExerciseWithoutSets = exercises.some(ex => ex.sets.length === 0);
-    if (hasExerciseWithoutSets) {
-      setError('Each exercise must have at least one set');
-      return;
-    }
-
-    const unmatched = findUnmatchedExercise(exercises);
-    if (unmatched) {
-      setError(unmatched);
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      // Updates metadata and replaces the set list (keeping ids of existing
-      // sets) in one request / one transaction
-      await workoutsAPI.update(id, {
-        name: workoutName,
-        date: workoutDate,
-        sets: buildSetsPayload(exercises)
-      });
-
-      navigate(`/workout/${id}`);
-    } catch (err) {
-      setError(err.message || 'Failed to update workout');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const renderSuggestions = (localId) => {
-    const state = acState[localId] || { suggestions: [], open: false, highlighted: -1 };
-    if (!state.open || !state.suggestions || state.suggestions.length === 0) return null;
-
-    return (
-      <ul
-        role="listbox"
-        aria-label="Exercise suggestions"
-        className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-auto"
-      >
-        {state.suggestions.map((sug, idx) => {
-          const isHighlighted = idx === state.highlighted;
-          return (
-            <li
-              key={sug.id ?? `${sug.name}-${idx}`}
-              role="option"
-              aria-selected={isHighlighted}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                handleSelectSuggestion(localId, sug);
-              }}
-              className={`px-3 py-2 cursor-pointer ${isHighlighted ? 'bg-blue-100' : 'hover:bg-gray-50'}`}
-            >
-              <div className="flex justify-between items-center">
-                <div className="text-sm font-medium text-gray-900">{sug.name}</div>
-                {sug.primary_muscle_group && <div className="text-xs text-gray-500">{sug.primary_muscle_group}</div>}
-              </div>
-              {sug.equipment && <div className="text-xs text-gray-400 mt-1">{sug.equipment}</div>}
-            </li>
-          );
-        })}
-      </ul>
-    );
-  };
-
-  useEffect(() => {
-    return () => {
-      Object.values(acDebounceTimers.current).forEach((t) => clearTimeout(t));
-      acDebounceTimers.current = {};
-    };
-  }, []);
-
-  if (loading) {
-    return (
-      <Layout>
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Loading workout...</p>
-        </div>
-      </Layout>
-    );
-  }
 
   return (
     <Layout>
@@ -356,270 +53,24 @@ function EditWorkout() {
           <p className="text-sm text-gray-600">Update your workout session</p>
         </header>
 
-        {error && <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">{error}</div>}
-
-        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Workout Name</label>
-              <input
-                value={workoutName}
-                onChange={(e) => setWorkoutName(e.target.value)}
-                className="w-full border rounded-md px-3 py-2"
-                placeholder="e.g., Upper Strength"
-              />
-            </div>
-
-            <div className="w-full sm:w-40">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-              <input
-                value={workoutDate}
-                onChange={(e) => setWorkoutDate(e.target.value)}
-                type="date"
-                className="w-full border rounded-md px-3 py-2"
-              />
-            </div>
+        {loadError ? (
+          <div role="alert" className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+            {loadError}
           </div>
-
-          {/* Exercise list */}
-          <div className="space-y-6">
-            {exercises.map((exercise) => (
-              <div key={exercise.id} className="bg-gray-50 border border-gray-100 rounded-lg p-3 sm:p-4 relative">
-                <div className="flex justify-between items-start mb-3">
-                  <div style={{ flex: 1 }}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Exercise</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={exercise.exerciseName}
-                        onChange={(e) => handleExerciseNameChange(exercise.id, e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(e, exercise.id)}
-                        onFocus={() => {
-                          const st = acState[exercise.id] || {};
-                          if (st.suggestions && st.suggestions.length > 0) {
-                            setAcState((s) => ({ ...s, [exercise.id]: { ...(s[exercise.id] || {}), open: true } }));
-                          }
-                        }}
-                        placeholder="Start typing exercise name..."
-                        aria-autocomplete="list"
-                        aria-controls={`ac-list-${exercise.id}`}
-                        aria-expanded={(acState[exercise.id] && acState[exercise.id].open) ? true : false}
-                        className="w-full border rounded-md px-3 py-2"
-                      />
-                      <div className="mt-1">{renderSuggestions(exercise.id)}</div>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">Tip: type at least 2 characters</div>
-                  </div>
-
-                  <div className="ml-4 flex-shrink-0">
-                    <button
-                      onClick={() => handleRemoveExercise(exercise.id)}
-                      className="text-sm text-red-600 hover:underline"
-                      title="Remove exercise"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-
-                {/* Sets */}
-                {exercise.sets.length > 0 && (
-                  <div className="mb-4">
-                    {/* Header row - hidden on mobile, shown on sm+ */}
-                    <div className="hidden sm:grid sm:grid-cols-12 gap-2 mb-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
-                      <div className="col-span-1"></div>
-                      <div className="col-span-1 text-center">#</div>
-                      <div className="col-span-3">Weight</div>
-                      <div className="col-span-2">Reps</div>
-                      <div className="col-span-2">RPE</div>
-                      <div className="col-span-3">Warm-up</div>
-                    </div>
-
-                    {exercise.sets.map((set) => (
-                      <div key={set.id} className="mb-3 sm:mb-2">
-                        {/* Mobile layout */}
-                        <div className="sm:hidden bg-white border border-gray-200 rounded-lg p-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-gray-700">Set {set.setNumber}</span>
-                            <div className="flex items-center gap-3">
-                              <label className="flex items-center text-xs text-gray-600 gap-1.5 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={!!set.isWarmup}
-                                  onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    handleSetChange(exercise.id, set.id, 'isWarmup', checked);
-                                    if (checked) {
-                                      handleSetChange(exercise.id, set.id, 'rpe', null);
-                                    }
-                                  }}
-                                  disabled={isSaving}
-                                  className="rounded w-4 h-4"
-                                />
-                                <span>Warm-up</span>
-                              </label>
-                              <button
-                                onClick={() => handleRemoveSet(exercise.id, set.id)}
-                                className="text-red-500 hover:text-red-700 p-1"
-                                title="Delete set"
-                                disabled={isSaving}
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2">
-                            <div>
-                              <label className="block text-xs text-gray-500 mb-1">Weight</label>
-                              <input
-                                type="number"
-                                step="0.1"
-                                value={set.weight}
-                                onChange={(e) => handleSetChange(exercise.id, set.id, 'weight', e.target.value)}
-                                className="w-full border rounded-md px-2 py-2 text-sm"
-                                placeholder={user?.units || 'lbs'}
-                                disabled={isSaving}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-500 mb-1">Reps</label>
-                              <input
-                                type="number"
-                                value={set.reps}
-                                onChange={(e) => handleSetChange(exercise.id, set.id, 'reps', e.target.value)}
-                                className="w-full border rounded-md px-2 py-2 text-sm"
-                                disabled={isSaving}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-500 mb-1">RPE</label>
-                              <select
-                                value={set.rpe ?? ''}
-                                onChange={(e) => handleSetChange(exercise.id, set.id, 'rpe', e.target.value)}
-                                disabled={set.isWarmup || isSaving}
-                                className="w-full border rounded-md px-2 py-2 bg-white text-sm"
-                              >
-                                <option value="">--</option>
-                                {[...Array(11)].map((_, i) => (
-                                  <option key={i} value={i}>{i}</option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Desktop layout */}
-                        <div className="hidden sm:grid sm:grid-cols-12 gap-2 items-center">
-                          <div className="col-span-1 flex items-center justify-center">
-                            <button
-                              onClick={() => handleRemoveSet(exercise.id, set.id)}
-                              className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors"
-                              title="Delete set"
-                              disabled={isSaving}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                          <div className="col-span-1 flex items-center justify-center">
-                            <span className="text-gray-700 font-medium text-sm">{set.setNumber}</span>
-                          </div>
-                          <div className="col-span-3">
-                            <input
-                              type="number"
-                              step="0.1"
-                              value={set.weight}
-                              onChange={(e) => handleSetChange(exercise.id, set.id, 'weight', e.target.value)}
-                              className="w-full border rounded-md px-2 py-1.5 text-sm"
-                              disabled={isSaving}
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <input
-                              type="number"
-                              value={set.reps}
-                              onChange={(e) => handleSetChange(exercise.id, set.id, 'reps', e.target.value)}
-                              className="w-full border rounded-md px-2 py-1.5 text-sm"
-                              disabled={isSaving}
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <select
-                              value={set.rpe ?? ''}
-                              onChange={(e) => handleSetChange(exercise.id, set.id, 'rpe', e.target.value)}
-                              disabled={set.isWarmup || isSaving}
-                              className="w-full border rounded-md px-2 py-1.5 bg-white text-sm"
-                            >
-                              <option value="">--</option>
-                              {[...Array(11)].map((_, i) => (
-                                <option key={i} value={i}>{i}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="col-span-3">
-                            <label className="flex items-center text-xs text-gray-600 gap-1.5 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={!!set.isWarmup}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  handleSetChange(exercise.id, set.id, 'isWarmup', checked);
-                                  if (checked) {
-                                    handleSetChange(exercise.id, set.id, 'rpe', null);
-                                  }
-                                }}
-                                disabled={isSaving}
-                                className="rounded w-4 h-4"
-                              />
-                              <span>Warm-up</span>
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => handleAddSet(exercise.id)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors"
-                  >
-                    + Add Set
-                  </button>
-                  <span className="text-sm text-gray-500">
-                    {exercise.sets.length} {exercise.sets.length === 1 ? 'set' : 'sets'}
-                  </span>
-                </div>
-              </div>
-            ))}
+        ) : !initialValues ? (
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <p className="mt-4 text-gray-600">Loading workout...</p>
           </div>
-
-          <div className="mt-6 space-y-4">
-            <button
-              onClick={handleAddExercise}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200"
-            >
-              + Add Exercise
-            </button>
-
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-2">
-              <button
-                onClick={handleSaveWorkout}
-                disabled={isSaving}
-                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-bold py-3 px-4 rounded-lg transition duration-200 order-1 sm:order-1"
-              >
-                {isSaving ? 'Saving...' : 'Save Changes'}
-              </button>
-
-              <button
-                onClick={() => navigate(`/workout/${id}`)}
-                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-200 order-2 sm:order-2"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        ) : (
+          <WorkoutEditor
+            key={id}
+            initialValues={initialValues}
+            onSubmit={handleSave}
+            onCancel={() => navigate(`/workout/${id}`)}
+            submitLabel="Save Changes"
+          />
+        )}
       </div>
     </Layout>
   );

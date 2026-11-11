@@ -10,16 +10,16 @@ function WorkoutTimer({ isRunning, onTimeUpdate }) {
   const [seconds, setSeconds] = useState(0);
   const intervalRef = useRef(null);
 
+  // Report time to the parent after render, not from inside the state updater
+  // (updating parent state during a child's state update triggers a React error)
+  useEffect(() => {
+    onTimeUpdate?.(seconds);
+  }, [seconds, onTimeUpdate]);
+
   useEffect(() => {
     if (isRunning) {
       intervalRef.current = setInterval(() => {
-        setSeconds(prevSeconds => {
-          const newSeconds = prevSeconds + 1;
-          if (onTimeUpdate) {
-            onTimeUpdate(newSeconds);
-          }
-          return newSeconds;
-        });
+        setSeconds(prevSeconds => prevSeconds + 1);
       }, 1000);
     } else {
       if (intervalRef.current) {
