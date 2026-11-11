@@ -35,25 +35,13 @@ function StrengthStandardsTable({ strengthData }) {
   const getStandardColor = (standard) => {
     const colors = {
       'Elite': 'bg-purple-600',
-      'Advanced': 'bg-red-600',
+      'Advanced': 'bg-danger-600',
       'Intermediate': 'bg-orange-600',
       'Novice': 'bg-yellow-600',
-      'Beginner': 'bg-green-600',
+      'Beginner': 'bg-success-600',
       'Untrained': 'bg-gray-400',
     };
     return colors[standard] || 'bg-gray-400';
-  };
-
-  const getTextColor = (standard) => {
-    const colors = {
-      'Elite': 'text-purple-700',
-      'Advanced': 'text-red-700',
-      'Intermediate': 'text-orange-700',
-      'Novice': 'text-yellow-700',
-      'Beginner': 'text-green-700',
-      'Untrained': 'text-gray-700',
-    };
-    return colors[standard] || 'text-gray-700';
   };
 
   // Calculate level index for progress bar
@@ -141,10 +129,10 @@ function StrengthStandardsTable({ strengthData }) {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
                       data.standard === 'Elite' ? 'bg-purple-100 text-purple-800' :
-                      data.standard === 'Advanced' ? 'bg-red-100 text-red-800' :
+                      data.standard === 'Advanced' ? 'bg-danger-100 text-danger-800' :
                       data.standard === 'Intermediate' ? 'bg-orange-100 text-orange-800' :
                       data.standard === 'Novice' ? 'bg-yellow-100 text-yellow-800' :
-                      data.standard === 'Beginner' ? 'bg-green-100 text-green-800' :
+                      data.standard === 'Beginner' ? 'bg-success-100 text-success-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
                       {data.standard}
@@ -226,10 +214,10 @@ function StrengthStandardsTable({ strengthData }) {
                 </div>
                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                   data.standard === 'Elite' ? 'bg-purple-100 text-purple-800' :
-                  data.standard === 'Advanced' ? 'bg-red-100 text-red-800' :
+                  data.standard === 'Advanced' ? 'bg-danger-100 text-danger-800' :
                   data.standard === 'Intermediate' ? 'bg-orange-100 text-orange-800' :
                   data.standard === 'Novice' ? 'bg-yellow-100 text-yellow-800' :
-                  data.standard === 'Beginner' ? 'bg-green-100 text-green-800' :
+                  data.standard === 'Beginner' ? 'bg-success-100 text-success-800' :
                   'bg-gray-100 text-gray-800'
                 }`}>
                   {data.standard}
@@ -279,7 +267,7 @@ function StrengthStandardsTable({ strengthData }) {
             <span className="text-sm font-medium text-gray-700">
               Powerlifting Total (Squat + Bench + Deadlift)
             </span>
-            <span className="text-xl md:text-2xl font-bold text-blue-600">
+            <span className="text-xl md:text-2xl font-bold text-primary-600">
               {strengthData.total} lbs
             </span>
           </div>

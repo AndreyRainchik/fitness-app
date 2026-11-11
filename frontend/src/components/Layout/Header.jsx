@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { Button } from '../ui';
 
 function Header() {
   const location = useLocation();
@@ -35,17 +36,17 @@ function Header() {
   const navLinkClass = (path) => {
     const baseClass = "px-4 py-2 rounded-lg font-medium transition duration-200";
     if (isActive(path)) {
-      return `${baseClass} bg-blue-700 text-white`;
+      return `${baseClass} bg-primary-700 text-white`;
     }
-    return `${baseClass} text-blue-100 hover:bg-blue-700 hover:text-white`;
+    return `${baseClass} text-primary-100 hover:bg-primary-700 hover:text-white`;
   };
 
   const mobileNavLinkClass = (path) => {
     const baseClass = "block px-4 py-3 font-medium transition duration-200";
     if (isActive(path)) {
-      return `${baseClass} bg-blue-700 text-white`;
+      return `${baseClass} bg-primary-700 text-white`;
     }
-    return `${baseClass} text-gray-700 hover:bg-blue-50`;
+    return `${baseClass} text-gray-700 hover:bg-primary-50`;
   };
 
   const toggleMobileMenu = () => {
@@ -65,7 +66,7 @@ function Header() {
   };
 
   return (
-    <header className="bg-blue-600 shadow-lg">
+    <header className="bg-primary-600 shadow-lg">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo/Brand */}
@@ -101,7 +102,7 @@ function Header() {
             <div className="relative" ref={userDropdownRef}>
               <button
                 onClick={toggleUserDropdown}
-                className="flex items-center space-x-2 text-white hover:text-blue-100 transition duration-200"
+                className="flex items-center space-x-2 text-white hover:text-primary-100 transition duration-200"
               >
                 <span className="font-medium">{user?.username || 'Guest User'}</span>
                 <svg 
@@ -120,7 +121,7 @@ function Header() {
                   <Link
                     to="/profile"
                     onClick={closeUserDropdown}
-                    className="block px-4 py-2 text-gray-700 hover:bg-blue-50 transition duration-200"
+                    className="block px-4 py-2 text-gray-700 hover:bg-primary-50 transition duration-200"
                   >
                     <div className="flex items-center space-x-2">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -136,7 +137,7 @@ function Header() {
                       logout();
                       navigate('/login');
                     }}
-                    className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-red-50 hover:text-red-600 transition duration-200"
+                    className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-danger-50 hover:text-danger-600 transition duration-200"
                   >
                     <div className="flex items-center space-x-2">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -153,7 +154,7 @@ function Header() {
           {/* Mobile Hamburger Button - Now shows below 1024px instead of below 768px */}
           <button
             onClick={toggleMobileMenu}
-            className="lg:hidden text-white p-2 rounded-lg hover:bg-blue-700 transition duration-200"
+            className="lg:hidden text-white p-2 rounded-lg hover:bg-primary-700 transition duration-200"
             aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? (
@@ -233,16 +234,16 @@ function Header() {
                   <span>Profile</span>
                 </div>
               </Link>
-              <button
+              <Button
+                fullWidth
                 onClick={() => {
                   closeMobileMenu();
                   logout();
                   navigate('/login');
                 }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition duration-200"
               >
                 Logout
-              </button>
+              </Button>
             </div>
           </div>
         )}

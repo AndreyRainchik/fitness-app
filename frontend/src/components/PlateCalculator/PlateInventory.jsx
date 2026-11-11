@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { platePresetsAPI } from '../../services/api';
+import { Alert, Button, useConfirm, usePrompt } from '../ui';
 
 const PlateInventory = () => {
+  const confirm = useConfirm();
+  const prompt = usePrompt();
   const [presets, setPresets] = useState([]);
-  const [activePreset, setActivePreset] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -34,10 +36,6 @@ const PlateInventory = () => {
       setError('');
       const response = await platePresetsAPI.getAll();
       setPresets(response.presets || []);
-      
-      // Set active preset
-      const active = response.presets?.find(p => p.is_active === 1);
-      setActivePreset(active || null);
     } catch (err) {
       console.error('Failed to load presets:', err);
       setError('Failed to load plate inventory presets');
@@ -59,9 +57,14 @@ const PlateInventory = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this preset?')) {
-      return;
-    }
+    const preset = presets.find((p) => p.id === id);
+    const confirmed = await confirm({
+      title: 'Delete plate preset?',
+      message: `“${preset?.name ?? 'This preset'}” will be permanently deleted.`,
+      confirmLabel: 'Delete',
+      tone: 'danger'
+    });
+    if (!confirmed) return;
 
     try {
       setError('');
@@ -78,8 +81,13 @@ const PlateInventory = () => {
     const preset = presets.find(p => p.id === id);
     if (!preset) return;
 
-    const newName = prompt(`Enter a name for the duplicate of "${preset.name}":`, `${preset.name} (Copy)`);
-    if (!newName || !newName.trim()) return;
+    const result = await prompt({
+      title: 'Duplicate preset',
+      fields: [{ name: 'name', label: `Name for the copy of “${preset.name}”`, defaultValue: `${preset.name} (Copy)` }],
+      confirmLabel: 'Duplicate'
+    });
+    const newName = result?.name?.trim();
+    if (!newName) return;
 
     try {
       setError('');
@@ -181,12 +189,18 @@ const PlateInventory = () => {
     });
   };
 
-  const addCustomPlate = () => {
-    const weight = prompt('Enter plate weight (e.g., 35, 15, 1):');
-    if (!weight || isNaN(parseFloat(weight))) return;
-    
-    const count = prompt('Enter quantity:', '2');
-    if (!count || isNaN(parseInt(count))) return;
+  const addCustomPlate = async () => {
+    const result = await prompt({
+      title: 'Add a plate size',
+      fields: [
+        { name: 'weight', label: 'Plate weight (e.g. 35, 15, 1)', type: 'number', inputMode: 'decimal', step: 'any', min: 0 },
+        { name: 'count', label: 'How many', type: 'number', inputMode: 'numeric', defaultValue: '2', min: 1 }
+      ],
+      confirmLabel: 'Add Plate'
+    });
+    if (!result) return;
+    const { weight, count } = result;
+    if (isNaN(parseFloat(weight)) || isNaN(parseInt(count))) return;
 
     setFormData({
       ...formData,
@@ -210,7 +224,7 @@ const PlateInventory = () => {
     return (
       <div className="bg-white rounded-lg shadow p-4 md:p-6">
         <div className="text-center py-8">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mb-4"></div>
           <p className="text-gray-600">Loading plate inventories...</p>
         </div>
       </div>
@@ -229,12 +243,13 @@ const PlateInventory = () => {
             </p>
           </div>
           {!isCreating && !isEditing && (
-            <button
+            <Button
+              fullWidth
+              className="sm:w-auto whitespace-nowrap"
               onClick={startCreate}
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 text-sm md:text-base whitespace-nowrap"
             >
               + New Preset
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -242,15 +257,15 @@ const PlateInventory = () => {
       <div className="p-4 md:p-6">
         {/* Messages */}
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm">
+          <Alert className="mb-4  text-sm">
             {error}
-          </div>
+          </Alert>
         )}
 
         {successMessage && (
-          <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded text-sm">
+          <Alert tone="success" className="mb-4  text-sm">
             {successMessage}
-          </div>
+          </Alert>
         )}
 
         {/* Create/Edit Form */}
@@ -270,7 +285,7 @@ const PlateInventory = () => {
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="e.g., Home Gym, Commercial Gym"
                   required
                 />
@@ -288,7 +303,7 @@ const PlateInventory = () => {
                   onChange={(e) => setFormData({ ...formData, bar_weight: e.target.value })}
                   step="0.5"
                   min="0"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   required
                 />
               </div>
@@ -302,7 +317,7 @@ const PlateInventory = () => {
                   <button
                     type="button"
                     onClick={addCustomPlate}
-                    className="text-xs sm:text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    className="text-xs sm:text-sm text-primary-600 hover:text-primary-700 font-medium"
                   >
                     + Add Custom
                   </button>
@@ -319,12 +334,12 @@ const PlateInventory = () => {
                         onChange={(e) => handlePlateChange(weight, e.target.value)}
                         min="0"
                         max="20"
-                        className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       />
                       <button
                         type="button"
                         onClick={() => removePlate(weight)}
-                        className="text-red-600 hover:text-red-700 text-lg font-bold px-2"
+                        className="text-danger-600 hover:text-danger-700 text-lg font-bold px-2"
                         title="Remove this plate weight"
                       >
                         ×
@@ -336,19 +351,19 @@ const PlateInventory = () => {
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <button
+                <Button
+                  className="flex-1"
                   type="submit"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 text-sm"
                 >
                   {isCreating ? 'Create Preset' : 'Save Changes'}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="flex-1"
                   onClick={cancelEdit}
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition duration-200 text-sm"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -368,7 +383,7 @@ const PlateInventory = () => {
                   key={preset.id}
                   className={`p-3 md:p-4 rounded-lg border-2 transition-colors ${
                     preset.is_active
-                      ? 'bg-blue-50 border-blue-500'
+                      ? 'bg-primary-50 border-primary-500'
                       : 'bg-gray-50 border-gray-200 hover:border-gray-300'
                   }`}
                 >
@@ -378,7 +393,7 @@ const PlateInventory = () => {
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="text-base md:text-lg font-semibold text-gray-900">{preset.name}</h3>
                         {preset.is_active === 1 && (
-                          <span className="px-2 py-0.5 bg-blue-600 text-white text-xs font-medium rounded">
+                          <span className="px-2 py-0.5 bg-primary-600 text-white text-xs font-medium rounded">
                             Active
                           </span>
                         )}
@@ -397,33 +412,40 @@ const PlateInventory = () => {
                     {/* Actions */}
                     <div className="flex flex-wrap gap-2">
                       {!preset.is_active && (
-                        <button
+                        <Button
+                          size="sm"
+                          className="flex-1 sm:flex-none whitespace-nowrap"
                           onClick={() => handleActivate(preset.id)}
-                          className="flex-1 sm:flex-none px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs md:text-sm font-medium rounded transition-colors whitespace-nowrap"
                         >
                           Activate
-                        </button>
+                        </Button>
                       )}
-                      <button
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1 sm:flex-none"
                         onClick={() => startEdit(preset)}
-                        className="flex-1 sm:flex-none px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs md:text-sm font-medium rounded transition-colors"
                       >
                         Edit
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1 sm:flex-none"
                         onClick={() => handleDuplicate(preset.id)}
-                        className="flex-1 sm:flex-none px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs md:text-sm font-medium rounded transition-colors"
                       >
                         Duplicate
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="danger-subtle"
+                        size="sm"
+                        className="flex-1 sm:flex-none"
                         onClick={() => handleDelete(preset.id)}
-                        className="flex-1 sm:flex-none px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs md:text-sm font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         disabled={presets.length === 1}
                         title={presets.length === 1 ? 'Cannot delete the only preset' : 'Delete preset'}
                       >
                         Delete
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>

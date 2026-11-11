@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { profileAPI } from '../../services/api';
+import { Alert, Button } from '../ui';
 
 function ProfileInfo({ user, onUpdate }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -60,9 +61,9 @@ function ProfileInfo({ user, onUpdate }) {
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <Alert className="mb-4">
             {error}
-          </div>
+          </Alert>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -76,7 +77,7 @@ function ProfileInfo({ user, onUpdate }) {
               name="username"
               value={formData.username}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               required
             />
           </div>
@@ -90,7 +91,7 @@ function ProfileInfo({ user, onUpdate }) {
               name="sex"
               value={formData.sex}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="">Prefer not to say</option>
               <option value="M">Male</option>
@@ -107,7 +108,7 @@ function ProfileInfo({ user, onUpdate }) {
               name="units"
               value={formData.units}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="lbs">Pounds (lbs)</option>
               <option value="kg">Kilograms (kg)</option>
@@ -115,20 +116,20 @@ function ProfileInfo({ user, onUpdate }) {
           </div>
 
           <div className="flex gap-3 pt-4">
-            <button
+            <Button
+              className="flex-1"
               type="submit"
               disabled={isLoading}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
             >
               {isLoading ? 'Saving...' : 'Save Changes'}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              className="flex-1"
               onClick={handleCancel}
-              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition duration-200"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -139,18 +140,15 @@ function ProfileInfo({ user, onUpdate }) {
     <div className="bg-white rounded-lg shadow p-4 md:p-6">
       <div className="flex justify-between items-center mb-4 md:mb-6">
         <h2 className="text-xl md:text-2xl font-bold text-gray-900">Profile Information</h2>
-        <button
-          onClick={() => setIsEditing(true)}
-          className="text-blue-600 hover:text-blue-700 font-semibold text-sm md:text-base"
-        >
+        <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>
           Edit
-        </button>
+        </Button>
       </div>
 
       {successMessage && (
-        <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+        <Alert tone="success" className="mb-4">
           {successMessage}
-        </div>
+        </Alert>
       )}
 
       <div className="space-y-4">

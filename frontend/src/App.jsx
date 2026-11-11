@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import PWAPrompt from './components/PWAPrompt';
+import FeedbackProvider from './components/ui/FeedbackProvider';
 
 // Pages
 import Home from './pages/Home';
@@ -25,6 +26,7 @@ function App() {
   return (
     <AuthProvider>
       <Router>
+        <FeedbackProvider>
         <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
@@ -104,7 +106,7 @@ function App() {
             <div className="text-center">
               <h1 className="text-6xl font-bold text-gray-900 mb-4">404</h1>
               <p className="text-xl text-gray-600 mb-4">Page not found</p>
-              <a href="/" className="text-blue-600 hover:text-blue-700 font-semibold">
+              <a href="/" className="text-primary-600 hover:text-primary-700 font-semibold">
                 ← Go Home
               </a>
             </div>
@@ -113,6 +115,7 @@ function App() {
       </Routes>
       {/* PWA Installation and Update Prompts - NEW */}
       <PWAPrompt />
+        </FeedbackProvider>
     </Router>
     </AuthProvider>
   );

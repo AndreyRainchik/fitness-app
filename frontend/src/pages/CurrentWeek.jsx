@@ -4,14 +4,15 @@ import { programsAPI } from '../services/api';
 import PlateCalculator from '../components/PlateCalculator/PlateCalculator';
 import Layout from '../components/Layout/Layout';
 import { useBatchPlateAdjustedWeights } from '../utils/usePlateAdjustedWeight';
+import { Alert, Button, EmptyState, LoadingState, PageHeader, useConfirm } from '../components/ui';
 
 // Per-lift training max adjustment choices shown on the week 4 preview.
 // `delta(increment)` returns the change in lbs for the given lift increment.
 const ADJUSTMENT_OPTIONS = [
-  { value: 'increment_2x', label: 'Increase 2x', delta: (inc) => inc * 2, text: 'text-blue-600', badge: 'bg-blue-100 text-blue-700' },
-  { value: 'increment_1x', label: 'Increase 1x', delta: (inc) => inc, text: 'text-green-600', badge: 'bg-green-100 text-green-700' },
+  { value: 'increment_2x', label: 'Increase 2x', delta: (inc) => inc * 2, text: 'text-primary-600', badge: 'bg-primary-100 text-primary-700' },
+  { value: 'increment_1x', label: 'Increase 1x', delta: (inc) => inc, text: 'text-success-600', badge: 'bg-success-100 text-success-700' },
   { value: 'keep', label: 'Keep the same', delta: () => 0, text: 'text-gray-600', badge: 'bg-gray-100 text-gray-700' },
-  { value: 'decrement_1x', label: 'Decrease 1x', delta: (inc) => -inc, text: 'text-red-600', badge: 'bg-red-100 text-red-700' },
+  { value: 'decrement_1x', label: 'Decrease 1x', delta: (inc) => -inc, text: 'text-danger-600', badge: 'bg-danger-100 text-danger-700' },
 ];
 
 const getAdjustmentOption = (value) =>
@@ -21,13 +22,14 @@ const getAdjustmentOption = (value) =>
 // Returns a label + tailwind classes, or null if reps aren't a positive number.
 const getWeek3OutcomeBadge = (reps) => {
   if (reps === null || reps === undefined || isNaN(reps)) return null;
-  if (reps >= 11) return { label: '2x increment next cycle!', classes: 'text-blue-700 bg-blue-100' };
-  if (reps >= 5) return { label: '1x increment next cycle', classes: 'text-green-700 bg-green-100' };
+  if (reps >= 11) return { label: '2x increment next cycle!', classes: 'text-primary-700 bg-primary-100' };
+  if (reps >= 5) return { label: '1x increment next cycle', classes: 'text-success-700 bg-success-100' };
   if (reps >= 1) return { label: 'Training max stays the same', classes: 'text-gray-700 bg-gray-100' };
-  return { label: 'Training max will decrease', classes: 'text-red-700 bg-red-100' };
+  return { label: 'Training max will decrease', classes: 'text-danger-700 bg-danger-100' };
 };
 
 const CurrentWeek = () => {
+  const confirm = useConfirm();
   const { programId } = useParams();
   const navigate = useNavigate();
   const [workout, setWorkout] = useState(null);
@@ -107,7 +109,7 @@ const CurrentWeek = () => {
     
     if (!isAdjusted) {
       return (
-        <span className={`text-base sm:text-lg font-bold text-blue-600 ${className}`}>
+        <span className={`text-base sm:text-lg font-bold text-primary-600 ${className}`}>
           {weight} lbs
         </span>
       );
@@ -289,18 +291,21 @@ const CurrentWeek = () => {
     // Check for failed lifts
     const failedLifts = workout.lifts.filter(lift => lift.status === 'failed');
     
-    let confirmMessage = 'Mark this week as complete and advance to next week?';
-    
+    let confirmMessage = 'This moves the program on to the next week.';
+
     if (failedLifts.length > 0) {
       const liftNames = failedLifts.map(lift => lift.exercise_name).join(', ');
       confirmMessage = `You have ${failedLifts.length} failed lift(s): ${liftNames}\n\n` +
-        `Their training max/weight will be DECREASED by the increment amount.\n\n` +
-        `Continue and advance to next week?`;
+        'Their training max/weight will be decreased by the increment amount.';
     }
-    
-    if (!confirm(confirmMessage)) {
-      return;
-    }
+
+    const confirmed = await confirm({
+      title: 'Complete this week?',
+      message: confirmMessage,
+      confirmLabel: 'Complete Week',
+      tone: failedLifts.length > 0 ? 'danger' : 'primary'
+    });
+    if (!confirmed) return;
 
     try {
       setAdvancing(true);
@@ -426,8 +431,8 @@ const CurrentWeek = () => {
    * Get border color class based on status
    */
   const getStatusBorderClass = (status) => {
-    if (status === 'completed') return 'border-green-500 border-2';
-    if (status === 'failed') return 'border-red-500 border-2';
+    if (status === 'completed') return 'border-success-500 border-2';
+    if (status === 'failed') return 'border-danger-500 border-2';
     if (status === 'skipped') return 'border-yellow-500 border-2';
     return 'border-gray-200';
   };
@@ -436,8 +441,8 @@ const CurrentWeek = () => {
    * Get background color class based on status
    */
   const getStatusBgClass = (status) => {
-    if (status === 'completed') return 'bg-green-50';
-    if (status === 'failed') return 'bg-red-50';
+    if (status === 'completed') return 'bg-success-50';
+    if (status === 'failed') return 'bg-danger-50';
     if (status === 'skipped') return 'bg-yellow-50';
     return 'bg-gray-50';
   };
@@ -451,7 +456,7 @@ const CurrentWeek = () => {
 
     if (status === 'completed') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1 bg-green-100 text-green-800 text-xs sm:text-sm font-medium rounded-full">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1 bg-success-100 text-success-800 text-xs sm:text-sm font-medium rounded-full">
           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
           </svg>
@@ -462,7 +467,7 @@ const CurrentWeek = () => {
 
     if (status === 'failed') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1 bg-red-100 text-red-800 text-xs sm:text-sm font-medium rounded-full">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1 bg-danger-100 text-danger-800 text-xs sm:text-sm font-medium rounded-full">
           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
           </svg>
@@ -518,7 +523,7 @@ const CurrentWeek = () => {
               onChange={(e) =>
                 setAmrapRepsInput(prev => ({ ...prev, [exerciseId]: e.target.value }))
               }
-              className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               placeholder="e.g. 12"
             />
             {inputOutcomeBadge && (
@@ -554,8 +559,8 @@ const CurrentWeek = () => {
             disabled={isUpdating || currentStatus === 'completed'}
             className={`flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 ${
               currentStatus === 'completed'
-                ? 'bg-green-600 text-white cursor-default'
-                : 'bg-green-100 text-green-700 hover:bg-green-200 active:bg-green-300 disabled:opacity-50 disabled:cursor-not-allowed'
+                ? 'bg-success-600 text-white cursor-default'
+                : 'bg-success-100 text-success-700 hover:bg-success-200 active:bg-success-300 disabled:opacity-50 disabled:cursor-not-allowed'
             }`}
           >
             {currentStatus === 'completed' && (
@@ -572,8 +577,8 @@ const CurrentWeek = () => {
             disabled={isUpdating || currentStatus === 'failed'}
             className={`flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 ${
               currentStatus === 'failed'
-                ? 'bg-red-600 text-white cursor-default'
-                : 'bg-red-100 text-red-700 hover:bg-red-200 active:bg-red-300 disabled:opacity-50 disabled:cursor-not-allowed'
+                ? 'bg-danger-600 text-white cursor-default'
+                : 'bg-danger-100 text-danger-700 hover:bg-danger-200 active:bg-danger-300 disabled:opacity-50 disabled:cursor-not-allowed'
             }`}
           >
             {currentStatus === 'failed' && (
@@ -586,16 +591,17 @@ const CurrentWeek = () => {
 
           {/* Clear Status Button (only show if status exists) */}
           {currentStatus && (
-            <button
+            <Button
+              variant="secondary"
+              className="min-h-[44px] sm:min-h-0"
               onClick={() => handleClearStatus(exerciseId)}
               disabled={isUpdating}
-              className="flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 active:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] sm:min-h-0"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
               <span>{isUpdating ? 'Updating...' : 'Clear'}</span>
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -702,9 +708,8 @@ const CurrentWeek = () => {
   if (loading) {
     return (
       <Layout>
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Loading workout...</p>
+        <div className="max-w-4xl mx-auto">
+          <LoadingState label="Loading this week's workout..." />
         </div>
       </Layout>
     );
@@ -713,8 +718,13 @@ const CurrentWeek = () => {
   if (!workout) {
     return (
       <Layout>
-        <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-gray-600">No workout available</p>
+        <div className="max-w-4xl mx-auto">
+          <EmptyState
+            icon="📅"
+            title="No active program"
+            description="This page shows the current week of your active training program. Create a program, or set one as active, to see this week's lifts."
+            action={<Button to="/programs">Go to Programs</Button>}
+          />
         </div>
       </Layout>
     );
@@ -723,30 +733,21 @@ const CurrentWeek = () => {
   return (
     <Layout>
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-4 sm:mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-2">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">
-              {workout.program_name}
-            </h1>
-            <button
-              onClick={() => navigate('/programs')}
-              className="text-blue-600 hover:text-blue-700 active:text-blue-800 text-sm font-medium self-start sm:self-auto"
-            >
-              ← Back to Programs
-            </button>
-          </div>
-          <div className="text-sm sm:text-base md:text-lg text-gray-600">
+        <PageHeader
+          backTo="/programs"
+          backLabel="Back to Programs"
+          title={workout.program_name}
+          subtitle={(
             <span className="font-semibold">
               {workout.program_type === '531' ? `Week ${workout.week} · Cycle ${workout.cycle}` : ''}
               {workout.program_type === 'starting_strength' ? `Session ${workout.session_number} · ${workout.workout_type}` : ''}
             </span>
-          </div>
-        </div>
+          )}
+        />
 
         {/* Training Max Update Preview for Starting Strength */}
         {workout.lifts && workout.lifts.length > 0 && workout.program_type === 'starting_strength' && (
-          <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-3 sm:p-6">
+          <div className="mb-6 bg-gradient-to-r from-purple-50 to-primary-50 border border-purple-200 rounded-lg p-3 sm:p-6">
             <div className="flex items-start gap-2 sm:gap-3">
               <svg className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -773,21 +774,21 @@ const CurrentWeek = () => {
                         <div className="flex flex-col gap-2 sm:hidden">
                           <div className="flex items-start justify-between">
                             <span className="font-medium text-gray-900 text-sm flex-1 min-w-0">{lift.exercise_name}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${isFailed ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                            <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${isFailed ? 'bg-danger-100 text-danger-700' : 'bg-success-100 text-success-700'}`}>
                               {change > 0 ? '+' : ''}{change} lbs
                             </span>
                           </div>
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-gray-600">{currentMax} lbs</span>
                             <div className="flex items-center gap-1.5">
-                              <svg className={`w-4 h-4 ${isFailed ? 'text-red-500' : 'text-green-500'}`} fill="currentColor" viewBox="0 0 20 20">
+                              <svg className={`w-4 h-4 ${isFailed ? 'text-danger-500' : 'text-success-500'}`} fill="currentColor" viewBox="0 0 20 20">
                                 {isFailed ? (
                                   <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                                 ) : (
                                   <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
                                 )}
                               </svg>
-                              <span className={`font-bold ${isFailed ? 'text-red-600' : 'text-green-600'}`}>
+                              <span className={`font-bold ${isFailed ? 'text-danger-600' : 'text-success-600'}`}>
                                 {newMax} lbs
                               </span>
                             </div>
@@ -799,17 +800,17 @@ const CurrentWeek = () => {
                           <span className="font-medium text-gray-900 text-sm flex-1">{lift.exercise_name}</span>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <span className="text-gray-600 text-sm">{currentMax} lbs</span>
-                            <svg className={`w-4 h-4 ${isFailed ? 'text-red-500' : 'text-green-500'}`} fill="currentColor" viewBox="0 0 20 20">
+                            <svg className={`w-4 h-4 ${isFailed ? 'text-danger-500' : 'text-success-500'}`} fill="currentColor" viewBox="0 0 20 20">
                               {isFailed ? (
                                 <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                               ) : (
                                 <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
                               )}
                             </svg>
-                            <span className={`font-bold text-sm ${isFailed ? 'text-red-600' : 'text-green-600'}`}>
+                            <span className={`font-bold text-sm ${isFailed ? 'text-danger-600' : 'text-success-600'}`}>
                               {newMax} lbs
                             </span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${isFailed ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${isFailed ? 'bg-danger-100 text-danger-700' : 'bg-success-100 text-success-700'}`}>
                               {change > 0 ? '+' : ''}{change} lbs
                             </span>
                           </div>
@@ -835,7 +836,7 @@ const CurrentWeek = () => {
         {/* UPDATED: Training Max Update Preview for 5/3/1 - Only shows on Week 4 */}
         {/* Now checks ALL weeks in the current cycle, not just week 4 */}
         {workout.lifts && workout.lifts.length > 0 && workout.program_type === '531' && workout.week === 4 && (
-          <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-3 sm:p-6">
+          <div className="mb-6 bg-gradient-to-r from-purple-50 to-primary-50 border border-purple-200 rounded-lg p-3 sm:p-6">
             <div className="flex items-start gap-2 sm:gap-3">
               <svg className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -901,7 +902,7 @@ const CurrentWeek = () => {
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1 min-w-0">
                                 <div className="font-medium text-gray-900 text-sm">{lift.exercise_name}</div>
-                                <div className={`text-xs mt-0.5 ${failedWeeks.length > 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                                <div className={`text-xs mt-0.5 ${failedWeeks.length > 0 ? 'text-danger-600' : 'text-gray-500'}`}>
                                   {reasonText}
                                 </div>
                               </div>
@@ -967,13 +968,13 @@ const CurrentWeek = () => {
 
         {/* Message Display */}
         {message.text && (
-          <div className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg text-sm ${
-            message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
-            message.type === 'error' ? 'bg-red-50 border border-red-200 text-red-800' :
-            'bg-blue-50 border border-blue-200 text-blue-800'
-          }`}>
+          <Alert
+            tone={message.type === 'success' || message.type === 'error' ? message.type : 'info'}
+            className="mb-4 sm:mb-6"
+            onDismiss={() => setMessage({ type: '', text: '' })}
+          >
             {message.text}
-          </div>
+          </Alert>
         )}
 
         {/* Advance Week Button */}
@@ -998,19 +999,21 @@ const CurrentWeek = () => {
             </div>
           )}
           
-          <button
+          <Button
+            size="lg"
+            fullWidth
+            className="sm:w-auto min-h-[44px] sm:min-h-0"
             onClick={handleCompleteWeek}
             disabled={advancing}
-            className="w-full sm:w-auto px-6 py-3 sm:py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors font-medium text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] sm:min-h-0"
           >
             {advancing ? 'Advancing...' : 'Complete Week & Advance'}
-          </button>
+          </Button>
         </div>
 
         {/* Starting Strength Auto-Progression Notice */}
         {workout.program_type === 'starting_strength' && (
-          <div className="mb-4 sm:mb-6 bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
-            <p className="text-xs sm:text-sm text-blue-700">
+          <div className="mb-4 sm:mb-6 bg-primary-50 border border-primary-200 rounded-lg p-3 sm:p-4">
+            <p className="text-xs sm:text-sm text-primary-700">
               Weights will automatically increase after you complete this session
             </p>
           </div>
@@ -1018,7 +1021,7 @@ const CurrentWeek = () => {
 
         {/* Lifts */}
         <div className="space-y-6">
-          {workout.lifts && workout.lifts.map((lift, liftIndex) => (
+          {workout.lifts && workout.lifts.map((lift) => (
             <div
               key={lift.exercise_id}
               className={`bg-white border rounded-lg overflow-hidden transition-all ${getStatusBorderClass(lift.status)}`}
@@ -1059,15 +1062,16 @@ const CurrentWeek = () => {
                     </div>
                     {/* Start Workout Button - hidden when collapsed */}
                     {!isLiftCollapsed(lift.exercise_id) && (
-                      <button
+                      <Button
+                        fullWidth
+                        className="sm:w-auto whitespace-nowrap min-h-[44px] sm:min-h-0"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleStartWorkout(lift);
                         }}
-                        className="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium text-sm whitespace-nowrap min-h-[44px] sm:min-h-0"
                       >
                         Start Workout
-                      </button>
+                      </Button>
                     )}
                   </div>
 
@@ -1168,7 +1172,7 @@ const CurrentWeek = () => {
                       <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
                         Boring But Big (BBB) Accessory
                       </h3>
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                      <div className="bg-primary-50 border border-primary-200 rounded-lg p-3 sm:p-4">
                         <div className="mb-2">
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                             <span className="text-base sm:text-lg font-bold text-gray-900">
@@ -1252,8 +1256,8 @@ const CurrentWeek = () => {
                     </div>
                     
                     {/* Next Session Info */}
-                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-xs sm:text-sm text-green-800">
+                    <div className="mt-4 p-3 bg-success-50 border border-success-200 rounded-lg">
+                      <p className="text-xs sm:text-sm text-success-800">
                         <strong>Next session:</strong> {' '}
                         {lift.exercise_name === 'Barbell Squat' || lift.exercise_name === 'Barbell Deadlift' 
                           ? `${lift.sets[0].weight + 10} lbs (+10 lbs)`
@@ -1269,12 +1273,12 @@ const CurrentWeek = () => {
         </div>
 
         {/* Training Notes */}
-        <div className="mt-6 sm:mt-8 bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 md:p-6">
-          <h3 className="text-sm sm:text-base md:text-lg font-semibold text-blue-900 mb-2 sm:mb-3">💡 Training Notes</h3>
+        <div className="mt-6 sm:mt-8 bg-primary-50 border border-primary-200 rounded-lg p-3 sm:p-4 md:p-6">
+          <h3 className="text-sm sm:text-base md:text-lg font-semibold text-primary-900 mb-2 sm:mb-3">💡 Training Notes</h3>
           
           {/* 5/3/1 Notes */}
           {workout.program_type === '531' && (
-            <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-blue-800">
+            <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-primary-800">
               {workout.week !== 4 ? (
                 <>
                   <li>• <strong>AMRAP sets:</strong> Push for as many quality reps as possible</li>
@@ -1296,7 +1300,7 @@ const CurrentWeek = () => {
           
           {/* Starting Strength Notes */}
           {workout.program_type === 'starting_strength' && (
-            <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-blue-800">
+            <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-primary-800">
               <li>• <strong>Linear Progression:</strong> Add weight every session - program does this automatically</li>
               <li>• <strong>Rest periods:</strong> 3-5 minutes between sets for best recovery</li>
               <li>• <strong>Form first:</strong> Only increase weight if you can maintain good form for all reps</li>

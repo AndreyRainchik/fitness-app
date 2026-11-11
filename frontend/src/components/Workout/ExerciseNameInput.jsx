@@ -110,7 +110,7 @@ function ExerciseNameInput({ value, onChange, onSelect, disabled = false }) {
                 e.preventDefault();
                 select(sug);
               }}
-              className={`px-3 py-2 cursor-pointer ${idx === highlighted ? 'bg-blue-100' : 'hover:bg-gray-50'}`}
+              className={`px-3 py-2 cursor-pointer ${idx === highlighted ? 'bg-primary-100' : 'hover:bg-gray-50'}`}
             >
               <div className="flex justify-between items-center">
                 <div className="text-sm font-medium text-gray-900">{sug.name}</div>

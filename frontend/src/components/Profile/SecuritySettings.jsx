@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { profileAPI } from '../../services/api';
+import { Alert, Button } from '../ui';
 
 function SecuritySettings({ currentEmail, onEmailUpdate }) {
   const [passwordForm, setPasswordForm] = useState({
@@ -100,15 +101,15 @@ function SecuritySettings({ currentEmail, onEmailUpdate }) {
         <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Change Password</h3>
 
         {passwordError && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <Alert className="mb-4">
             {passwordError}
-          </div>
+          </Alert>
         )}
 
         {passwordSuccess && (
-          <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+          <Alert tone="success" className="mb-4">
             {passwordSuccess}
-          </div>
+          </Alert>
         )}
 
         <form onSubmit={handlePasswordSubmit} className="space-y-4">
@@ -122,7 +123,7 @@ function SecuritySettings({ currentEmail, onEmailUpdate }) {
               name="currentPassword"
               value={passwordForm.currentPassword}
               onChange={handlePasswordChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               required
             />
           </div>
@@ -137,7 +138,7 @@ function SecuritySettings({ currentEmail, onEmailUpdate }) {
               name="newPassword"
               value={passwordForm.newPassword}
               onChange={handlePasswordChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               required
               minLength="6"
             />
@@ -153,19 +154,19 @@ function SecuritySettings({ currentEmail, onEmailUpdate }) {
               name="confirmPassword"
               value={passwordForm.confirmPassword}
               onChange={handlePasswordChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               required
               minLength="6"
             />
           </div>
 
-          <button
+          <Button
+            fullWidth
             type="submit"
             disabled={isPasswordLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
           >
             {isPasswordLoading ? 'Changing Password...' : 'Change Password'}
-          </button>
+          </Button>
         </form>
       </div>
 
@@ -179,15 +180,15 @@ function SecuritySettings({ currentEmail, onEmailUpdate }) {
         </div>
 
         {emailError && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <Alert className="mb-4">
             {emailError}
-          </div>
+          </Alert>
         )}
 
         {emailSuccess && (
-          <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+          <Alert tone="success" className="mb-4">
             {emailSuccess}
-          </div>
+          </Alert>
         )}
 
         <form onSubmit={handleEmailSubmit} className="space-y-4">
@@ -201,19 +202,19 @@ function SecuritySettings({ currentEmail, onEmailUpdate }) {
               name="newEmail"
               value={emailForm.newEmail}
               onChange={handleEmailChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               placeholder="newemail@example.com"
               required
             />
           </div>
 
-          <button
+          <Button
+            fullWidth
             type="submit"
             disabled={isEmailLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
           >
             {isEmailLoading ? 'Changing Email...' : 'Change Email'}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

@@ -187,15 +187,15 @@ const MuscleGroupHeatmap = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p className="text-red-800">{error}</p>
+      <div className="bg-danger-50 border border-danger-200 rounded-lg p-4">
+        <p className="text-danger-800">{error}</p>
       </div>
     );
   }
@@ -219,7 +219,7 @@ const MuscleGroupHeatmap = () => {
           
           <button
             onClick={handleCurrentWeek}
-            className="px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
           >
             This Week
           </button>
@@ -248,7 +248,7 @@ const MuscleGroupHeatmap = () => {
             onClick={() => setViewMode('front')}
             className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
               viewMode === 'front'
-                ? 'bg-white text-blue-600 shadow-sm'
+                ? 'bg-white text-primary-600 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -258,7 +258,7 @@ const MuscleGroupHeatmap = () => {
             onClick={() => setViewMode('back')}
             className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
               viewMode === 'back'
-                ? 'bg-white text-blue-600 shadow-sm'
+                ? 'bg-white text-primary-600 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -300,7 +300,7 @@ const MuscleGroupHeatmap = () => {
                   strokeWidth="1"
                   strokeLinejoin="round"
                   strokeLinecap="round"
-                  className="transition-all duration-300 cursor-pointer hover:stroke-blue-600 hover:stroke-2"
+                  className="transition-all duration-300 cursor-pointer hover:stroke-primary-600 hover:stroke-2"
                   style={{
                     filter: hoveredMuscle?.name === muscle.name ? 'brightness(1.1) drop-shadow(0 0 2px rgba(59, 130, 246, 0.5))' : 'none'
                   }}
@@ -346,8 +346,8 @@ const MuscleGroupHeatmap = () => {
       {/* Summary Stats */}
       {muscleData.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-6">
-          <div className="text-center p-4 bg-blue-50 rounded-lg">
-            <p className="text-3xl font-bold text-blue-600">
+          <div className="text-center p-4 bg-primary-50 rounded-lg">
+            <p className="text-3xl font-bold text-primary-600">
               {muscleData.reduce((sum, m) => sum + m.setCount, 0)}
             </p>
             <p className="text-sm text-gray-600 mt-1">Total Sets</p>
@@ -356,8 +356,8 @@ const MuscleGroupHeatmap = () => {
             <p className="text-3xl font-bold text-purple-600">{muscleData.length}</p>
             <p className="text-sm text-gray-600 mt-1">Muscle Groups</p>
           </div>
-          <div className="text-center p-4 bg-green-50 rounded-lg col-span-2 sm:col-span-1">
-            <p className="text-3xl font-bold text-green-600">
+          <div className="text-center p-4 bg-success-50 rounded-lg col-span-2 sm:col-span-1">
+            <p className="text-3xl font-bold text-success-600">
               {Math.round(muscleData.reduce((sum, m) => sum + m.setCount, 0) / muscleData.length)}
             </p>
             <p className="text-sm text-gray-600 mt-1">Avg Sets/Group</p>

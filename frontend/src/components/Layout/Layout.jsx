@@ -22,7 +22,7 @@ function Layout({ children }) {
                   href="https://github.com/AndreyRainchik" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                  className="text-primary-600 hover:text-primary-700 font-medium transition-colors"
                 >
                   Andrey Rainchik
                 </a>

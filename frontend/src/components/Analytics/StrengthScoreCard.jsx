@@ -25,10 +25,10 @@ function StrengthScoreCard({ lift }) {
   const getStandardColor = (standard) => {
     const colors = {
       'Elite': 'text-purple-600',
-      'Advanced': 'text-red-600',
+      'Advanced': 'text-danger-600',
       'Intermediate': 'text-orange-600',
       'Novice': 'text-yellow-600',
-      'Beginner': 'text-green-600',
+      'Beginner': 'text-success-600',
       'Untrained': 'text-gray-600',
     };
     return colors[standard] || 'text-gray-600';
@@ -37,10 +37,10 @@ function StrengthScoreCard({ lift }) {
   const getBgColor = (standard) => {
     const colors = {
       'Elite': 'bg-purple-50',
-      'Advanced': 'bg-red-50',
+      'Advanced': 'bg-danger-50',
       'Intermediate': 'bg-orange-50',
       'Novice': 'bg-yellow-50',
-      'Beginner': 'bg-green-50',
+      'Beginner': 'bg-success-50',
       'Untrained': 'bg-gray-50',
     };
     return colors[standard] || 'bg-gray-50';
@@ -49,10 +49,10 @@ function StrengthScoreCard({ lift }) {
   const getBorderColor = (standard) => {
     const colors = {
       'Elite': 'border-purple-200',
-      'Advanced': 'border-red-200',
+      'Advanced': 'border-danger-200',
       'Intermediate': 'border-orange-200',
       'Novice': 'border-yellow-200',
-      'Beginner': 'border-green-200',
+      'Beginner': 'border-success-200',
       'Untrained': 'border-gray-200',
     };
     return colors[standard] || 'border-gray-200';
@@ -99,7 +99,7 @@ function StrengthScoreCard({ lift }) {
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
-              className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+              className="bg-primary-600 h-2 rounded-full transition-all duration-500"
               style={{ width: `${progressPercentage}%` }}
             />
           </div>

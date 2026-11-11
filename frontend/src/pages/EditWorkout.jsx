@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { workoutsAPI } from '../services/api';
 import Layout from '../components/Layout/Layout';
 import WorkoutEditor from '../components/Workout/WorkoutEditor';
+import { Button, EmptyState, LoadingState, PageHeader } from '../components/ui';
 import { setsToExerciseBlocks } from '../utils/workoutPayload';
 
 function EditWorkout() {
@@ -47,21 +48,23 @@ function EditWorkout() {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto py-4 sm:py-8 px-2 sm:px-0">
-        <header className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Edit Workout</h1>
-          <p className="text-sm text-gray-600">Update your workout session</p>
-        </header>
+      <div className="max-w-4xl mx-auto">
+        <PageHeader
+          title="Edit Workout"
+          subtitle="Update your workout session"
+          backTo={`/workout/${id}`}
+          backLabel="Back to Workout"
+        />
 
         {loadError ? (
-          <div role="alert" className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-            {loadError}
-          </div>
+          <EmptyState
+            tone="error"
+            title="Couldn't load this workout"
+            description={loadError}
+            action={<Button variant="secondary" to="/workouts">Back to Workout History</Button>}
+          />
         ) : !initialValues ? (
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <p className="mt-4 text-gray-600">Loading workout...</p>
-          </div>
+          <LoadingState label="Loading workout..." />
         ) : (
           <WorkoutEditor
             key={id}

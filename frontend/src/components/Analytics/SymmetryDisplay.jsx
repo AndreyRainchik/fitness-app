@@ -24,17 +24,17 @@ function SymmetryDisplay({ symmetryData }) {
 
   // Get color based on score
   const getScoreColor = (score) => {
-    if (score >= 85) return 'text-green-600';
-    if (score >= 70) return 'text-blue-600';
+    if (score >= 85) return 'text-success-600';
+    if (score >= 70) return 'text-primary-600';
     if (score >= 50) return 'text-orange-600';
-    return 'text-red-600';
+    return 'text-danger-600';
   };
 
   const getScoreBg = (score) => {
-    if (score >= 85) return 'bg-green-50';
-    if (score >= 70) return 'bg-blue-50';
+    if (score >= 85) return 'bg-success-50';
+    if (score >= 70) return 'bg-primary-50';
     if (score >= 50) return 'bg-orange-50';
-    return 'bg-red-50';
+    return 'bg-danger-50';
   };
 
   // Strength score label and color based on score ranges
@@ -56,7 +56,7 @@ function SymmetryDisplay({ symmetryData }) {
     if (score >= 125) return { bg: 'bg-amber-100', text: 'text-amber-800' };
     if (score >= 112.5) return { bg: 'bg-purple-100', text: 'text-purple-800' };
     if (score >= 100) return { bg: 'bg-indigo-100', text: 'text-indigo-800' };
-    if (score >= 87.5) return { bg: 'bg-red-100', text: 'text-red-800' };
+    if (score >= 87.5) return { bg: 'bg-danger-100', text: 'text-danger-800' };
     if (score >= 75) return { bg: 'bg-teal-100', text: 'text-teal-800' };
     if (score >= 60) return { bg: 'bg-orange-100', text: 'text-orange-800' };
     if (score >= 45) return { bg: 'bg-yellow-100', text: 'text-yellow-800' };
@@ -77,7 +77,7 @@ function SymmetryDisplay({ symmetryData }) {
             <p className="text-xs text-gray-500">{description}</p>
           </div>
           <div className={`inline-flex items-center px-2 py-1 rounded ${
-            isGood ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+            isGood ? 'bg-success-100 text-success-700' : 'bg-orange-100 text-orange-700'
           }`}>
             <span className="text-xs font-semibold">
               {isGood ? '✓' : '⚠'}
@@ -101,7 +101,7 @@ function SymmetryDisplay({ symmetryData }) {
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
               className={`h-2 rounded-full transition-all duration-500 ${
-                isGood ? 'bg-green-500' : 'bg-orange-500'
+                isGood ? 'bg-success-500' : 'bg-orange-500'
               }`}
               style={{ width: `${Math.min((actual / (ideal * 1.5)) * 100, 100)}%` }}
             />
@@ -114,7 +114,7 @@ function SymmetryDisplay({ symmetryData }) {
   // Severity badge
   const getSeverityBadge = (severity) => {
     const styles = {
-      high: 'bg-red-100 text-red-700',
+      high: 'bg-danger-100 text-danger-700',
       medium: 'bg-orange-100 text-orange-700',
       low: 'bg-yellow-100 text-yellow-700',
     };
@@ -219,11 +219,11 @@ function SymmetryDisplay({ symmetryData }) {
                     <p className="text-sm text-gray-700 mb-2">
                       {imbalance.message}
                     </p>
-                    <div className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded">
-                      <p className="text-sm font-medium text-blue-900 mb-1">
+                    <div className="bg-primary-50 border-l-4 border-primary-400 p-3 rounded">
+                      <p className="text-sm font-medium text-primary-900 mb-1">
                         💡 Recommendation
                       </p>
-                      <p className="text-sm text-blue-800">
+                      <p className="text-sm text-primary-800">
                         {imbalance.suggestion}
                       </p>
                     </div>
@@ -243,12 +243,12 @@ function SymmetryDisplay({ symmetryData }) {
 
       {/* No Imbalances Message */}
       {(!imbalances || imbalances.length === 0) && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+        <div className="bg-success-50 border border-success-200 rounded-lg p-6 text-center">
           <div className="text-4xl mb-2">✅</div>
-          <p className="text-lg font-semibold text-green-900 mb-1">
+          <p className="text-lg font-semibold text-success-900 mb-1">
             Excellent Balance!
           </p>
-          <p className="text-sm text-green-700">
+          <p className="text-sm text-success-700">
             No significant imbalances detected. Keep up the great work!
           </p>
         </div>
