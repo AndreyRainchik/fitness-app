@@ -1,27 +1,65 @@
-import React from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import PWAPrompt from './components/PWAPrompt';
 import FeedbackProvider from './components/ui/FeedbackProvider';
 
-// Pages
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Workouts from './pages/Workouts';
-import Analytics from './pages/Analytics';
-import Programs from './pages/Programs';
-import CurrentWeek from './pages/CurrentWeek';
-import NewWorkout from './pages/NewWorkout';
-import EditWorkout from './pages/EditWorkout';
-import WorkoutDetail from './pages/WorkoutDetail';
-import Profile from './pages/Profile';
-import Templates from './pages/Templates';
-import TemplateDetail from './pages/TemplateDetail';
-import ActiveWorkout from './pages/ActiveWorkout';
+// Pages load on demand: each route is its own chunk, so the login screen
+// doesn't download the dashboard, the charts library, or the program screens.
+const Home = lazy(() => import('./pages/Home'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Workouts = lazy(() => import('./pages/Workouts'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const Programs = lazy(() => import('./pages/Programs'));
+const CurrentWeek = lazy(() => import('./pages/CurrentWeek'));
+const NewWorkout = lazy(() => import('./pages/NewWorkout'));
+const EditWorkout = lazy(() => import('./pages/EditWorkout'));
+const WorkoutDetail = lazy(() => import('./pages/WorkoutDetail'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Templates = lazy(() => import('./pages/Templates'));
+const TemplateDetail = lazy(() => import('./pages/TemplateDetail'));
+const ActiveWorkout = lazy(() => import('./pages/ActiveWorkout'));
+
+/** Shown while a page's code downloads (usually a few milliseconds). */
+function PageLoading() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-canvas" role="status">
+      <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-primary-100 border-t-primary-600" aria-label="Loading" />
+    </div>
+  );
+}
+
+/**
+ * Once signed in and the browser is idle, fetch the pages people open most
+ * so tapping a tab doesn't wait on the network.
+ */
+function usePrefetchMainPages() {
+  const { isAuthenticated } = useAuth();
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    const prefetch = () => {
+      import('./pages/Dashboard');
+      import('./pages/Workouts');
+      import('./pages/ActiveWorkout');
+      import('./pages/WorkoutDetail');
+      import('./pages/CurrentWeek');
+      import('./pages/Analytics');
+    };
+    const idle = window.requestIdleCallback ?? ((cb) => setTimeout(cb, 1500));
+    const cancel = window.cancelIdleCallback ?? clearTimeout;
+    const id = idle(prefetch);
+    return () => cancel(id);
+  }, [isAuthenticated]);
+}
+
+function Prefetcher() {
+  usePrefetchMainPages();
+  return null;
+}
 
 function App() {
   return (
@@ -29,6 +67,8 @@ function App() {
     <AuthProvider>
       <Router>
         <FeedbackProvider>
+        <Prefetcher />
+        <Suspense fallback={<PageLoading />}>
         <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
@@ -116,6 +156,7 @@ function App() {
           </div>
         } />
       </Routes>
+      </Suspense>
       {/* PWA Installation and Update Prompts - NEW */}
       <PWAPrompt />
         </FeedbackProvider>

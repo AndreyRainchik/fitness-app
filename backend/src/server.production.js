@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import dotenv from 'dotenv';
 import { initDatabase } from './config/database.js';
 import logger from './config/logger.config.js';
@@ -57,6 +58,7 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 
+app.use(compression());
 app.use(cors(corsOptions));
 
 // Security headers (basic implementation)

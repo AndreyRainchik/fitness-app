@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cors from 'cors';
+import compression from 'compression';
 import dotenv from 'dotenv';
 import { initDatabase } from './config/database.js';
 import logger from './config/logger.config.js';
@@ -65,6 +66,9 @@ const corsOptions = {
   credentials: true,
   optionsSuccessStatus: 200,
 };
+
+// gzip API responses and the frontend files (JS/CSS are ~4x smaller)
+app.use(compression());
 
 app.use(cors(corsOptions));
 
@@ -175,11 +179,20 @@ app.use('/api/plate-presets', platePresetRoutes);
 
 // Serve static files from the public directory (built React app)
 const publicPath = path.join(__dirname, '..', 'public');
+// Vite puts content-hashed files in assets/: their names change whenever
+// their contents do, so browsers can keep them for a year. Everything else
+// (index.html, sw.js, manifest, icons) keeps its name across deploys and
+// must be revalidated, or browsers keep loading the previous version.
+const NO_CACHE = 'no-cache';
+const IMMUTABLE = 'public, max-age=31536000, immutable';
+
 app.use(express.static(publicPath, {
-  maxAge: '1y', // Cache static assets for 1 year
   etag: true,
   lastModified: true,
   setHeaders: (res, filePath) => {
+    const isHashedAsset = filePath.includes(`${path.sep}assets${path.sep}`);
+    res.setHeader('Cache-Control', isHashedAsset ? IMMUTABLE : NO_CACHE);
+
     // Additional PWA-specific headers for certain file types
     if (filePath.endsWith('.webmanifest') || filePath.endsWith('manifest.json')) {
       res.setHeader('Content-Type', 'application/manifest+json; charset=UTF-8');
@@ -199,6 +212,7 @@ app.get('*', (req, res) => {
   }
   
   // Serve index.html for all other routes (React Router will handle)
+  res.setHeader('Cache-Control', NO_CACHE);
   res.sendFile(path.join(publicPath, 'index.html'));
 });
 
