@@ -479,167 +479,174 @@ router.get('/symmetry', authenticateToken, (req, res) => {
   }
 });
 
+// ---- Date helpers for the dashboard (all dates are 'YYYY-MM-DD', handled in UTC) ----
+const DAY_MS = 24 * 60 * 60 * 1000;
+const parseDay = (str) => {
+  const [y, m, d] = String(str).slice(0, 10).split('-').map(Number);
+  return Date.UTC(y, m - 1, d);
+};
+const formatDay = (ms) => new Date(ms).toISOString().slice(0, 10);
+/** Sunday on or before the given day (weeks run Sunday–Saturday, like the rest of the app). */
+const weekStartOf = (ms) => ms - new Date(ms).getUTCDay() * DAY_MS;
+
 /**
  * GET /api/analytics/dashboard-summary
- * 
- * Returns summary stats for dashboard display
- * 
- * Response format:
- * {
- *   totalWorkouts: 145,
- *   thisWeek: 3,
- *   streak: 5,
- *   recentPRs: [
- *     {
- *       exercise: 'Barbell Squat',
- *       weight: 315,
- *       reps: 5,
- *       date: '2025-11-01',
- *       estimated1RM: 354
- *     }
- *   ]
- * }
+ *
+ * Query: localDate (YYYY-MM-DD, the user's "today"), weeks (chart length, default 12)
+ *
+ * Returns totals, streaks, recent PRs, a weekly volume series and a daily
+ * activity map for the dashboard.
  */
 router.get('/dashboard-summary', authenticateToken, (req, res) => {
   try {
     const userId = req.user.id;
-    
-    // Get total workouts
-    const totalResult = get(
-      'SELECT COUNT(*) as count FROM workouts WHERE user_id = ?',
+    const todayStr = /^\d{4}-\d{2}-\d{2}$/.test(req.query.localDate || '')
+      ? req.query.localDate
+      : new Date().toISOString().slice(0, 10);
+    const today = parseDay(todayStr);
+    const weeks = Math.min(Math.max(parseInt(req.query.weeks) || 12, 4), 52);
+    const thisWeekStart = weekStartOf(today);
+
+    const totalWorkouts = get('SELECT COUNT(*) as count FROM workouts WHERE user_id = ?', [userId]).count;
+
+    // One row per workout day with counts
+    const days = all(
+      `SELECT date, COUNT(*) as count FROM workouts WHERE user_id = ? GROUP BY date ORDER BY date DESC`,
       [userId]
     );
-    const totalWorkouts = totalResult.count;
-    
-    // Get this week's workouts. Use the client-supplied local date when
-    // available so "this week" reflects the user's calendar, not the server UTC date.
-    const todayStr = req.query.localDate || new Date().toISOString().split('T')[0];
-    const today = new Date(todayStr + 'T12:00:00');
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
-    const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
-    
-    const weekResult = get(
-      `SELECT COUNT(*) as count FROM workouts 
-       WHERE user_id = ? AND date >= ?`,
-      [userId, startOfWeekStr]
-    );
-    const thisWeek = weekResult.count;
-    
-    // Calculate workout streak (consecutive days with workouts)
-    const recentWorkouts = all(
-      `SELECT DISTINCT date FROM workouts 
-       WHERE user_id = ? 
-       ORDER BY date DESC 
-       LIMIT 30`,
-      [userId]
-    );
-    
+
+    const thisWeek = days
+      .filter((d) => parseDay(d.date) >= thisWeekStart && parseDay(d.date) <= today)
+      .reduce((sum, d) => sum + d.count, 0);
+
+    // Day streak: consecutive days ending today (or yesterday, so the streak
+    // doesn't read 0 before today's session)
     let streak = 0;
-    if (recentWorkouts.length > 0) {
-      const dates = recentWorkouts.map(w => new Date(w.date));
-      streak = 1;
-      
-      for (let i = 0; i < dates.length - 1; i++) {
-        const daysDiff = Math.floor(
-          (dates[i].getTime() - dates[i + 1].getTime()) / (1000 * 60 * 60 * 24)
-        );
-        
-        if (daysDiff === 1) {
-          streak++;
-        } else {
-          break;
+    if (days.length > 0) {
+      const latest = parseDay(days[0].date);
+      if (today - latest <= DAY_MS) {
+        streak = 1;
+        for (let i = 1; i < days.length; i++) {
+          if (parseDay(days[i - 1].date) - parseDay(days[i].date) === DAY_MS) streak++;
+          else break;
         }
       }
     }
-    
-    // Get recent PRs (personal records from last 30 days)
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
-    
-    // Get all sets from last 30 days with exercise info
-    const recentSets = all(
-      `SELECT 
-        w.date,
-        e.name as exercise,
-        s.weight,
-        s.reps,
-        s.exercise_id
-       FROM workouts w
-       JOIN sets s ON w.id = s.workout_id
-       JOIN exercises e ON s.exercise_id = e.id
-       WHERE w.user_id = ? 
-         AND s.is_warmup = 0
-         AND w.date >= ?
-       ORDER BY w.date DESC`,
-      [userId, thirtyDaysAgoStr]
+
+    // Week streak: consecutive weeks with at least one workout, ending this
+    // week (or last week, if this week has none yet)
+    const trainedWeeks = new Set(days.map((d) => weekStartOf(parseDay(d.date))));
+    let weeklyStreak = 0;
+    let cursor = trainedWeeks.has(thisWeekStart) ? thisWeekStart : thisWeekStart - 7 * DAY_MS;
+    while (trainedWeeks.has(cursor)) {
+      weeklyStreak++;
+      cursor -= 7 * DAY_MS;
+    }
+
+    // Weekly volume (working sets only) for the chart
+    const firstChartWeek = thisWeekStart - (weeks - 1) * 7 * DAY_MS;
+    const volumeRows = all(
+      `SELECT w.date, w.id as workout_id, SUM(CASE WHEN s.is_warmup = 0 THEN s.weight * s.reps ELSE 0 END) as volume,
+              SUM(CASE WHEN s.is_warmup = 0 THEN 1 ELSE 0 END) as sets
+       FROM workouts w LEFT JOIN sets s ON s.workout_id = w.id
+       WHERE w.user_id = ? AND w.date >= ?
+       GROUP BY w.id`,
+      [userId, formatDay(firstChartWeek)]
     );
-    
-    // Find PRs by comparing with historical bests
+    const weekly = new Map();
+    for (let i = 0; i < weeks; i++) {
+      const start = firstChartWeek + i * 7 * DAY_MS;
+      weekly.set(start, { weekStart: formatDay(start), volume: 0, workouts: 0, sets: 0 });
+    }
+    for (const row of volumeRows) {
+      const bucket = weekly.get(weekStartOf(parseDay(row.date)));
+      if (!bucket) continue;
+      bucket.volume += Math.max(0, row.volume || 0);
+      bucket.workouts += 1;
+      bucket.sets += row.sets || 0;
+    }
+    const weeklyVolume = [...weekly.values()].map((w) => ({ ...w, volume: Math.round(w.volume) }));
+    const volumeThisWeek = weeklyVolume[weeklyVolume.length - 1]?.volume ?? 0;
+    const volumeLastWeek = weeklyVolume[weeklyVolume.length - 2]?.volume ?? 0;
+
+    // Daily activity for the last 18 weeks (calendar heatmap)
+    const activityStart = thisWeekStart - 17 * 7 * DAY_MS;
+    const activity = days
+      .filter((d) => parseDay(d.date) >= activityStart)
+      .map((d) => ({ date: d.date, count: d.count }));
+
+    // Recent PRs: a working set in the last 30 days whose estimated 1RM beats
+    // every earlier set of that exercise
+    const thirtyDaysAgo = formatDay(today - 30 * DAY_MS);
+    const allSets = all(
+      `SELECT w.date, w.id as workout_id, e.name as exercise, s.exercise_id, s.weight, s.reps
+       FROM sets s
+       JOIN workouts w ON s.workout_id = w.id
+       JOIN exercises e ON s.exercise_id = e.id
+       WHERE w.user_id = ? AND s.is_warmup = 0 AND s.reps > 0 AND s.weight > 0
+       ORDER BY w.date ASC, s.id ASC`,
+      [userId]
+    );
+    const bestBefore = new Map(); // exercise_id -> best e1RM before the current day
     const prMap = new Map();
-    
-    recentSets.forEach(set => {
+    let dayBest = new Map();
+    let currentDate = null;
+    const flushDay = () => {
+      for (const [exerciseId, value] of dayBest) {
+        bestBefore.set(exerciseId, Math.max(bestBefore.get(exerciseId) ?? 0, value));
+      }
+      dayBest = new Map();
+    };
+    for (const set of allSets) {
+      if (set.date !== currentDate) {
+        flushDay();
+        currentDate = set.date;
+      }
       const e1rm = estimate1RM(set.weight, set.reps);
-      
-      // Check if this is a PR compared to earlier history
-      const historicalBest = get(
-        `SELECT MAX(s.weight) as max_weight, s.reps
-         FROM sets s
-         JOIN workouts w ON s.workout_id = w.id
-         WHERE w.user_id = ? 
-           AND s.exercise_id = ?
-           AND s.is_warmup = 0
-           AND w.date < ?
-         ORDER BY s.weight DESC
-         LIMIT 1`,
-        [userId, set.exercise_id, set.date]
-      );
-      
-      let isPR = false;
-      if (!historicalBest || !historicalBest.max_weight) {
-        // First time doing this exercise
-        isPR = true;
-      } else {
-        const historicalE1RM = estimate1RM(
-          historicalBest.max_weight, 
-          historicalBest.reps
-        );
-        isPR = e1rm > historicalE1RM;
+      dayBest.set(set.exercise_id, Math.max(dayBest.get(set.exercise_id) ?? 0, e1rm));
+      if (set.date < thirtyDaysAgo) continue;
+
+      const previous = bestBefore.get(set.exercise_id);
+      if (previous !== undefined && e1rm <= previous) continue;
+      const key = `${set.exercise_id}-${set.date}`;
+      const existing = prMap.get(key);
+      if (!existing || e1rm > existing.estimated1RM) {
+        prMap.set(key, {
+          exercise: set.exercise,
+          exerciseId: set.exercise_id,
+          workoutId: set.workout_id,
+          weight: set.weight,
+          reps: set.reps,
+          date: set.date,
+          estimated1RM: Math.round(e1rm * 10) / 10,
+          previousBest: previous === undefined ? null : Math.round(previous * 10) / 10,
+          firstTime: previous === undefined
+        });
       }
-      
-      if (isPR) {
-        const key = `${set.exercise_id}-${set.date}`;
-        if (!prMap.has(key) || e1rm > estimate1RM(prMap.get(key).weight, prMap.get(key).reps)) {
-          prMap.set(key, {
-            exercise: set.exercise,
-            weight: set.weight,
-            reps: set.reps,
-            date: set.date,
-            estimated1RM: Math.round(e1rm * 10) / 10
-          });
-        }
-      }
-    });
-    
-    // Convert to array and sort by date (most recent first)
-    const recentPRs = Array.from(prMap.values())
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .slice(0, 5); // Top 5 most recent PRs
-    
+    }
+    const recentPRs = [...prMap.values()]
+      .sort((a, b) => b.date.localeCompare(a.date) || Number(a.firstTime) - Number(b.firstTime))
+      .slice(0, 6);
+
+    // Average per week since the first workout (at least one week)
+    const firstDate = days.length ? parseDay(days[days.length - 1].date) : today;
+    const weeksActive = Math.max(1, Math.ceil((today - weekStartOf(firstDate) + DAY_MS) / (7 * DAY_MS)));
+
     res.json({
       totalWorkouts,
       thisWeek,
       streak,
+      weeklyStreak,
+      volumeThisWeek,
+      volumeLastWeek,
+      weeklyVolume,
+      activity,
       recentPRs,
       summary: {
-        averageWorkoutsPerWeek: totalWorkouts > 0 ? 
-          Math.round((totalWorkouts / 52) * 10) / 10 : 0,
-        lastWorkoutDate: recentWorkouts.length > 0 ? 
-          recentWorkouts[0].date : null
+        averageWorkoutsPerWeek: totalWorkouts > 0 ? Math.round((totalWorkouts / weeksActive) * 10) / 10 : 0,
+        lastWorkoutDate: days.length > 0 ? days[0].date : null
       }
     });
-    
   } catch (error) {
     console.error('Dashboard summary error:', error);
     res.status(500).json({ error: 'Failed to get dashboard summary' });

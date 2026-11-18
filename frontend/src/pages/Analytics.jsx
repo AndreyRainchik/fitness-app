@@ -107,29 +107,25 @@ function Analytics() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
+      <div>
         <PageHeader
           title="Analytics"
-          subtitle="Track your progress, analyze your strength, and identify areas for improvement"
+          subtitle="Strength, standards and balance"
+          actions={(
+            <select
+              aria-label="Time range"
+              value={weeks}
+              onChange={(e) => setWeeks(parseInt(e.target.value))}
+              className="h-10 w-full px-3 text-sm sm:w-auto"
+            >
+              <option value={4}>Last 4 weeks</option>
+              <option value={8}>Last 8 weeks</option>
+              <option value={12}>Last 12 weeks</option>
+              <option value={24}>Last 24 weeks</option>
+              <option value={52}>Last year</option>
+            </select>
+          )}
         />
-
-        {/* Time Range Selector */}
-        <div className="mb-6 flex flex-wrap items-center gap-4">
-          <label htmlFor="analytics-range" className="text-sm font-medium text-gray-700">Time Range:</label>
-          <select
-            id="analytics-range"
-            value={weeks}
-            onChange={(e) => setWeeks(parseInt(e.target.value))}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          >
-            <option value={4}>Last 4 weeks</option>
-            <option value={8}>Last 8 weeks</option>
-            <option value={12}>Last 12 weeks</option>
-            <option value={24}>Last 24 weeks</option>
-            <option value={52}>Last year</option>
-          </select>
-        </div>
 
         <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} label="Analytics sections" className="mb-6" />
 
@@ -138,40 +134,25 @@ function Analytics() {
           {/* Overview Tab */}
           {activeTab === 'overview' && (
             <>
-              {/* Strength Score Cards */}
-              <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Your Lifts</h2>
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-700 mb-3">🏋️ Squat</h3>
-                    <StrengthScoreCard lift={strengthScore?.squat} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-700 mb-3">💪 Bench Press</h3>
-                    <StrengthScoreCard lift={strengthScore?.bench} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-700 mb-3">⚡ Deadlift</h3>
-                    <StrengthScoreCard lift={strengthScore?.deadlift} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-700 mb-3">🎯 OHP</h3>
-                    <StrengthScoreCard lift={strengthScore?.ohp} />
-                  </div>
-                </div>
+              <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+                <StrengthScoreCard title="Squat" lift={strengthScore?.squat} />
+                <StrengthScoreCard title="Bench press" lift={strengthScore?.bench} />
+                <StrengthScoreCard title="Deadlift" lift={strengthScore?.deadlift} />
+                <StrengthScoreCard title="Overhead press" lift={strengthScore?.ohp} />
               </div>
 
-              {/* Quick Stats */}
               {strengthScore?.total > 0 && (
-                <div className="bg-gradient-to-r from-primary-500 to-primary-600 rounded-lg shadow-lg p-6 text-white">
-                  <h3 className="text-xl font-bold mb-2">Powerlifting Total</h3>
-                  <p className="text-4xl md:text-5xl font-bold mb-2">
-                    {strengthScore.total} {units}
-                  </p>
-                  <p className="text-primary-100">
-                    Squat + Bench + Deadlift
-                  </p>
-                </div>
+                <Card padding="p-0" className="overflow-hidden">
+                  <div className="flex items-center justify-between gap-4 bg-gradient-to-br from-primary-600 to-purple-600 p-5 text-white">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-white/80">Powerlifting total</p>
+                      <p className="tabular mt-1 text-3xl font-bold tracking-tight sm:text-4xl">
+                        {strengthScore.total} <span className="text-base font-medium text-white/80">{units}</span>
+                      </p>
+                    </div>
+                    <p className="text-right text-xs text-white/70">Squat +<br />Bench +<br />Deadlift</p>
+                  </div>
+                </Card>
               )}
             </>
           )}
@@ -182,13 +163,13 @@ function Analytics() {
               {/* Lift Selector */}
               <Card padding="p-4">
                 <p className="block text-sm font-medium text-gray-700 mb-2" id="lift-picker-label">
-                  Select Lift to Track:
+                  Lift
                 </p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3" role="group" aria-labelledby="lift-picker-label">
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-4" role="group" aria-labelledby="lift-picker-label">
                   {availableLifts.map((lift) => (
                     <Button
                       key={lift.name}
-                      size="lg"
+                      size="md"
                       variant={selectedLift === lift.name ? 'primary' : 'secondary'}
                       aria-pressed={selectedLift === lift.name}
                       onClick={() => setSelectedLift(lift.name)}

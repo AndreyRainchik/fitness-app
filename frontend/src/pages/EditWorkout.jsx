@@ -48,7 +48,7 @@ function EditWorkout() {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <PageHeader
           title="Edit Workout"
           subtitle="Update your workout session"
@@ -71,7 +71,8 @@ function EditWorkout() {
             initialValues={initialValues}
             onSubmit={handleSave}
             onCancel={() => navigate(`/workout/${id}`)}
-            submitLabel="Save Changes"
+            submitLabel="Save changes"
+            excludeWorkoutId={id}
           />
         )}
       </div>

@@ -93,7 +93,7 @@ function SecuritySettings({ currentEmail, onEmailUpdate }) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-4 md:p-6">
+    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
       <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4 md:mb-6">Security Settings</h2>
 
       {/* Change Password Section */}
@@ -123,7 +123,7 @@ function SecuritySettings({ currentEmail, onEmailUpdate }) {
               name="currentPassword"
               value={passwordForm.currentPassword}
               onChange={handlePasswordChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="h-11 w-full px-3.5"
               required
             />
           </div>
@@ -138,7 +138,7 @@ function SecuritySettings({ currentEmail, onEmailUpdate }) {
               name="newPassword"
               value={passwordForm.newPassword}
               onChange={handlePasswordChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="h-11 w-full px-3.5"
               required
               minLength="6"
             />
@@ -154,7 +154,7 @@ function SecuritySettings({ currentEmail, onEmailUpdate }) {
               name="confirmPassword"
               value={passwordForm.confirmPassword}
               onChange={handlePasswordChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="h-11 w-full px-3.5"
               required
               minLength="6"
             />
@@ -202,7 +202,7 @@ function SecuritySettings({ currentEmail, onEmailUpdate }) {
               name="newEmail"
               value={emailForm.newEmail}
               onChange={handleEmailChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="h-11 w-full px-3.5"
               placeholder="newemail@example.com"
               required
             />

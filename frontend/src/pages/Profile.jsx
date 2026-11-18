@@ -102,7 +102,7 @@ function Profile() {
   return (
     <Layout>
       <div className="max-w-6xl mx-auto">
-        <PageHeader title="My Profile" subtitle="Manage your account settings and track your progress" />
+        <PageHeader title="Profile" subtitle="Manage your account settings and track your progress" />
         {content}
       </div>
     </Layout>

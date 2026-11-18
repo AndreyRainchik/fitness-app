@@ -11,7 +11,7 @@ import React from 'react';
 function SymmetryDisplay({ symmetryData }) {
   if (!symmetryData) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
         <h3 className="text-xl font-bold text-gray-900 mb-4">Symmetry Analysis</h3>
         <div className="text-center text-gray-500 py-8">
           <p>No symmetry data available</p>
@@ -70,7 +70,7 @@ function SymmetryDisplay({ symmetryData }) {
     const isGood = deviation < 0.05; // Within 5% is good
 
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <div className="bg-surface border border-gray-200 rounded-lg p-4">
         <div className="flex justify-between items-start mb-2">
           <div>
             <p className="text-sm font-medium text-gray-900">{title}</p>
@@ -124,7 +124,7 @@ function SymmetryDisplay({ symmetryData }) {
   return (
     <div className="space-y-6">
       {/* Overall Score */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
         <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">
           Symmetry Analysis
         </h3>
@@ -161,7 +161,7 @@ function SymmetryDisplay({ symmetryData }) {
       </div>
 
       {/* Ratio Cards */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
         <h4 className="text-lg font-bold text-gray-900 mb-4">Lift Ratios</h4>
         <div className="grid md:grid-cols-2 gap-4">
           <RatioCard
@@ -193,7 +193,7 @@ function SymmetryDisplay({ symmetryData }) {
 
       {/* Imbalances & Recommendations */}
       {imbalances && imbalances.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
           <h4 className="text-lg font-bold text-gray-900 mb-4">
             Detected Imbalances & Recommendations
           </h4>

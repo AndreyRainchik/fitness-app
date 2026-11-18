@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { workoutsAPI, templatesAPI } from '../services/api';
 import Layout from '../components/Layout/Layout';
 import WorkoutEditor from '../components/Workout/WorkoutEditor';
+import { ClipboardList } from 'lucide-react';
 import { Button, Modal, PageHeader, useToast } from '../components/ui';
 import { getLocalDateString } from '../utils/dateUtils';
 import { setsToExerciseBlocks } from '../utils/workoutPayload';
@@ -63,17 +64,16 @@ function NewWorkout() {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <PageHeader
-          title="New Workout"
-          subtitle="Log your session"
+          backTo="/workouts"
+          backLabel="History"
+          title="Log past workout"
+          subtitle="For a session you didn't track live"
           actions={(
-            <>
-              <Button variant="secondary" to="/templates">View Templates</Button>
-              <Button variant="secondary" onClick={loadTemplates} loading={loadingTemplates} loadingText="Loading...">
-                Start from Template
-              </Button>
-            </>
+            <Button variant="secondary" icon={ClipboardList} onClick={loadTemplates} loading={loadingTemplates} loadingText="Loading...">
+              Fill from template
+            </Button>
           )}
         />
 
@@ -82,13 +82,13 @@ function NewWorkout() {
           initialValues={initialValues}
           onSubmit={handleSave}
           onCancel={() => navigate('/dashboard')}
-          submitLabel="Save Workout"
+          submitLabel="Save workout"
         />
 
         <Modal
           open={showTemplateSelector}
           onClose={() => setShowTemplateSelector(false)}
-          title="Choose a Template"
+          title="Choose a template"
           size="lg"
         >
           {templates.length === 0 ? (
@@ -105,7 +105,7 @@ function NewWorkout() {
                   <button
                     type="button"
                     onClick={() => loadFromTemplate(template.id)}
-                    className="w-full text-left border border-gray-200 rounded-lg p-4 hover:border-primary-500 hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 transition"
+                    className="w-full text-left border border-gray-200 rounded-xl p-3.5 hover:border-primary-300 hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 transition"
                   >
                     <span className="block font-bold text-gray-900">{template.name}</span>
                     {template.description && (

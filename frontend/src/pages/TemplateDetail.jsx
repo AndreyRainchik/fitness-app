@@ -5,15 +5,16 @@ import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout/Layout';
 import {
   Button,
-  Card,
   EmptyState,
   LoadingState,
   PageHeader,
-  StatTile,
   useConfirm,
   useToast
 } from '../components/ui';
+import { Play, Trash2 } from 'lucide-react';
 import { groupSetsByExercise } from '../utils/workoutPayload';
+import { plural } from '../utils/format';
+import { ExerciseSetsCard, WorkoutStats } from '../components/Workout/ExerciseSetsCard';
 
 function TemplateDetail() {
   const { id } = useParams();
@@ -73,7 +74,7 @@ function TemplateDetail() {
   if (loading) {
     return (
       <Layout>
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-3xl mx-auto">
           <LoadingState label="Loading template..." />
         </div>
       </Layout>
@@ -83,7 +84,7 @@ function TemplateDetail() {
   if (error || !template) {
     return (
       <Layout>
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-3xl mx-auto">
           <EmptyState
             tone="error"
             title="Couldn't load this template"
@@ -100,78 +101,31 @@ function TemplateDetail() {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <PageHeader
           backTo="/templates"
-          backLabel="Back to Templates"
+          backLabel="Templates"
           title={template.name}
           subtitle={(
             <>
               {template.description && <p className="mb-1">{template.description}</p>}
               <p className="text-sm text-gray-500">
-                Template • {exerciseGroups.length} exercises • {template.sets?.length || 0} sets
+                {plural(exerciseGroups.length, 'exercise')} · {plural(template.sets?.length || 0, 'set')}
               </p>
             </>
           )}
           actions={(
             <>
-              <Button onClick={handleStartWorkout}>Start Workout</Button>
-              <Button variant="danger-subtle" onClick={handleDelete}>Delete</Button>
+              <Button icon={Play} onClick={handleStartWorkout} className="flex-1 sm:flex-none">Start workout</Button>
+              <Button variant="danger-subtle" iconOnly icon={Trash2} onClick={handleDelete} aria-label="Delete template" title="Delete template" />
             </>
           )}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <StatTile label="Total Volume" value={totalVolume.toLocaleString()} unit={units} tone="primary" />
-          <StatTile label="Exercises" value={exerciseGroups.length} tone="success" />
-          <StatTile label="Total Sets" value={template.sets?.length || 0} tone="warning" />
-        </div>
+        <WorkoutStats volume={totalVolume} exercises={exerciseGroups.length} sets={template.sets?.length || 0} units={units} />
 
-        <div className="space-y-6">
-          {exerciseGroups.map((group, index) => (
-            <Card key={index}>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">{group.exercise_name}</h2>
-
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2 px-3 text-sm font-medium text-gray-700">Set</th>
-                      <th className="text-left py-2 px-3 text-sm font-medium text-gray-700">Weight ({units})</th>
-                      <th className="text-left py-2 px-3 text-sm font-medium text-gray-700">Reps</th>
-                      <th className="text-left py-2 px-3 text-sm font-medium text-gray-700">RPE</th>
-                      <th className="text-left py-2 px-3 text-sm font-medium text-gray-700">Volume</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.sets.map((set) => (
-                      <tr key={set.id} className="border-b last:border-0 hover:bg-gray-50">
-                        <td className="py-3 px-3 text-gray-900">{set.set_number}</td>
-                        <td className="py-3 px-3 text-gray-900 font-medium">{set.weight}</td>
-                        <td className="py-3 px-3 text-gray-900 font-medium">{set.reps}</td>
-                        <td className="py-3 px-3 text-gray-900">
-                          {set.is_warmup === 1 ? (
-                            <span className="text-success-600 font-bold text-lg" title="Warm-up">W</span>
-                          ) : (
-                            set.rpe || '-'
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-gray-600">{set.weight * set.reps}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 font-bold">
-                      <td className="py-3 px-3 text-gray-700" colSpan="4">Subtotal</td>
-                      <td className="py-3 px-3 text-gray-900">
-                        {group.sets.reduce((sum, set) => sum + (set.weight * set.reps), 0).toLocaleString()}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </Card>
-          ))}
+        <div className="space-y-4">
+          {exerciseGroups.map((group, index) => <ExerciseSetsCard key={index} group={group} units={units} />)}
         </div>
 
         {template.sets?.length === 0 && <EmptyState title="No sets in this template" />}

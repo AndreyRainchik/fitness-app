@@ -13,7 +13,7 @@ export default defineConfig({
         name: 'Fitness Tracker - Training Programs & Analytics',
         short_name: 'Fitness Tracker',
         description: 'Track your workouts with 5/3/1 BBB, Starting Strength, and advanced analytics',
-        theme_color: '#2563eb',
+        theme_color: '#4f46e5',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait-primary',
@@ -216,9 +216,15 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          charts: ['recharts']
+        // Long-lived library chunks that don't change between app deploys.
+        // (The old object form missed react-dom/client, which put React's
+        // renderer in the app chunk and re-downloaded it after every deploy.)
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (/node_modules\/(react|react-dom|scheduler|react-router|react-router-dom|@remix-run)\//.test(id)) return 'vendor';
+          if (/node_modules\/(recharts|d3-[^/]+|victory-vendor|decimal\.js-light|es-toolkit|@reduxjs|immer|reselect|react-redux|eventemitter3|tiny-invariant|internmap|use-sync-external-store)\//.test(id)) return 'charts';
+          if (id.includes('node_modules/lucide-react/')) return 'icons';
+          return undefined;
         }
       }
     }

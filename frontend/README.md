@@ -106,7 +106,7 @@ The app uses a consistent layout system for authenticated pages:
 All authenticated pages (Dashboard, Workouts, Analytics, Programs) use the Layout wrapper component.
 
 See [Layout Documentation](./src/components/Layout/README.md) for details.
-See [Mobile Menu Guide](./src/components/Layout/MOBILE-MENU.md) for mobile implementation.
+See the [Layout guide](./src/components/Layout/README.md) for the app shell, mobile navigation and theming.
 
 ## Available Routes:
 - `/` - Home page (landing)

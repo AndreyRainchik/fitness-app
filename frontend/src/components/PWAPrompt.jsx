@@ -118,7 +118,7 @@ const PWAPrompt = () => {
     <>
       {/* Install Prompt - Only show in browser (not standalone) */}
       {showInstallPrompt && !isStandalone && (
-        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 bg-white border-2 border-primary-500 rounded-lg shadow-lg p-4 z-50 animate-slide-up">
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 bg-surface border-2 border-primary-500 rounded-lg shadow-lg p-4 z-50 animate-slide-up">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
               <svg className="w-8 h-8 text-primary-600" fill="currentColor" viewBox="0 0 20 20">
@@ -152,7 +152,7 @@ const PWAPrompt = () => {
 
       {/* Update Available Prompt - ONLY show in standalone mode (installed PWA) */}
       {needRefresh && isStandalone && (
-        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 bg-white border-2 border-success-500 rounded-lg shadow-lg p-4 z-50 animate-slide-up">
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 bg-surface border-2 border-success-500 rounded-lg shadow-lg p-4 z-50 animate-slide-up">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
               <svg className="w-8 h-8 text-success-600" fill="currentColor" viewBox="0 0 20 20">
@@ -186,7 +186,7 @@ const PWAPrompt = () => {
 
       {/* Offline Ready Notification - Only show in standalone mode */}
       {offlineReady && isStandalone && (
-        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 bg-white border-2 border-primary-500 rounded-lg shadow-lg p-4 z-50 animate-slide-up">
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 bg-surface border-2 border-primary-500 rounded-lg shadow-lg p-4 z-50 animate-slide-up">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
               <svg className="w-8 h-8 text-primary-600" fill="currentColor" viewBox="0 0 20 20">

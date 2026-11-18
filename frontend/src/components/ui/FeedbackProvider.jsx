@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { X } from 'lucide-react';
 import Modal from './Modal';
 import Button from './Button';
 import { FeedbackContext } from './feedback';
@@ -29,7 +30,7 @@ function PromptForm({ fields, onSubmit }) {
     >
       {fields.map((field) => (
         <div key={field.name}>
-          <label htmlFor={`prompt-${field.name}`} className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor={`prompt-${field.name}`} className="block text-sm font-medium text-gray-700 mb-1.5">
             {field.label}
           </label>
           <input
@@ -41,7 +42,7 @@ function PromptForm({ fields, onSubmit }) {
             required={field.required ?? true}
             value={values[field.name]}
             onChange={(e) => setValues((v) => ({ ...v, [field.name]: e.target.value }))}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="h-11 w-full px-3.5 text-sm"
           />
         </div>
       ))}
@@ -131,19 +132,19 @@ function FeedbackProvider({ children }) {
           </>
         )}
       >
-        {opts.message && <div className="text-gray-700 whitespace-pre-line mb-4">{opts.message}</div>}
+        {opts.message && <div className="text-sm text-gray-600 whitespace-pre-line mb-2">{opts.message}</div>}
         {isPrompt && <PromptForm fields={opts.fields ?? []} onSubmit={(values) => closeDialog(values)} />}
       </Modal>
 
       <div
-        className="pointer-events-none fixed inset-x-4 top-20 z-[60] flex flex-col gap-2 sm:left-auto sm:right-4 sm:w-96"
+        className="pointer-events-none fixed inset-x-4 top-4 z-[60] flex flex-col gap-2 sm:left-auto sm:right-4 sm:w-96"
         aria-live="polite"
       >
         {toasts.map((t) => (
           <div
             key={t.id}
             role={t.tone === 'error' ? 'alert' : 'status'}
-            className={`pointer-events-auto flex items-start gap-3 rounded-lg border-l-4 bg-white p-4 shadow-lg animate-fadeIn ${TOAST_TONES[t.tone] ?? TOAST_TONES.info}`}
+            className={`pointer-events-auto flex items-start gap-3 rounded-xl border border-gray-200/80 border-l-4 bg-surface p-3.5 shadow-lift animate-slide-up ${TOAST_TONES[t.tone] ?? TOAST_TONES.info}`}
           >
             <p className="flex-1 text-sm text-gray-800">{t.message}</p>
             {t.action && (
@@ -161,7 +162,7 @@ function FeedbackProvider({ children }) {
               className="text-gray-400 hover:text-gray-600"
               aria-label="Dismiss"
             >
-              ✕
+              <X className="h-4 w-4" />
             </button>
           </div>
         ))}

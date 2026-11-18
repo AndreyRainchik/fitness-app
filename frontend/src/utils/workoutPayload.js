@@ -17,9 +17,31 @@ export function newLocalId() {
   return `local-${localIdCounter}`;
 }
 
-/** A blank set row for the editor. */
-export function emptySet(setNumber) {
-  return { id: newLocalId(), setNumber, weight: '', reps: '', rpe: '', isWarmup: false };
+/**
+ * A blank set row for the editor. Pass the previous set as `from` to start
+ * with its weight and reps (most sets repeat the last one).
+ */
+export function emptySet(setNumber, from = null) {
+  return {
+    id: newLocalId(),
+    setNumber,
+    weight: from?.weight ?? '',
+    reps: from?.reps ?? '',
+    rpe: '',
+    isWarmup: false
+  };
+}
+
+/** Editor sets built from a "last time" API response (see useLastPerformance). */
+export function setsFromLastPerformance(lastSets = []) {
+  return lastSets.map((s, i) => ({
+    id: newLocalId(),
+    setNumber: i + 1,
+    weight: String(s.weight ?? ''),
+    reps: String(s.reps ?? ''),
+    rpe: '',
+    isWarmup: s.is_warmup === 1 || s.is_warmup === true
+  }));
 }
 
 /** A blank exercise block for the editor. */
