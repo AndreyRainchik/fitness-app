@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { profileAPI } from '../../services/api';
+import { useMemo, useState } from 'react';
+import { usePlateInventory } from '../../utils/usePlateInventory';
+import { calculatePlates } from '../../utils/plateMath';
 
 /**
  * Get color for a plate weight (standard Olympic colors)
@@ -50,32 +51,16 @@ const plateHeight = (weight) => {
 
 /**
  * What to load for a target weight: one side of the bar (the other side
- * mirrors it), plus the per-side total. Fetches when mounted.
+ * mirrors it), plus the per-side total. Computed in the browser from the
+ * active plate preset (see utils/plateMath.js).
  */
 export function PlateLoadout({ targetWeight }) {
-  const [platesData, setPlatesData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await profileAPI.calculatePlates(targetWeight);
-        if (!cancelled) setPlatesData(data);
-      } catch (err) {
-        console.error('Error calculating plates:', err);
-        if (!cancelled) {
-          setError(err.message?.includes('active plate preset') ? 'No active plate preset selected' : 'Failed to calculate plates');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [targetWeight]);
+  const { inventory, loading, error: loadError } = usePlateInventory();
+  const platesData = useMemo(
+    () => (inventory && targetWeight > 0 ? calculatePlates(targetWeight, inventory) : null),
+    [inventory, targetWeight]
+  );
+  const error = loadError ? 'Couldn\'t load your plate inventory' : !loading && !inventory ? 'No active plate preset selected' : null;
 
   return (
     <div className="rounded-xl bg-gray-50 p-3">

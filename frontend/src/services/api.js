@@ -1,5 +1,11 @@
 import { getLocalDateString } from '../utils/dateUtils';
 
+// Tells utils/usePlateInventory.js to refetch the active plate preset
+const plateInventoryChanged = (result) => {
+  window.dispatchEvent(new Event('plate-inventory-changed'));
+  return result;
+};
+
 // Determine the base URL based on environment
 const getBaseURL = () => {
   // In production (when served from same server), use relative paths
@@ -338,10 +344,10 @@ export const profileAPI = {
    * Update plate inventory configuration
    */
   updatePlateInventory: async (inventory) => {
-    return await apiCall('/profile/plate-inventory', {
+    return plateInventoryChanged(await apiCall('/profile/plate-inventory', {
       method: 'PUT',
       body: JSON.stringify(inventory),
-    });
+    }));
   },
 
   /**
@@ -688,48 +694,48 @@ export const platePresetsAPI = {
    * Create a new preset
    */
   create: async (presetData) => {
-    return await apiCall('/plate-presets', {
+    return plateInventoryChanged(await apiCall('/plate-presets', {
       method: 'POST',
       body: JSON.stringify(presetData),
-    });
+    }));
   },
 
   /**
    * Update a preset
    */
   update: async (id, updates) => {
-    return await apiCall(`/plate-presets/${id}`, {
+    return plateInventoryChanged(await apiCall(`/plate-presets/${id}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
-    });
+    }));
   },
 
   /**
    * Delete a preset
    */
   delete: async (id) => {
-    return await apiCall(`/plate-presets/${id}`, {
+    return plateInventoryChanged(await apiCall(`/plate-presets/${id}`, {
       method: 'DELETE',
-    });
+    }));
   },
 
   /**
    * Set a preset as active
    */
   activate: async (id) => {
-    return await apiCall(`/plate-presets/${id}/activate`, {
+    return plateInventoryChanged(await apiCall(`/plate-presets/${id}/activate`, {
       method: 'POST',
-    });
+    }));
   },
 
   /**
    * Duplicate a preset with a new name
    */
   duplicate: async (id, newName) => {
-    return await apiCall(`/plate-presets/${id}/duplicate`, {
+    return plateInventoryChanged(await apiCall(`/plate-presets/${id}/duplicate`, {
       method: 'POST',
       body: JSON.stringify({ name: newName }),
-    });
+    }));
   },
 };
 
