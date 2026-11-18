@@ -1,28 +1,31 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronLeft } from 'lucide-react';
 
 /**
- * Page title block: optional back link, title, subtitle, and actions.
- * Actions stack under the title on phones and sit to the right on wider screens.
+ * Page title block: optional back link, eyebrow, title, subtitle, and actions.
+ * Actions wrap under the title on phones and sit to the right on wider screens.
  */
-function PageHeader({ title, subtitle, actions, backTo, backLabel = 'Back' }) {
+function PageHeader({ title, subtitle, actions, backTo, backLabel = 'Back', eyebrow }) {
   return (
-    <header className="mb-6">
+    <header className="mb-6 sm:mb-8">
       {backTo && (
         <Link
           to={backTo}
-          className="inline-block mb-3 text-sm font-medium text-primary-600 hover:text-primary-700"
+          className="-ml-1 mb-3 inline-flex items-center gap-0.5 rounded-lg px-1 py-0.5 text-sm font-medium text-gray-500 hover:text-gray-900"
         >
-          ← {backLabel}
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+          {backLabel}
         </Link>
       )}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 break-words">{title}</h1>
-          {subtitle && <div className="mt-1 text-sm sm:text-base text-gray-600">{subtitle}</div>}
+          {eyebrow && <p className="eyebrow mb-1.5">{eyebrow}</p>}
+          <h1 className="break-words text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">{title}</h1>
+          {subtitle && <div className="mt-1 text-sm text-gray-500 sm:text-base">{subtitle}</div>}
         </div>
         {actions && (
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end sm:flex-shrink-0">
+          <div className="flex flex-wrap gap-2 sm:flex-shrink-0 sm:justify-end">
             {actions}
           </div>
         )}

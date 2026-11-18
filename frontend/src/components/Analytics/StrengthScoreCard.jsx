@@ -13,7 +13,7 @@ import React from 'react';
 function StrengthScoreCard({ lift }) {
   if (!lift || lift.estimated1RM === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-6">
         <div className="text-center text-gray-500">
           <p className="text-sm">No data available</p>
         </div>
@@ -70,10 +70,10 @@ function StrengthScoreCard({ lift }) {
   const progressPercentage = getProgressPercentage();
 
   return (
-    <div className={`bg-white rounded-lg shadow p-6 border-l-4 ${getBorderColor(lift.standard)}`}>
+    <div className={`bg-surface rounded-2xl border border-gray-200/80 shadow-card p-6 border-l-4 ${getBorderColor(lift.standard)}`}>
       {/* 1RM Display */}
       <div className="mb-4">
-        <p className="text-3xl md:text-4xl font-bold text-gray-900">
+        <p className="text-3xl font-bold tracking-tight text-gray-900">
           {lift.estimated1RM}
           <span className="text-lg md:text-xl text-gray-500 ml-2">lbs</span>
         </p>

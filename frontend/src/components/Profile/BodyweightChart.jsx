@@ -54,7 +54,7 @@ function BodyweightChart({ units }) {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white px-3 py-2 rounded-lg shadow-lg border border-gray-200">
+        <div className="bg-surface px-3 py-2 rounded-lg shadow-lg border border-gray-200">
           <p className="text-sm font-semibold text-gray-900">
             {data.weight} {units}
           </p>
@@ -74,7 +74,7 @@ function BodyweightChart({ units }) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-4 md:p-6">
+    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 md:p-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
         <h2 className="text-xl md:text-2xl font-bold text-gray-900">Bodyweight Trend</h2>
         <select
@@ -134,10 +134,10 @@ function BodyweightChart({ units }) {
                 data={chartData}
                 margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--gray-200))" />
                 <XAxis 
                   dataKey="dateFormatted" 
-                  stroke="#6b7280"
+                  stroke="rgb(var(--gray-500))"
                   style={{ fontSize: '12px' }}
                   interval="preserveStartEnd"
                   angle={-45}
@@ -145,7 +145,7 @@ function BodyweightChart({ units }) {
                   height={60}
                 />
                 <YAxis 
-                  stroke="#6b7280"
+                  stroke="rgb(var(--gray-500))"
                   style={{ fontSize: '12px' }}
                   domain={[
                     (dataMin) => Math.floor(dataMin - 2),
@@ -157,9 +157,9 @@ function BodyweightChart({ units }) {
                 <Line 
                   type="monotone" 
                   dataKey="weight" 
-                  stroke="#3b82f6" 
+                  stroke="rgb(var(--primary-500))" 
                   strokeWidth={3}
-                  dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                  dot={{ fill: 'rgb(var(--primary-500))', strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6, strokeWidth: 0 }}
                 />
               </LineChart>

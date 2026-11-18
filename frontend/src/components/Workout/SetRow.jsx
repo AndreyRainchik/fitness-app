@@ -1,128 +1,132 @@
 import React from 'react';
+import { Check, X } from 'lucide-react';
 
 const RPE_OPTIONS = [...Array(11).keys()]; // 0–10
 
-function RpeSelect({ value, onChange, disabled, className }) {
+/**
+ * Column layout shared by SetRow and SetRowHeader:
+ * set # | previous (sm+) | weight | reps | RPE | done (optional) | remove
+ */
+const setGridClass = (trackCompletion) =>
+  `grid items-center gap-1.5 sm:gap-2 ${
+    trackCompletion
+      ? 'grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_3.25rem_2.5rem_1.75rem] sm:grid-cols-[2.25rem_5.5rem_minmax(0,1fr)_minmax(0,1fr)_4rem_2.5rem_2rem]'
+      : 'grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_3.25rem_1.75rem] sm:grid-cols-[2.25rem_5.5rem_minmax(0,1fr)_minmax(0,1fr)_4rem_2rem]'
+  }`;
+
+export function SetRowHeader({ units, trackCompletion }) {
   return (
-    <select
-      value={value ?? ''}
-      onChange={(e) => onChange(e.target.value)}
-      disabled={disabled}
-      aria-label="RPE"
-      className={`w-full border rounded-md px-2 bg-white text-sm ${className}`}
-    >
-      <option value="">--</option>
-      {RPE_OPTIONS.map((i) => (
-        <option key={i} value={i}>{i}</option>
-      ))}
-    </select>
+    <div className={`${setGridClass(trackCompletion)} mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400`}>
+      <span className="text-center">Set</span>
+      <span className="hidden sm:block">Previous</span>
+      <span className="text-center">{units}</span>
+      <span className="text-center">Reps</span>
+      <span className="text-center">RPE</span>
+      {trackCompletion && <span className="text-center"><Check className="mx-auto h-3.5 w-3.5" aria-label="Done" /></span>}
+      <span />
+    </div>
   );
 }
 
-function WarmupToggle({ checked, onChange, disabled }) {
-  return (
-    <label className="flex items-center text-xs text-gray-600 gap-1.5 cursor-pointer">
-      <input
-        type="checkbox"
-        checked={!!checked}
-        onChange={(e) => onChange(e.target.checked)}
-        disabled={disabled}
-        className="rounded w-4 h-4"
-      />
-      <span>Warm-up</span>
-    </label>
-  );
-}
-
-function RemoveSetButton({ onClick, disabled, setNumber }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="text-danger-500 hover:text-danger-700 p-2 -m-1 rounded hover:bg-danger-50 transition-colors"
-      title="Delete set"
-      aria-label={`Delete set ${setNumber}`}
-    >
-      ✕
-    </button>
-  );
-}
+const fmt = (n) => (Number.isInteger(Number(n)) ? String(Number(n)) : String(n));
 
 /**
- * One set in the workout editor: a stacked card on phones, a table row on
- * wider screens.
+ * One set in the workout editor.
+ *
+ * - Tapping the set number toggles warm-up ("W").
+ * - `previous` is the matching set from last time; it shows in its own
+ *   column on wider screens and as the input placeholders on phones.
+ * - With `trackCompletion`, a check button marks the set done (onToggleDone).
  *
  * onChange(field, value) with field in 'weight' | 'reps' | 'rpe' | 'isWarmup'.
  */
-function SetRow({ set, units, onChange, onRemove, disabled = false }) {
-  const weightProps = {
-    type: 'number',
-    step: '0.1',
-    inputMode: 'decimal',
-    value: set.weight,
-    onChange: (e) => onChange('weight', e.target.value),
-    disabled,
-    'aria-label': `Set ${set.setNumber} weight`
-  };
-  const repsProps = {
-    type: 'number',
-    inputMode: 'numeric',
-    value: set.reps,
-    onChange: (e) => onChange('reps', e.target.value),
-    disabled,
-    'aria-label': `Set ${set.setNumber} reps`
-  };
+function SetRow({ set, units, previous, onChange, onRemove, onToggleDone, trackCompletion = false, disabled = false }) {
   const rpeDisabled = set.isWarmup || disabled;
+  const done = trackCompletion && set.done;
+  const input = `h-10 w-full px-1 text-center text-[15px] font-semibold tabular ${done ? '!border-success-200 !bg-success-50' : ''}`;
 
   return (
-    <div className="mb-3 sm:mb-2">
-      {/* Phone layout */}
-      <div className="sm:hidden bg-white border border-gray-200 rounded-lg p-3">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">Set {set.setNumber}</span>
-          <div className="flex items-center gap-3">
-            <WarmupToggle checked={set.isWarmup} onChange={(v) => onChange('isWarmup', v)} disabled={disabled} />
-            <RemoveSetButton onClick={onRemove} disabled={disabled} setNumber={set.setNumber} />
-          </div>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Weight</label>
-            <input {...weightProps} placeholder={units} className="w-full border rounded-md px-2 py-2 text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Reps</label>
-            <input {...repsProps} className="w-full border rounded-md px-2 py-2 text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">RPE</label>
-            <RpeSelect value={set.rpe} onChange={(v) => onChange('rpe', v)} disabled={rpeDisabled} className="py-2" />
-          </div>
-        </div>
-      </div>
+    <div
+      className={`${setGridClass(trackCompletion)} rounded-xl px-1 py-1 transition-colors ${done ? 'bg-success-50/60' : ''}`}
+    >
+      <button
+        type="button"
+        onClick={() => onChange('isWarmup', !set.isWarmup)}
+        disabled={disabled}
+        title={set.isWarmup ? 'Warm-up set (tap for working set)' : 'Working set (tap for warm-up)'}
+        aria-label={`Set ${set.setNumber}: ${set.isWarmup ? 'warm-up' : 'working set'}. Toggle warm-up`}
+        aria-pressed={!!set.isWarmup}
+        className={`flex h-8 w-8 items-center justify-center justify-self-center rounded-lg text-sm font-bold transition-colors ${
+          set.isWarmup ? 'bg-warning-100 text-warning-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+        }`}
+      >
+        {set.isWarmup ? 'W' : set.setNumber}
+      </button>
 
-      {/* Wider screens */}
-      <div className="hidden sm:grid sm:grid-cols-12 gap-2 items-center">
-        <div className="col-span-1 flex items-center justify-center">
-          <RemoveSetButton onClick={onRemove} disabled={disabled} setNumber={set.setNumber} />
-        </div>
-        <div className="col-span-1 flex items-center justify-center">
-          <span className="text-gray-700 font-medium text-sm">{set.setNumber}</span>
-        </div>
-        <div className="col-span-3">
-          <input {...weightProps} className="w-full border rounded-md px-2 py-1.5 text-sm" />
-        </div>
-        <div className="col-span-2">
-          <input {...repsProps} className="w-full border rounded-md px-2 py-1.5 text-sm" />
-        </div>
-        <div className="col-span-2">
-          <RpeSelect value={set.rpe} onChange={(v) => onChange('rpe', v)} disabled={rpeDisabled} className="py-1.5" />
-        </div>
-        <div className="col-span-3">
-          <WarmupToggle checked={set.isWarmup} onChange={(v) => onChange('isWarmup', v)} disabled={disabled} />
-        </div>
-      </div>
+      <span className="tabular hidden truncate text-sm text-gray-400 sm:block" title={previous ? 'Last time' : undefined}>
+        {previous ? `${fmt(previous.weight)} × ${previous.reps}` : '—'}
+      </span>
+
+      <input
+        type="number"
+        step="any"
+        inputMode="decimal"
+        value={set.weight}
+        placeholder={previous ? fmt(previous.weight) : '0'}
+        onChange={(e) => onChange('weight', e.target.value)}
+        disabled={disabled}
+        aria-label={`Set ${set.setNumber} weight (${units})`}
+        className={input}
+      />
+      <input
+        type="number"
+        inputMode="numeric"
+        value={set.reps}
+        placeholder={previous ? String(previous.reps) : '0'}
+        onChange={(e) => onChange('reps', e.target.value)}
+        disabled={disabled}
+        aria-label={`Set ${set.setNumber} reps`}
+        className={input}
+      />
+      <select
+        value={set.rpe ?? ''}
+        onChange={(e) => onChange('rpe', e.target.value)}
+        disabled={rpeDisabled}
+        aria-label={`Set ${set.setNumber} RPE`}
+        className={`h-10 w-full appearance-none bg-none px-0 text-center text-sm font-medium ${done ? '!border-success-200 !bg-success-50' : ''}`}
+        style={{ backgroundImage: 'none', textAlignLast: 'center' }}
+      >
+        <option value="">–</option>
+        {RPE_OPTIONS.map((i) => (
+          <option key={i} value={i}>{i}</option>
+        ))}
+      </select>
+
+      {trackCompletion && (
+        <button
+          type="button"
+          onClick={onToggleDone}
+          disabled={disabled}
+          aria-pressed={!!set.done}
+          aria-label={set.done ? `Mark set ${set.setNumber} not done` : `Mark set ${set.setNumber} done`}
+          className={`flex h-10 w-10 items-center justify-center justify-self-center rounded-xl transition-all active:scale-90 ${
+            set.done ? 'bg-success-600 text-white shadow-sm' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+          }`}
+        >
+          <Check className="h-5 w-5" strokeWidth={3} />
+        </button>
+      )}
+
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={disabled}
+        className="flex h-8 w-7 items-center justify-center justify-self-center rounded-lg text-gray-300 transition-colors hover:bg-danger-50 hover:text-danger-600"
+        title="Delete set"
+        aria-label={`Delete set ${set.setNumber}`}
+      >
+        <X className="h-4 w-4" />
+      </button>
     </div>
   );
 }

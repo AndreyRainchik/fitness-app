@@ -12,7 +12,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 function LiftProgressionChart({ data, exerciseName }) {
   if (!data || data.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-6">
         <h3 className="text-xl font-bold text-gray-900 mb-4">{exerciseName} Progression</h3>
         <div className="h-64 flex items-center justify-center">
           <div className="text-center">
@@ -47,7 +47,7 @@ function LiftProgressionChart({ data, exerciseName }) {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white px-4 py-3 rounded-lg shadow-lg border border-gray-200">
+        <div className="bg-surface px-4 py-3 rounded-lg shadow-lg border border-gray-200">
           <p className="text-sm font-semibold text-gray-900 mb-2">
             {new Date(data.date).toLocaleDateString('en-US', {
               month: 'short',
@@ -85,7 +85,7 @@ function LiftProgressionChart({ data, exerciseName }) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-4 md:p-6">
+    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 md:p-6">
       {/* Header */}
       <div className="mb-6">
         <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
@@ -128,17 +128,17 @@ function LiftProgressionChart({ data, exerciseName }) {
             data={chartData}
             margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--gray-200))" />
             <XAxis
               dataKey="dateFormatted"
-              stroke="#6b7280"
+              stroke="rgb(var(--gray-500))"
               style={{ fontSize: '12px' }}
               angle={-45}
               textAnchor="end"
               height={60}
             />
             <YAxis
-              stroke="#6b7280"
+              stroke="rgb(var(--gray-500))"
               style={{ fontSize: '12px' }}
               label={{ value: '1RM (lbs)', angle: -90, position: 'insideLeft', style: { fontSize: '12px' } }}
             />
@@ -151,19 +151,19 @@ function LiftProgressionChart({ data, exerciseName }) {
               type="monotone"
               dataKey="estimated1RM"
               name="Estimated 1RM"
-              stroke="#3b82f6"
+              stroke="rgb(var(--primary-500))"
               strokeWidth={3}
-              dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+              dot={{ fill: 'rgb(var(--primary-500))', strokeWidth: 2, r: 4 }}
               activeDot={{ r: 6, strokeWidth: 0 }}
             />
             <Line
               type="monotone"
               dataKey="percentile"
               name="Percentile"
-              stroke="#8b5cf6"
+              stroke="rgb(var(--purple-500))"
               strokeWidth={2}
               strokeDasharray="5 5"
-              dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 3 }}
+              dot={{ fill: 'rgb(var(--purple-500))', strokeWidth: 2, r: 3 }}
               activeDot={{ r: 5, strokeWidth: 0 }}
             />
           </LineChart>

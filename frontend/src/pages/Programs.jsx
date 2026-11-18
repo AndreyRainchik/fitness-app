@@ -234,7 +234,7 @@ const Programs = () => {
 
         {/* Create Form */}
         {showCreateForm && (
-          <div className="mb-6 sm:mb-8 bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+          <div className="mb-6 sm:mb-8 bg-surface border border-gray-200 rounded-lg p-4 sm:p-6">
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Create Training Program</h2>
             
             <form onSubmit={handleCreateProgram} className="space-y-5 sm:space-y-6">
@@ -254,7 +254,7 @@ const Programs = () => {
                         selectedProgramType === type.id
                           ? 'border-primary-500 bg-primary-50'
                           : type.available
-                          ? 'border-gray-200 hover:border-gray-300 active:border-gray-400 bg-white'
+                          ? 'border-gray-200 hover:border-gray-300 active:border-gray-400 bg-surface'
                           : 'border-gray-200 bg-gray-50 cursor-not-allowed'
                       }`}
                     >
@@ -565,7 +565,7 @@ const Programs = () => {
             {programs.map(program => (
               <div
                 key={program.id}
-                className={`bg-white border rounded-lg p-4 sm:p-6 ${
+                className={`bg-surface border rounded-lg p-4 sm:p-6 ${
                   program.is_active ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200'
                 }`}
               >

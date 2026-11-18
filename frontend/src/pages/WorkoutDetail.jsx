@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { ClipboardList, Pencil, Trash2 } from 'lucide-react';
 import { workoutsAPI, templatesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout/Layout';
@@ -123,7 +124,7 @@ function WorkoutDetail() {
   if (loading) {
     return (
       <Layout>
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-3xl mx-auto">
           <LoadingState label="Loading workout..." />
         </div>
       </Layout>
@@ -133,7 +134,7 @@ function WorkoutDetail() {
   if (error || !workout) {
     return (
       <Layout>
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-3xl mx-auto">
           <EmptyState
             tone="error"
             title="Couldn't load this workout"
@@ -151,10 +152,10 @@ function WorkoutDetail() {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <PageHeader
           backTo="/workouts"
-          backLabel="Back to Workouts"
+          backLabel="History"
           title={workout.name || 'Untitled workout'}
           subtitle={(
             <>
@@ -164,16 +165,16 @@ function WorkoutDetail() {
           )}
           actions={(
             <>
-              <Button to={`/workouts/${id}/edit`}>Edit Workout</Button>
-              <Button variant="secondary" onClick={() => setShowTemplateModal(true)}>Save as Template</Button>
-              <Button variant="danger-subtle" onClick={handleDelete}>Delete</Button>
+              <Button variant="secondary" icon={Pencil} to={`/workouts/${id}/edit`}>Edit</Button>
+              <Button variant="secondary" icon={ClipboardList} onClick={() => setShowTemplateModal(true)}>Save as template</Button>
+              <Button variant="danger-subtle" iconOnly icon={Trash2} onClick={handleDelete} aria-label="Delete workout" title="Delete workout" />
             </>
           )}
         />
 
         {/* PR Celebration Banner */}
         {prSummary.length > 0 && totalPRs > 0 && (
-          <div className="bg-gradient-to-r from-pink-500 via-orange-400 to-purple-400 rounded-lg shadow-lg p-4 md:p-6 mb-8 text-white">
+          <div className="bg-gradient-to-br from-warning-500 via-orange-500 to-pink-500 rounded-2xl shadow-lift p-4 md:p-6 mb-8 text-white">
             <div className="flex items-start md:items-center gap-3 mb-4">
               <span className="text-4xl md:text-5xl">🏆</span>
               <div>
@@ -186,7 +187,7 @@ function WorkoutDetail() {
             
             <div className="space-y-3">
               {prSummary.map((exercise, idx) => (
-                <div key={idx} className="bg-white bg-opacity-20 rounded-lg p-3 md:p-4">
+                <div key={idx} className="bg-white/15 rounded-xl p-3 md:p-4 backdrop-blur-sm">
                   <h3 className="font-bold text-base md:text-lg mb-2">{exercise.exerciseName}</h3>
                   <div className="space-y-1 text-xs md:text-sm">
                     {exercise.volumePRs.map((pr, prIdx) => (
@@ -220,10 +221,10 @@ function WorkoutDetail() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <StatTile label="Total Volume" value={totalVolume.toLocaleString()} unit={units} tone="primary" />
-          <StatTile label="Exercises" value={exerciseGroups.length} tone="success" />
-          <StatTile label="Total Sets" value={workout.sets?.length || 0} tone="warning" />
+        <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-8">
+          <StatTile label="Volume" value={totalVolume >= 10000 ? `${(totalVolume / 1000).toFixed(1)}k` : totalVolume.toLocaleString()} unit={units} />
+          <StatTile label="Exercises" value={exerciseGroups.length} />
+          <StatTile label="Sets" value={workout.sets?.length || 0} />
         </div>
 
         {/* Exercises */}

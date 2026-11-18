@@ -85,12 +85,13 @@ function ExerciseNameInput({ value, onChange, onSelect, disabled = false }) {
         onKeyDown={handleKeyDown}
         onFocus={() => suggestions.length > 0 && setOpen(true)}
         onBlur={close}
-        placeholder="Start typing exercise name..."
+        placeholder="Search exercises…"
+        aria-label="Exercise name"
         role="combobox"
         aria-autocomplete="list"
         aria-controls={listId}
         aria-expanded={open}
-        className="w-full border rounded-md px-3 py-2"
+        className="h-11 w-full px-3.5 text-[15px] font-semibold"
         disabled={disabled}
       />
       {open && suggestions.length > 0 && (
@@ -98,7 +99,7 @@ function ExerciseNameInput({ value, onChange, onSelect, disabled = false }) {
           id={listId}
           role="listbox"
           aria-label="Exercise suggestions"
-          className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-auto"
+          className="absolute z-20 mt-1 w-full bg-surface border border-gray-200 rounded-xl shadow-lift max-h-64 overflow-auto p-1"
         >
           {suggestions.map((sug, idx) => (
             <li
@@ -110,7 +111,7 @@ function ExerciseNameInput({ value, onChange, onSelect, disabled = false }) {
                 e.preventDefault();
                 select(sug);
               }}
-              className={`px-3 py-2 cursor-pointer ${idx === highlighted ? 'bg-primary-100' : 'hover:bg-gray-50'}`}
+              className={`rounded-lg px-3 py-2 cursor-pointer ${idx === highlighted ? 'bg-primary-50' : 'hover:bg-gray-50'}`}
             >
               <div className="flex justify-between items-center">
                 <div className="text-sm font-medium text-gray-900">{sug.name}</div>

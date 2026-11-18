@@ -62,7 +62,7 @@ const MuscleGroupHeatmap = () => {
     );
     
     if (!muscle || muscle.setCount === 0) {
-      return '#f3f4f6'; // gray-100 for unworked muscles
+      return 'rgb(var(--gray-100))'; // gray-100 for unworked muscles
     }
 
     // Calculate max sets for scaling
@@ -70,11 +70,11 @@ const MuscleGroupHeatmap = () => {
     const intensity = Math.min(muscle.setCount / maxSets, 1);
 
     // Blue scale from light to dark
-    if (intensity < 0.2) return '#dbeafe'; // blue-100
-    if (intensity < 0.4) return '#93c5fd'; // blue-300
-    if (intensity < 0.6) return '#60a5fa'; // blue-400
-    if (intensity < 0.8) return '#3b82f6'; // blue-500
-    return '#1d4ed8'; // blue-700
+    if (intensity < 0.2) return 'rgb(var(--primary-500) / 0.2)'; // blue-100
+    if (intensity < 0.4) return 'rgb(var(--primary-500) / 0.4)'; // blue-300
+    if (intensity < 0.6) return 'rgb(var(--primary-500) / 0.6)'; // blue-400
+    if (intensity < 0.8) return 'rgb(var(--primary-500) / 0.8)'; // blue-500
+    return 'rgb(var(--primary-500))'; // blue-700
   };
 
   // Get set count for a muscle group
@@ -201,7 +201,7 @@ const MuscleGroupHeatmap = () => {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
+    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-6">
       {/* Header with Week Navigation */}
       <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
         <h2 className="text-2xl font-bold text-gray-900">Weekly Muscle Groups</h2>
@@ -248,7 +248,7 @@ const MuscleGroupHeatmap = () => {
             onClick={() => setViewMode('front')}
             className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
               viewMode === 'front'
-                ? 'bg-white text-primary-600 shadow-sm'
+                ? 'bg-surface text-primary-600 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -258,7 +258,7 @@ const MuscleGroupHeatmap = () => {
             onClick={() => setViewMode('back')}
             className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
               viewMode === 'back'
-                ? 'bg-white text-primary-600 shadow-sm'
+                ? 'bg-surface text-primary-600 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -276,7 +276,7 @@ const MuscleGroupHeatmap = () => {
             style={{ maxHeight: '500px' }}
           >
             {/* Base Human Silhouette (Neutral Gray) */}
-            <g fill="#f3f4f6" stroke="#e5e7eb" strokeWidth="1">
+            <g fill="rgb(var(--gray-100))" stroke="rgb(var(--gray-200))" strokeWidth="1">
                 {/* Head */}
                 <path d="M150,40 C138,40 130,50 130,65 C130,82 140,90 150,90 C160,90 170,82 170,65 C170,50 162,40 150,40 Z" />
                 {/* Neck */}
@@ -296,7 +296,7 @@ const MuscleGroupHeatmap = () => {
                 <path
                   d={muscle.path}
                   fill={getColorIntensity(muscle.name)}
-                  stroke="#9ca3af" // Gray-400 stroke for definition
+                  stroke="rgb(var(--gray-400))" // Gray-400 stroke for definition
                   strokeWidth="1"
                   strokeLinejoin="round"
                   strokeLinecap="round"
@@ -327,11 +327,11 @@ const MuscleGroupHeatmap = () => {
         <div className="flex items-center justify-center gap-2 text-sm mb-3">
           <span className="text-gray-600 font-medium">Intensity:</span>
           <div className="flex items-center gap-1">
-            <div className="w-8 h-6 rounded border border-gray-300" style={{ backgroundColor: '#f3f4f6' }}></div>
+            <div className="w-8 h-6 rounded border border-gray-300" style={{ backgroundColor: 'rgb(var(--gray-100))' }}></div>
             <span className="text-xs text-gray-500">0</span>
           </div>
           <div className="flex gap-1">
-            {['#dbeafe', '#93c5fd', '#60a5fa', '#3b82f6', '#1d4ed8'].map((color, i) => (
+            {['rgb(var(--primary-500) / 0.2)', 'rgb(var(--primary-500) / 0.4)', 'rgb(var(--primary-500) / 0.6)', 'rgb(var(--primary-500) / 0.8)', 'rgb(var(--primary-500))'].map((color, i) => (
               <div
                 key={i}
                 className="w-8 h-6 rounded border border-gray-300"

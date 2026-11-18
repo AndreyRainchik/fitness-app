@@ -55,7 +55,7 @@ function ProfileInfo({ user, onUpdate }) {
 
   if (isEditing) {
     return (
-      <div className="bg-white rounded-lg shadow p-4 md:p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 md:p-6">
         <div className="flex justify-between items-center mb-4 md:mb-6">
           <h2 className="text-xl md:text-2xl font-bold text-gray-900">Edit Profile</h2>
         </div>
@@ -137,7 +137,7 @@ function ProfileInfo({ user, onUpdate }) {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-4 md:p-6">
+    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 md:p-6">
       <div className="flex justify-between items-center mb-4 md:mb-6">
         <h2 className="text-xl md:text-2xl font-bold text-gray-900">Profile Information</h2>
         <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>

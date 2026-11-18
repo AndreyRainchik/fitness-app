@@ -95,6 +95,62 @@ router.get('/', (req, res) => {
 });
 
 /**
+ * GET /api/workouts/exercise/:exerciseId/last
+ * The most recent workout that included this exercise, with its sets, for
+ * "last time" hints while logging.
+ *
+ * Query: exclude (workout id to skip, e.g. the one being edited)
+ * Returns { last: null } or { last: { workout_id, workout_name, date, sets: [...], best_e1rm } }
+ */
+router.get('/exercise/:exerciseId/last', (req, res) => {
+  try {
+    const exerciseId = parseInt(req.params.exerciseId);
+    const exclude = parseInt(req.query.exclude) || 0;
+    if (!exerciseId) {
+      return res.status(400).json({ error: 'Invalid exercise id' });
+    }
+
+    const workout = all(
+      `SELECT w.id, w.name, w.date
+       FROM workouts w
+       JOIN sets s ON s.workout_id = w.id
+       WHERE w.user_id = ? AND s.exercise_id = ? AND w.id != ?
+       GROUP BY w.id
+       ORDER BY w.date DESC, w.id DESC
+       LIMIT 1`,
+      [req.user.id, exerciseId, exclude]
+    )[0];
+
+    if (!workout) {
+      return res.json({ last: null });
+    }
+
+    const sets = all(
+      `SELECT set_number, weight, reps, rpe, is_warmup
+       FROM sets
+       WHERE workout_id = ? AND exercise_id = ?
+       ORDER BY id ASC`,
+      [workout.id, exerciseId]
+    );
+    const working = sets.filter((s) => !s.is_warmup && s.reps > 0);
+    const bestE1rm = working.reduce((best, s) => Math.max(best, estimate1RM(s.weight, s.reps)), 0);
+
+    res.json({
+      last: {
+        workout_id: workout.id,
+        workout_name: workout.name,
+        date: workout.date,
+        sets,
+        best_e1rm: Math.round(bestE1rm * 10) / 10
+      }
+    });
+  } catch (error) {
+    console.error('Get last exercise performance error:', error);
+    res.status(500).json({ error: 'Failed to get last performance' });
+  }
+});
+
+/**
  * GET /api/workouts/:id
  * Get a specific workout with all sets
  */

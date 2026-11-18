@@ -2,88 +2,327 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom global styles */
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
+/*
+ * Theme tokens. Generated from Tailwind palettes (zinc, indigo, emerald,
+ * rose, amber, violet, orange, pink, teal). Light values live on :root and
+ * dark values on .dark, which ThemeProvider toggles on <html>.
+ */
+@layer base {
+  :root {
+    color-scheme: light;
+    --canvas: 246 246 248;
+    --surface: 255 255 255;
+    --gray-50: 250 250 250;
+    --gray-100: 244 244 245;
+    --gray-200: 228 228 231;
+    --gray-300: 212 212 216;
+    --gray-400: 161 161 170;
+    --gray-500: 113 113 122;
+    --gray-600: 82 82 91;
+    --gray-700: 63 63 70;
+    --gray-800: 39 39 42;
+    --gray-900: 24 24 27;
+    --gray-950: 9 9 11;
+    --primary-50: 238 242 255;
+    --primary-100: 224 231 255;
+    --primary-200: 199 210 254;
+    --primary-300: 165 180 252;
+    --primary-400: 129 140 248;
+    --primary-500: 99 102 241;
+    --primary-600: 79 70 229;
+    --primary-700: 67 56 202;
+    --primary-800: 55 48 163;
+    --primary-900: 49 46 129;
+    --primary-950: 30 27 75;
+    --success-50: 236 253 245;
+    --success-100: 209 250 229;
+    --success-200: 167 243 208;
+    --success-300: 110 231 183;
+    --success-400: 52 211 153;
+    --success-500: 16 185 129;
+    --success-600: 5 150 105;
+    --success-700: 4 120 87;
+    --success-800: 6 95 70;
+    --success-900: 6 78 59;
+    --success-950: 2 44 34;
+    --danger-50: 255 241 242;
+    --danger-100: 255 228 230;
+    --danger-200: 254 205 211;
+    --danger-300: 253 164 175;
+    --danger-400: 251 113 133;
+    --danger-500: 244 63 94;
+    --danger-600: 225 29 72;
+    --danger-700: 190 18 60;
+    --danger-800: 159 18 57;
+    --danger-900: 136 19 55;
+    --danger-950: 76 5 25;
+    --warning-50: 255 251 235;
+    --warning-100: 254 243 199;
+    --warning-200: 253 230 138;
+    --warning-300: 252 211 77;
+    --warning-400: 251 191 36;
+    --warning-500: 245 158 11;
+    --warning-600: 217 119 6;
+    --warning-700: 180 83 9;
+    --warning-800: 146 64 14;
+    --warning-900: 120 53 15;
+    --warning-950: 69 26 3;
+    --purple-50: 245 243 255;
+    --purple-100: 237 233 254;
+    --purple-200: 221 214 254;
+    --purple-300: 196 181 253;
+    --purple-400: 167 139 250;
+    --purple-500: 139 92 246;
+    --purple-600: 124 58 237;
+    --purple-700: 109 40 217;
+    --purple-800: 91 33 182;
+    --purple-900: 76 29 149;
+    --purple-950: 46 16 101;
+    --orange-50: 255 247 237;
+    --orange-100: 255 237 213;
+    --orange-200: 254 215 170;
+    --orange-300: 253 186 116;
+    --orange-400: 251 146 60;
+    --orange-500: 249 115 22;
+    --orange-600: 234 88 12;
+    --orange-700: 194 65 12;
+    --orange-800: 154 52 18;
+    --orange-900: 124 45 18;
+    --orange-950: 67 20 7;
+    --pink-50: 253 242 248;
+    --pink-100: 252 231 243;
+    --pink-200: 251 207 232;
+    --pink-300: 249 168 212;
+    --pink-400: 244 114 182;
+    --pink-500: 236 72 153;
+    --pink-600: 219 39 119;
+    --pink-700: 190 24 93;
+    --pink-800: 157 23 77;
+    --pink-900: 131 24 67;
+    --pink-950: 80 7 36;
+    --teal-50: 240 253 250;
+    --teal-100: 204 251 241;
+    --teal-200: 153 246 228;
+    --teal-300: 94 234 212;
+    --teal-400: 45 212 191;
+    --teal-500: 20 184 166;
+    --teal-600: 13 148 136;
+    --teal-700: 15 118 110;
+    --teal-800: 17 94 89;
+    --teal-900: 19 78 74;
+    --teal-950: 4 47 46;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  
+  .dark {
+    color-scheme: dark;
+    --canvas: 10 10 12;
+    --surface: 22 22 26;
+    --gray-50: 29 29 34;
+    --gray-100: 36 36 42;
+    --gray-200: 46 46 53;
+    --gray-300: 61 61 70;
+    --gray-400: 98 98 109;
+    --gray-500: 141 141 152;
+    --gray-600: 166 166 176;
+    --gray-700: 201 201 209;
+    --gray-800: 226 226 231;
+    --gray-900: 242 242 245;
+    --gray-950: 250 250 250;
+    --primary-50: 31 32 52;
+    --primary-100: 37 38 69;
+    --primary-200: 47 48 95;
+    --primary-300: 61 62 134;
+    --primary-400: 129 140 248;
+    --primary-500: 99 102 241;
+    --primary-600: 99 102 241;
+    --primary-700: 129 140 248;
+    --primary-800: 165 180 252;
+    --primary-900: 199 210 254;
+    --primary-950: 224 231 255;
+    --success-50: 21 42 38;
+    --success-100: 21 55 47;
+    --success-200: 20 74 59;
+    --success-300: 19 104 78;
+    --success-400: 52 211 153;
+    --success-500: 16 185 129;
+    --success-600: 16 185 129;
+    --success-700: 52 211 153;
+    --success-800: 110 231 183;
+    --success-900: 167 243 208;
+    --success-950: 209 250 229;
+    --danger-50: 49 27 34;
+    --danger-100: 66 30 40;
+    --danger-200: 93 35 48;
+    --danger-300: 133 43 60;
+    --danger-400: 251 113 133;
+    --danger-500: 244 63 94;
+    --danger-600: 244 63 94;
+    --danger-700: 251 113 133;
+    --danger-800: 253 164 175;
+    --danger-900: 254 205 211;
+    --danger-950: 255 228 230;
+    --warning-50: 49 38 24;
+    --warning-100: 67 49 23;
+    --warning-200: 93 66 21;
+    --warning-300: 134 90 19;
+    --warning-400: 251 191 36;
+    --warning-500: 245 158 11;
+    --warning-600: 245 158 11;
+    --warning-700: 251 191 36;
+    --warning-800: 252 211 77;
+    --warning-900: 253 230 138;
+    --warning-950: 254 243 199;
+    --purple-50: 36 30 52;
+    --purple-100: 45 36 70;
+    --purple-200: 59 44 96;
+    --purple-300: 81 57 136;
+    --purple-400: 167 139 250;
+    --purple-500: 139 92 246;
+    --purple-600: 139 92 246;
+    --purple-700: 167 139 250;
+    --purple-800: 196 181 253;
+    --purple-900: 221 214 254;
+    --purple-950: 237 233 254;
+    --orange-50: 49 33 26;
+    --orange-100: 67 41 25;
+    --orange-200: 95 52 25;
+    --orange-300: 136 69 24;
+    --orange-400: 251 146 60;
+    --orange-500: 249 115 22;
+    --orange-600: 249 115 22;
+    --orange-700: 251 146 60;
+    --orange-800: 253 186 116;
+    --orange-900: 254 215 170;
+    --orange-950: 255 237 213;
+    --pink-50: 48 28 41;
+    --pink-100: 65 32 51;
+    --pink-200: 90 38 67;
+    --pink-300: 129 47 90;
+    --pink-400: 244 114 182;
+    --pink-500: 236 72 153;
+    --pink-600: 236 72 153;
+    --pink-700: 244 114 182;
+    --pink-800: 249 168 212;
+    --pink-900: 251 207 232;
+    --pink-950: 252 231 243;
+    --teal-50: 22 41 43;
+    --teal-100: 22 54 54;
+    --teal-200: 21 74 71;
+    --teal-300: 21 103 96;
+    --teal-400: 45 212 191;
+    --teal-500: 20 184 166;
+    --teal-600: 20 184 166;
+    --teal-700: 45 212 191;
+    --teal-800: 94 234 212;
+    --teal-900: 153 246 228;
+    --teal-950: 204 251 241;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-canvas text-gray-900 antialiased;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+  }
+
+  /* Numbers line up in tables, timers and stats */
+  .tabular,
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Default look for every form control, so ad hoc inputs match the kit */
+  input:where(:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color'])),
+  select,
+  textarea {
+    @apply rounded-xl border border-gray-200 bg-surface text-gray-900 shadow-sm transition-colors placeholder:text-gray-400;
+    @apply focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-500/15;
+    @apply disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: rgb(var(--primary-600));
+  }
+
+  /* Hide number spinners: they're tiny on touch screens and steal space */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--primary-500));
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: rgb(var(--primary-500) / 0.25);
   }
 }
 
-.animate-fadeIn {
-  animation: fadeIn 0.3s ease-in-out;
-}
-
-/* Add this to your frontend/src/index.css or a new pwa.css file */
-
-@keyframes slide-up {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
+@layer components {
+  /* Small uppercase section label */
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500;
   }
-  to {
-    transform: translateY(0);
-    opacity: 1;
+
+  /* Pill used for tags and counts */
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700;
+  }
+
+  /* Bottom padding that clears the mobile tab bar and the iOS home indicator */
+  .pb-safe-nav {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
   }
 }
 
-.animate-slide-up {
-  animation: slide-up 0.3s ease-out;
-}
-
-/* PWA Install button styles (if you want a persistent button in header) */
-.pwa-install-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background-color: #2563eb;
-  color: white;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-
-.pwa-install-button:hover {
-  background-color: #1d4ed8;
-}
-
-/* Standalone mode detection - hide install button when installed */
-@media (display-mode: standalone) {
-  .pwa-install-button {
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
 }
 
-/* iOS specific styles for install prompt */
-@supports (-webkit-touch-callout: none) {
-  .ios-install-prompt {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: white;
-    padding: 1rem;
-    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
-    z-index: 50;
+/* Kept for components that still use the old names */
+.animate-fadeIn {
+  animation: fade-in 200ms ease-out;
+}
+.animate-slide-up,
+.animate-slideUp {
+  animation: slide-up 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
   }
 }

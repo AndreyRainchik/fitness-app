@@ -141,7 +141,7 @@ function Analytics() {
               {/* Strength Score Cards */}
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">Your Lifts</h2>
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-700 mb-3">🏋️ Squat</h3>
                     <StrengthScoreCard lift={strengthScore?.squat} />

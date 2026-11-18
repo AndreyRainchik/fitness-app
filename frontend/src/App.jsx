@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import PWAPrompt from './components/PWAPrompt';
 import FeedbackProvider from './components/ui/FeedbackProvider';
@@ -24,6 +25,7 @@ import ActiveWorkout from './pages/ActiveWorkout';
 
 function App() {
   return (
+    <ThemeProvider>
     <AuthProvider>
       <Router>
         <FeedbackProvider>
@@ -102,12 +104,13 @@ function App() {
         
         {/* Catch-all route for 404 */}
         <Route path="*" element={
-          <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+          <div className="min-h-screen bg-canvas flex items-center justify-center px-6">
             <div className="text-center">
-              <h1 className="text-6xl font-bold text-gray-900 mb-4">404</h1>
-              <p className="text-xl text-gray-600 mb-4">Page not found</p>
-              <a href="/" className="text-primary-600 hover:text-primary-700 font-semibold">
-                ← Go Home
+              <p className="eyebrow mb-3">Error 404</p>
+              <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Page not found</h1>
+              <p className="text-gray-500 mb-6">That page doesn't exist or has moved.</p>
+              <a href="/" className="inline-flex h-10 items-center rounded-xl bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-500">
+                Go home
               </a>
             </div>
           </div>
@@ -118,6 +121,7 @@ function App() {
         </FeedbackProvider>
     </Router>
     </AuthProvider>
+    </ThemeProvider>
   );
 }
 

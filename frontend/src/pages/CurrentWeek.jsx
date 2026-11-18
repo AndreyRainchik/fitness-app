@@ -769,7 +769,7 @@ const CurrentWeek = () => {
                     const change = isFailed ? -increment : +increment;
                     
                     return (
-                      <div key={idx} className="bg-white bg-opacity-60 rounded-lg p-2.5 sm:p-3">
+                      <div key={idx} className="bg-surface/60 rounded-lg p-2.5 sm:p-3">
                         {/* Mobile: Stack layout */}
                         <div className="flex flex-col gap-2 sm:hidden">
                           <div className="flex items-start justify-between">
@@ -898,7 +898,7 @@ const CurrentWeek = () => {
                         }
 
                         return (
-                          <div key={idx} className="bg-white bg-opacity-60 rounded-lg p-2.5 sm:p-3">
+                          <div key={idx} className="bg-surface/60 rounded-lg p-2.5 sm:p-3">
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1 min-w-0">
                                 <div className="font-medium text-gray-900 text-sm">{lift.exercise_name}</div>
@@ -921,7 +921,7 @@ const CurrentWeek = () => {
                               <select
                                 value={adjustment}
                                 onChange={handleChange}
-                                className="text-xs border border-gray-300 rounded-md px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                                className="text-xs border border-gray-300 rounded-md px-2 py-1 bg-surface text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-400"
                               >
                                 {ADJUSTMENT_OPTIONS.map(opt => {
                                   const d = opt.delta(increment);
@@ -1024,7 +1024,7 @@ const CurrentWeek = () => {
           {workout.lifts && workout.lifts.map((lift) => (
             <div
               key={lift.exercise_id}
-              className={`bg-white border rounded-lg overflow-hidden transition-all ${getStatusBorderClass(lift.status)}`}
+              className={`bg-surface border rounded-lg overflow-hidden transition-all ${getStatusBorderClass(lift.status)}`}
             >
               {/* Lift Header */}
               <div
@@ -1110,7 +1110,7 @@ const CurrentWeek = () => {
                       <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Warmup Sets</h3>
                       <div className="space-y-3">
                         {lift.warmup_sets.map((set, setIndex) => (
-                          <div key={setIndex} className="border border-gray-300 rounded-lg p-3 sm:p-4 bg-white">
+                          <div key={setIndex} className="border border-gray-300 rounded-lg p-3 sm:p-4 bg-surface">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                 <span className="text-base sm:text-lg font-bold text-gray-700">
@@ -1207,7 +1207,7 @@ const CurrentWeek = () => {
                       <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Warmup Sets</h3>
                       <div className="space-y-3">
                         {lift.warmup_sets.map((set, setIndex) => (
-                          <div key={setIndex} className="border border-gray-300 rounded-lg p-3 sm:p-4 bg-white">
+                          <div key={setIndex} className="border border-gray-300 rounded-lg p-3 sm:p-4 bg-surface">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                 <span className="text-base sm:text-lg font-bold text-gray-700">

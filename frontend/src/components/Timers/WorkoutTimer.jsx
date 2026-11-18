@@ -1,69 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
+import { formatDuration, workoutElapsedMs } from '../../utils/workoutDraft';
 
 /**
- * WorkoutTimer - Counts up from 0, showing total workout duration
- * Props:
- *   - isRunning: boolean - whether timer is actively counting
- *   - onTimeUpdate: function - callback with current seconds
+ * Elapsed training time for a timer object from utils/workoutDraft
+ * ({ startedAt, pausedAt, pausedMs }). Time is computed from timestamps, so
+ * it stays right across reloads and background tabs.
  */
-function WorkoutTimer({ isRunning, onTimeUpdate }) {
-  const [seconds, setSeconds] = useState(0);
-  const intervalRef = useRef(null);
-
-  // Report time to the parent after render, not from inside the state updater
-  // (updating parent state during a child's state update triggers a React error)
-  useEffect(() => {
-    onTimeUpdate?.(seconds);
-  }, [seconds, onTimeUpdate]);
+function WorkoutTimer({ timer, className = '' }) {
+  const [, setTick] = useState(0);
+  const running = timer && !timer.pausedAt;
 
   useEffect(() => {
-    if (isRunning) {
-      intervalRef.current = setInterval(() => {
-        setSeconds(prevSeconds => prevSeconds + 1);
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isRunning, onTimeUpdate]);
-
-  const formatTime = (totalSeconds) => {
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
-
-    if (hours > 0) {
-      return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-    }
-    return `${minutes}:${String(secs).padStart(2, '0')}`;
-  };
+    if (!running) return undefined;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [running]);
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6 text-center">
-      <div className="text-sm font-medium text-gray-600 mb-2">Workout Duration</div>
-      <div className="text-5xl font-bold text-primary-600 font-mono">
-        {formatTime(seconds)}
-      </div>
-      <div className="mt-2">
-        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-          isRunning 
-            ? 'bg-success-100 text-success-800' 
-            : 'bg-yellow-100 text-yellow-800'
-        }`}>
-          <span className={`w-2 h-2 rounded-full mr-2 ${
-            isRunning ? 'bg-success-500 animate-pulse' : 'bg-yellow-500'
-          }`}></span>
-          {isRunning ? 'Active' : 'Paused'}
-        </span>
-      </div>
-    </div>
+    <span className={`tabular ${className}`} role="timer" aria-label="Workout duration">
+      {formatDuration(workoutElapsedMs(timer))}
+    </span>
   );
 }
 

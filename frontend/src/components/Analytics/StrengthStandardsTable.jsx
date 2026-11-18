@@ -12,7 +12,7 @@ import React from 'react';
 function StrengthStandardsTable({ strengthData }) {
   if (!strengthData) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-6">
         <h3 className="text-xl font-bold text-gray-900 mb-4">Strength Standards</h3>
         <div className="text-center text-gray-500 py-8">
           <p>No strength data available</p>
@@ -50,7 +50,7 @@ function StrengthStandardsTable({ strengthData }) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
+    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card overflow-hidden">
       {/* Header */}
       <div className="p-4 md:p-6 border-b border-gray-200">
         <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
@@ -86,7 +86,7 @@ function StrengthStandardsTable({ strengthData }) {
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-surface divide-y divide-gray-200">
             {lifts.map((lift) => {
               const data = strengthData[lift.key];
               if (!data || data.estimated1RM === 0) {

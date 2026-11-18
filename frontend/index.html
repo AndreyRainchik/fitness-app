@@ -14,11 +14,21 @@
     <link rel="manifest" href="/manifest.json" />
     
     <!-- Theme Color for browser chrome -->
-    <meta name="theme-color" content="#2563eb" />
+    <meta name="theme-color" content="#f6f6f8" />
+
+    <!-- Apply the saved theme before first paint (see src/context/ThemeContext.jsx) -->
+    <script>
+      try {
+        var t = localStorage.getItem("theme");
+        if (t === "dark" || (t !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.classList.add("dark");
+        }
+      } catch (e) {}
+    </script>
     
     <!-- iOS-specific PWA meta tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Fitness Tracker" />
     
     <!-- iOS Splash Screens (for different device sizes) -->

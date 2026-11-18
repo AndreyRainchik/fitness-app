@@ -63,7 +63,7 @@ function NewWorkout() {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <PageHeader
           title="New Workout"
           subtitle="Log your session"
@@ -82,7 +82,7 @@ function NewWorkout() {
           initialValues={initialValues}
           onSubmit={handleSave}
           onCancel={() => navigate('/dashboard')}
-          submitLabel="Save Workout"
+          submitLabel="Save workout"
         />
 
         <Modal
@@ -105,7 +105,7 @@ function NewWorkout() {
                   <button
                     type="button"
                     onClick={() => loadFromTemplate(template.id)}
-                    className="w-full text-left border border-gray-200 rounded-lg p-4 hover:border-primary-500 hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 transition"
+                    className="w-full text-left border border-gray-200 rounded-xl p-4 hover:border-primary-300 hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 transition"
                   >
                     <span className="block font-bold text-gray-900">{template.name}</span>
                     {template.description && (

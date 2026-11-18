@@ -168,6 +168,15 @@ export const workoutsAPI = {
   },
 
   /**
+   * Most recent sets logged for an exercise ("last time" hints).
+   * Pass excludeWorkoutId when editing so the workout doesn't match itself.
+   */
+  getLastPerformance: async (exerciseId, excludeWorkoutId) => {
+    const params = excludeWorkoutId ? `?exclude=${excludeWorkoutId}` : '';
+    return await apiCall(`/workouts/exercise/${exerciseId}/last${params}`);
+  },
+
+  /**
    * Create new workout
    */
   create: async (workoutData) => {

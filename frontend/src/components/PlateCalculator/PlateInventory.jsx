@@ -222,7 +222,7 @@ const PlateInventory = () => {
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow p-4 md:p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 md:p-6">
         <div className="text-center py-8">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mb-4"></div>
           <p className="text-gray-600">Loading plate inventories...</p>
@@ -232,7 +232,7 @@ const PlateInventory = () => {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card">
       {/* Header */}
       <div className="px-4 md:px-6 py-4 border-b border-gray-200">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -324,7 +324,7 @@ const PlateInventory = () => {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {Object.keys(formData.plates).sort((a, b) => parseFloat(b) - parseFloat(a)).map((weight) => (
-                    <div key={weight} className="flex items-center gap-2 p-2 bg-white rounded border border-gray-200">
+                    <div key={weight} className="flex items-center gap-2 p-2 bg-surface rounded border border-gray-200">
                       <label className="text-sm font-medium text-gray-700 min-w-[60px]">
                         {weight} lbs
                       </label>

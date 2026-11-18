@@ -78,7 +78,7 @@ function WilksProgressChart({ weeks = 12 }) {
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white px-4 py-3 rounded-lg shadow-lg border border-gray-200">
+        <div className="bg-surface px-4 py-3 rounded-lg shadow-lg border border-gray-200">
           <p className="text-sm font-semibold text-gray-900 mb-2">
             {new Date(payload[0].payload.date).toLocaleDateString('en-US', {
               month: 'short',
@@ -101,7 +101,7 @@ function WilksProgressChart({ weeks = 12 }) {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-6">
         <h3 className="text-xl font-bold text-gray-900 mb-4">Percentile Progress</h3>
         <div className="h-64 flex items-center justify-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -112,7 +112,7 @@ function WilksProgressChart({ weeks = 12 }) {
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-6">
         <h3 className="text-xl font-bold text-gray-900 mb-4">Percentile Progress</h3>
         <div className="h-64 flex items-center justify-center">
           <p className="text-danger-600">{error}</p>
@@ -123,7 +123,7 @@ function WilksProgressChart({ weeks = 12 }) {
 
   if (chartData.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-6">
         <h3 className="text-xl font-bold text-gray-900 mb-4">Percentile Progress</h3>
         <div className="h-64 flex items-center justify-center">
           <div className="text-center">
@@ -138,7 +138,7 @@ function WilksProgressChart({ weeks = 12 }) {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-4 md:p-6">
+    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 md:p-6">
       {/* Header */}
       <div className="mb-6">
         <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
@@ -156,17 +156,17 @@ function WilksProgressChart({ weeks = 12 }) {
             data={chartData}
             margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--gray-200))" />
             <XAxis
               dataKey="dateFormatted"
-              stroke="#6b7280"
+              stroke="rgb(var(--gray-500))"
               style={{ fontSize: '12px' }}
               angle={-45}
               textAnchor="end"
               height={60}
             />
             <YAxis
-              stroke="#6b7280"
+              stroke="rgb(var(--gray-500))"
               style={{ fontSize: '12px' }}
               label={{ value: 'Percentile', angle: -90, position: 'insideLeft', style: { fontSize: '12px' } }}
             />
@@ -179,9 +179,9 @@ function WilksProgressChart({ weeks = 12 }) {
               type="monotone"
               dataKey="squat"
               name="Squat"
-              stroke="#3b82f6"
+              stroke="rgb(var(--primary-500))"
               strokeWidth={2}
-              dot={{ fill: '#3b82f6', strokeWidth: 2, r: 3 }}
+              dot={{ fill: 'rgb(var(--primary-500))', strokeWidth: 2, r: 3 }}
               activeDot={{ r: 5, strokeWidth: 0 }}
               connectNulls
             />
@@ -189,9 +189,9 @@ function WilksProgressChart({ weeks = 12 }) {
               type="monotone"
               dataKey="bench"
               name="Bench"
-              stroke="#10b981"
+              stroke="rgb(var(--success-500))"
               strokeWidth={2}
-              dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
+              dot={{ fill: 'rgb(var(--success-500))', strokeWidth: 2, r: 3 }}
               activeDot={{ r: 5, strokeWidth: 0 }}
               connectNulls
             />
@@ -199,9 +199,9 @@ function WilksProgressChart({ weeks = 12 }) {
               type="monotone"
               dataKey="deadlift"
               name="Deadlift"
-              stroke="#f59e0b"
+              stroke="rgb(var(--warning-500))"
               strokeWidth={2}
-              dot={{ fill: '#f59e0b', strokeWidth: 2, r: 3 }}
+              dot={{ fill: 'rgb(var(--warning-500))', strokeWidth: 2, r: 3 }}
               activeDot={{ r: 5, strokeWidth: 0 }}
               connectNulls
             />
@@ -209,9 +209,9 @@ function WilksProgressChart({ weeks = 12 }) {
               type="monotone"
               dataKey="ohp"
               name="OHP"
-              stroke="#8b5cf6"
+              stroke="rgb(var(--purple-500))"
               strokeWidth={2}
-              dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 3 }}
+              dot={{ fill: 'rgb(var(--purple-500))', strokeWidth: 2, r: 3 }}
               activeDot={{ r: 5, strokeWidth: 0 }}
               connectNulls
             />

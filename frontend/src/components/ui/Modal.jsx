@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef } from 'react';
+import { X } from 'lucide-react';
 
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -71,7 +72,7 @@ function Modal({ open, onClose, title, children, footer, size = 'md', dismissibl
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-gray-950/40 p-0 backdrop-blur-sm sm:p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && dismissible) onClose?.();
       }}
@@ -82,26 +83,24 @@ function Modal({ open, onClose, title, children, footer, size = 'md', dismissibl
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
-        className={`w-full ${width} max-h-[85vh] overflow-y-auto rounded-lg bg-white shadow-xl focus:outline-none animate-fadeIn`}
+        className={`w-full ${width} max-h-[90vh] overflow-y-auto rounded-t-3xl border border-gray-200/80 bg-surface shadow-lift focus:outline-none animate-slide-up pb-safe sm:rounded-2xl sm:pb-0`}
       >
         {title && (
-          <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
-            <h2 id={titleId} className="text-lg sm:text-xl font-bold text-gray-900">{title}</h2>
+          <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-1">
+            <h2 id={titleId} className="text-lg font-semibold tracking-tight text-gray-900">{title}</h2>
             {dismissible && (
               <button
                 type="button"
                 onClick={onClose}
-                className="-m-1 rounded p-1 text-2xl leading-none text-gray-400 hover:text-gray-600"
+                className="-m-1 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
                 aria-label="Close"
-              >
-                ×
-              </button>
+              ><X className="h-5 w-5" /></button>
             )}
           </div>
         )}
         <div ref={bodyRef} className="px-5 py-4">{children}</div>
         {footer && (
-          <div className="flex flex-col-reverse gap-2 border-t border-gray-100 px-5 py-4 sm:flex-row sm:justify-end">
+          <div className="flex flex-col-reverse gap-2 px-5 pb-5 pt-2 sm:flex-row sm:justify-end">
             {footer}
           </div>
         )}

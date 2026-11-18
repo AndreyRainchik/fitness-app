@@ -111,7 +111,7 @@ function BodyweightLog({ units, onLogAdded }) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-4 md:p-6">
+    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 md:p-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
         <h2 className="text-xl md:text-2xl font-bold text-gray-900">Bodyweight Log</h2>
         {!isAdding && (

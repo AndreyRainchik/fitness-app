@@ -13,7 +13,7 @@ export default defineConfig({
         name: 'Fitness Tracker - Training Programs & Analytics',
         short_name: 'Fitness Tracker',
         description: 'Track your workouts with 5/3/1 BBB, Starting Strength, and advanced analytics',
-        theme_color: '#2563eb',
+        theme_color: '#4f46e5',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait-primary',

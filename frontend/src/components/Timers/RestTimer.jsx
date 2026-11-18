@@ -1,142 +1,115 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Minus, Plus, SkipForward, Timer } from 'lucide-react';
+
+/** Short two-tone beep via Web Audio (no audio file needed). */
+function beep() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    [0, 0.18].forEach((offset, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = i === 0 ? 880 : 1175;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + offset);
+      gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + offset + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + offset + 0.16);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(ctx.currentTime + offset);
+      osc.stop(ctx.currentTime + offset + 0.17);
+    });
+    setTimeout(() => ctx.close(), 600);
+  } catch {
+    // Audio blocked: vibration and the visual cue still work
+  }
+}
+
+const RADIUS = 22;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 /**
- * RestTimer - Counts down from a specified duration
+ * Floating rest countdown.
+ *
  * Props:
- *   - duration: number - total seconds to count down
- *   - isActive: boolean - whether timer is running
- *   - onComplete: function - callback when timer reaches 0
- *   - onSkip: function - callback when user skips timer
+ * - endsAt: timestamp when rest ends (null hides the timer)
+ * - duration: total rest in seconds (for the progress ring)
+ * - onAdjust(deltaSeconds): +/- buttons
+ * - onSkip(): user dismissed it
+ * - onComplete(): reached zero
  */
-function RestTimer({ duration = 180, isActive, onComplete, onSkip }) {
-  const [secondsLeft, setSecondsLeft] = useState(duration);
-  const intervalRef = useRef(null);
-  const audioRef = useRef(null);
-  const endTimeRef = useRef(null); // Store the target end time
-
-  // Reset timer when it becomes active
-  useEffect(() => {
-    if (isActive) {
-      setSecondsLeft(duration);
-      // Set the target end time (current time + duration in milliseconds)
-      endTimeRef.current = Date.now() + (duration * 1000);
-    } else {
-      endTimeRef.current = null;
-    }
-  }, [isActive, duration]);
+function RestTimer({ endsAt, duration, onAdjust, onSkip, onComplete }) {
+  const [now, setNow] = useState(() => Date.now());
+  const completedFor = useRef(null);
 
   useEffect(() => {
-    if (isActive && secondsLeft > 0 && endTimeRef.current) {
-      intervalRef.current = setInterval(() => {
-        // Calculate remaining time based on actual time elapsed
-        const now = Date.now();
-        const remaining = Math.max(0, Math.ceil((endTimeRef.current - now) / 1000));
-        
-        setSecondsLeft(remaining);
-        
-        // Check if timer completed
-        if (remaining <= 0) {
-          clearInterval(intervalRef.current);
-          endTimeRef.current = null;
-          
-          // Play completion sound (optional - can be disabled)
-          if (audioRef.current) {
-            audioRef.current.play().catch(() => {
-              // Ignore autoplay errors
-            });
-          }
-          
-          if (onComplete) {
-            onComplete();
-          }
-        }
-      }, 100); // Check more frequently (every 100ms) for accuracy
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    }
+    if (!endsAt) return undefined;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [endsAt]);
 
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isActive, secondsLeft, onComplete]);
+  const remaining = endsAt ? Math.max(0, Math.ceil((endsAt - now) / 1000)) : 0;
 
-  const formatTime = (totalSeconds) => {
-    const minutes = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    return `${minutes}:${String(secs).padStart(2, '0')}`;
-  };
+  useEffect(() => {
+    if (!endsAt || remaining > 0 || completedFor.current === endsAt) return;
+    completedFor.current = endsAt;
+    beep();
+    navigator.vibrate?.([200, 100, 200]);
+    onComplete?.();
+  }, [endsAt, remaining, onComplete]);
 
-  const getProgressPercentage = () => {
-    return ((duration - secondsLeft) / duration) * 100;
-  };
+  if (!endsAt || remaining <= 0) return null;
 
-  const handleSkip = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    endTimeRef.current = null;
-    setSecondsLeft(0);
-    if (onSkip) {
-      onSkip();
-    }
-  };
-
-  if (!isActive || secondsLeft === 0) {
-    return null;
-  }
-
-  const isAlmostDone = secondsLeft <= 10;
+  const progress = duration > 0 ? Math.min(1, remaining / duration) : 0;
+  const almostDone = remaining <= 10;
+  const m = Math.floor(remaining / 60);
+  const s = String(remaining % 60).padStart(2, '0');
 
   return (
-    <>
-      {/* Hidden audio element for completion sound */}
-      <audio ref={audioRef} src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZTA8OVqzn77BdGAg+ltryxnMpBSl+zPLaizsIGGS57OihUBELTKXh8bllHAU2jdXzz3oqBSd4yO/ekEIKElyx6OytWBUIQ5ziT" preload="auto" />
-      
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-primary-600 shadow-2xl z-50 animate-slideUp">
-        {/* Progress Bar */}
-        <div className="h-2 bg-gray-200">
-          <div 
-            className={`h-full transition-all duration-1000 ease-linear ${
-              isAlmostDone ? 'bg-danger-500' : 'bg-primary-600'
-            }`}
-            style={{ width: `${getProgressPercentage()}%` }}
-          ></div>
+    <div
+      className="pb-safe fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-3 sm:pb-6"
+      role="timer"
+      aria-live="off"
+      aria-label={`Rest timer, ${m} minutes ${s} seconds left`}
+    >
+      <div className="flex w-full max-w-md animate-slide-up items-center gap-3 rounded-2xl border border-gray-200/80 bg-surface/95 p-2.5 pr-3 shadow-lift backdrop-blur-xl">
+        <div className="relative h-14 w-14 flex-shrink-0">
+          <svg viewBox="0 0 52 52" className="h-14 w-14 -rotate-90">
+            <circle cx="26" cy="26" r={RADIUS} fill="none" strokeWidth="4" className="stroke-gray-100" />
+            <circle
+              cx="26"
+              cy="26"
+              r={RADIUS}
+              fill="none"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeDasharray={CIRCUMFERENCE}
+              strokeDashoffset={CIRCUMFERENCE * (1 - progress)}
+              className={`transition-[stroke-dashoffset] duration-300 ease-linear ${almostDone ? 'stroke-danger-500' : 'stroke-primary-500'}`}
+            />
+          </svg>
+          <Timer className={`absolute inset-0 m-auto h-5 w-5 ${almostDone ? 'text-danger-500' : 'text-primary-500'}`} aria-hidden="true" />
         </div>
-
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            {/* Timer Display */}
-            <div className="flex items-center space-x-4">
-              <div className={`text-5xl font-bold font-mono ${
-                isAlmostDone ? 'text-danger-600 animate-pulse' : 'text-primary-600'
-              }`}>
-                {formatTime(secondsLeft)}
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-medium text-gray-600">Rest Timer</div>
-                <div className="text-xs text-gray-500">
-                  {isAlmostDone ? 'Almost done!' : 'Take your time'}
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex space-x-3">
-              <button
-                onClick={handleSkip}
-                className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition duration-200"
-              >
-                Skip Rest
-              </button>
-            </div>
-          </div>
+        <div className="min-w-0 flex-1">
+          <p className="eyebrow">Rest</p>
+          <p className={`tabular text-3xl font-bold leading-none tracking-tight ${almostDone ? 'text-danger-600' : 'text-gray-900'}`}>
+            {m}:{s}
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          <button type="button" onClick={() => onAdjust(-15)} className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200" aria-label="15 seconds less">
+            <Minus className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={() => onAdjust(15)} className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200" aria-label="15 seconds more">
+            <Plus className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={onSkip} className="ml-1 flex h-10 items-center gap-1.5 rounded-xl bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-500">
+            <SkipForward className="h-4 w-4" />
+            Skip
+          </button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
