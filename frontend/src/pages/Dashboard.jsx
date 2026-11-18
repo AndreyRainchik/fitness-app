@@ -10,7 +10,7 @@ import {
 } from '../components/ui';
 import { analyticsAPI, templatesAPI, workoutsAPI } from '../services/api';
 import { useWorkoutDraft } from '../utils/workoutDraft';
-import { formatCompact, formatDate, formatNumber, greeting, relativeDay } from '../utils/format';
+import { formatCompact, formatDate, formatNumber, greeting, plural, relativeDay } from '../utils/format';
 import { getLocalDateString } from '../utils/dateUtils';
 import WilksProgressChart from '../components/Dashboard/WilksProgressChart';
 import WeeklyVolumeChart from '../components/Dashboard/WeeklyVolumeChart';
@@ -261,7 +261,7 @@ function Dashboard() {
                           <span className="block truncate font-semibold text-gray-900">{w.name || 'Workout'}</span>
                           <span className="block truncate text-xs text-gray-500">
                             {[
-                              `${w.exercise_count || w.exercises?.length || 0} exercises`,
+                              plural(w.exercise_count || w.exercises?.length || 0, 'exercise'),
                               w.duration_minutes > 0 ? `${w.duration_minutes} min` : null,
                               w.total_volume > 0 ? `${formatCompact(w.total_volume)} ${units}` : null,
                             ].filter(Boolean).join(' · ')}

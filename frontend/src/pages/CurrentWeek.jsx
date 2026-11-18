@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { programsAPI } from '../services/api';
-import PlateCalculator from '../components/PlateCalculator/PlateCalculator';
+import ProgramSetRow from '../components/Program/ProgramSetRow';
+import { CalendarCheck, Check, ChevronDown, Play, RotateCcw, X } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import { useBatchPlateAdjustedWeights } from '../utils/usePlateAdjustedWeight';
-import { Alert, Button, EmptyState, LoadingState, PageHeader, useConfirm } from '../components/ui';
+import { Alert, Badge, Button, Card, EmptyState, LoadingState, PageHeader, useConfirm } from '../components/ui';
 
 // Per-lift training max adjustment choices shown on the week 4 preview.
 // `delta(increment)` returns the change in lbs for the given lift increment.
@@ -104,28 +105,16 @@ const CurrentWeek = () => {
   };
 
   // Component to display weight with adjustment indicator
-  const WeightDisplay = ({ programmedWeight, className = '' }) => {
+  const WeightDisplay = ({ programmedWeight }) => {
     const { weight, isAdjusted } = getAdjustedWeightInfo(programmedWeight);
-    
-    if (!isAdjusted) {
-      return (
-        <span className={`text-base sm:text-lg font-bold text-primary-600 ${className}`}>
-          {weight} lbs
-        </span>
-      );
-    }
-    
     return (
-      <span className={`inline-flex flex-wrap items-center gap-1 ${className}`}>
-        <span className="text-base sm:text-lg font-bold text-amber-600">
-          {weight} lbs
-        </span>
-        <span className="text-xs text-amber-600" title={`Adjusted from ${programmedWeight} lbs based on available plates`}>
-          ⚠️
-        </span>
-        <span className="text-xs text-gray-500">
-          (from {programmedWeight})
-        </span>
+      <span
+        className={`tabular text-[15px] font-semibold ${isAdjusted ? 'text-warning-700' : 'text-gray-900'}`}
+        title={isAdjusted ? `Rounded from ${programmedWeight} lbs to match your plates` : undefined}
+      >
+        {isAdjusted && <span className="mr-0.5" aria-label="approximately">≈</span>}
+        {weight}
+        <span className="ml-0.5 text-xs font-medium text-gray-500">lbs</span>
       </span>
     );
   };
@@ -428,26 +417,6 @@ const CurrentWeek = () => {
   };
 
   /**
-   * Get border color class based on status
-   */
-  const getStatusBorderClass = (status) => {
-    if (status === 'completed') return 'border-success-500 border-2';
-    if (status === 'failed') return 'border-danger-500 border-2';
-    if (status === 'skipped') return 'border-yellow-500 border-2';
-    return 'border-gray-200';
-  };
-
-  /**
-   * Get background color class based on status
-   */
-  const getStatusBgClass = (status) => {
-    if (status === 'completed') return 'bg-success-50';
-    if (status === 'failed') return 'bg-danger-50';
-    if (status === 'skipped') return 'bg-yellow-50';
-    return 'bg-gray-50';
-  };
-
-  /**
    * Status indicator component
    * Enhanced for mobile with better sizing and spacing
    */
@@ -456,7 +425,7 @@ const CurrentWeek = () => {
 
     if (status === 'completed') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1 bg-success-100 text-success-800 text-xs sm:text-sm font-medium rounded-full">
+        <span className="hidden items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 text-xs font-semibold text-success-800 sm:inline-flex">
           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
           </svg>
@@ -467,7 +436,7 @@ const CurrentWeek = () => {
 
     if (status === 'failed') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1 bg-danger-100 text-danger-800 text-xs sm:text-sm font-medium rounded-full">
+        <span className="hidden items-center gap-1 rounded-full bg-danger-100 px-2 py-0.5 text-xs font-semibold text-danger-800 sm:inline-flex">
           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
           </svg>
@@ -478,7 +447,7 @@ const CurrentWeek = () => {
 
     if (status === 'skipped') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1 bg-yellow-100 text-yellow-800 text-xs sm:text-sm font-medium rounded-full">
+        <span className="hidden items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-800 sm:inline-flex">
           <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
           </svg>
@@ -508,102 +477,81 @@ const CurrentWeek = () => {
     const parsedInputReps = parseInt(inputReps, 10);
     const inputOutcomeBadge = isWeek3 && inputReps !== '' ? getWeek3OutcomeBadge(parsedInputReps) : null;
     const recordedOutcomeBadge = isWeek3 ? getWeek3OutcomeBadge(recordedAmrapReps) : null;
+    const amrapInputId = `amrap-${exerciseId}`;
 
     return (
-      <div className="flex flex-col gap-2 mt-3">
+      <div className="space-y-3">
+        <p className="eyebrow">After your session</p>
+
         {/* AMRAP reps input — shown on weeks 1-3 when lift has not yet been marked */}
         {isAmrapWeek && !currentStatus && (
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="text-sm text-gray-600 whitespace-nowrap">AMRAP reps achieved:</label>
-            <input
-              type="number"
-              min="1"
-              max="100"
-              value={inputReps}
-              onChange={(e) =>
-                setAmrapRepsInput(prev => ({ ...prev, [exerciseId]: e.target.value }))
-              }
-              className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="e.g. 12"
-            />
+          <div className="flex items-center gap-3">
+            <label htmlFor={amrapInputId} className="flex-1 text-sm text-gray-600">Reps on the AMRAP set</label>
             {inputOutcomeBadge && (
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${inputOutcomeBadge.classes}`}>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${inputOutcomeBadge.classes}`}>
                 {inputOutcomeBadge.label}
               </span>
             )}
+            <input
+              id={amrapInputId}
+              type="number"
+              inputMode="numeric"
+              min="1"
+              max="100"
+              value={inputReps}
+              onChange={(e) => setAmrapRepsInput(prev => ({ ...prev, [exerciseId]: e.target.value }))}
+              className="tabular h-11 w-20 px-2 text-center font-semibold"
+              placeholder="12"
+            />
           </div>
         )}
 
         {/* Show recorded AMRAP reps if already completed */}
         {isAmrapWeek && currentStatus && recordedAmrapReps != null && (
-          <div className="text-xs text-gray-500">
-            AMRAP reps recorded: <span className="font-medium">{recordedAmrapReps}</span>
+          <p className="text-sm text-gray-600">
+            AMRAP: <span className="tabular font-semibold text-gray-900">{recordedAmrapReps} reps</span>
             {recordedOutcomeBadge && (
-              <span className={`ml-1 font-medium px-1.5 py-0.5 rounded-full ${recordedOutcomeBadge.classes}`}>
+              <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${recordedOutcomeBadge.classes}`}>
                 {recordedOutcomeBadge.label}
               </span>
             )}
-          </div>
+          </p>
         )}
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          {/* Mark Completed Button */}
+        <div className="grid grid-cols-2 gap-2">
           <button
-            onClick={() =>
-              handleSetStatus(
-                exerciseId,
-                'completed',
-                isAmrapWeek ? (parsedInputReps > 0 ? parsedInputReps : null) : null
-              )
-            }
+            type="button"
+            onClick={() => handleSetStatus(exerciseId, 'completed', isAmrapWeek ? (parsedInputReps > 0 ? parsedInputReps : null) : null)}
             disabled={isUpdating || currentStatus === 'completed'}
-            className={`flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 ${
+            className={`flex h-11 items-center justify-center gap-1.5 rounded-xl text-sm font-semibold transition-colors ${
               currentStatus === 'completed'
-                ? 'bg-success-600 text-white cursor-default'
-                : 'bg-success-100 text-success-700 hover:bg-success-200 active:bg-success-300 disabled:opacity-50 disabled:cursor-not-allowed'
+                ? 'bg-success-600 text-white'
+                : 'bg-success-50 text-success-700 hover:bg-success-100 disabled:opacity-50'
             }`}
           >
-            {currentStatus === 'completed' && (
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-            )}
-            <span>{isUpdating ? 'Updating...' : currentStatus === 'completed' ? 'Completed' : 'Mark Complete'}</span>
+            <Check className="h-4 w-4" strokeWidth={2.5} />
+            Completed
           </button>
-
-          {/* Mark Failed Button */}
           <button
+            type="button"
             onClick={() => handleSetStatus(exerciseId, 'failed')}
             disabled={isUpdating || currentStatus === 'failed'}
-            className={`flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 ${
+            className={`flex h-11 items-center justify-center gap-1.5 rounded-xl text-sm font-semibold transition-colors ${
               currentStatus === 'failed'
-                ? 'bg-danger-600 text-white cursor-default'
-                : 'bg-danger-100 text-danger-700 hover:bg-danger-200 active:bg-danger-300 disabled:opacity-50 disabled:cursor-not-allowed'
+                ? 'bg-danger-600 text-white'
+                : 'bg-danger-50 text-danger-700 hover:bg-danger-100 disabled:opacity-50'
             }`}
           >
-            {currentStatus === 'failed' && (
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            )}
-            <span>{isUpdating ? 'Updating...' : currentStatus === 'failed' ? 'Failed' : 'Mark Failed'}</span>
+            <X className="h-4 w-4" strokeWidth={2.5} />
+            {currentStatus === 'failed' ? 'Failed' : 'Missed reps'}
           </button>
-
-          {/* Clear Status Button (only show if status exists) */}
-          {currentStatus && (
-            <Button
-              variant="secondary"
-              className="min-h-[44px] sm:min-h-0"
-              onClick={() => handleClearStatus(exerciseId)}
-              disabled={isUpdating}
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-              <span>{isUpdating ? 'Updating...' : 'Clear'}</span>
-            </Button>
-          )}
         </div>
+
+        {currentStatus && (
+          <Button variant="ghost" size="sm" fullWidth icon={RotateCcw} onClick={() => handleClearStatus(exerciseId)} disabled={isUpdating}>
+            {isUpdating ? 'Updating…' : 'Clear result'}
+          </Button>
+        )}
       </div>
     );
   };
@@ -708,7 +656,7 @@ const CurrentWeek = () => {
   if (loading) {
     return (
       <Layout>
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-3xl mx-auto">
           <LoadingState label="Loading this week's workout..." />
         </div>
       </Layout>
@@ -718,7 +666,7 @@ const CurrentWeek = () => {
   if (!workout) {
     return (
       <Layout>
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-3xl mx-auto">
           <EmptyState
             icon="📅"
             title="No active program"
@@ -732,10 +680,10 @@ const CurrentWeek = () => {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <PageHeader
           backTo="/programs"
-          backLabel="Back to Programs"
+          backLabel="Programs"
           title={workout.program_name}
           subtitle={(
             <span className="font-semibold">
@@ -1002,11 +950,12 @@ const CurrentWeek = () => {
           <Button
             size="lg"
             fullWidth
-            className="sm:w-auto min-h-[44px] sm:min-h-0"
+            icon={CalendarCheck}
+            className="sm:w-auto"
             onClick={handleCompleteWeek}
             disabled={advancing}
           >
-            {advancing ? 'Advancing...' : 'Complete Week & Advance'}
+            {advancing ? 'Advancing…' : workout.program_type === '531' ? `Finish week ${workout.week}` : 'Finish session'}
           </Button>
         </div>
 
@@ -1020,256 +969,157 @@ const CurrentWeek = () => {
         )}
 
         {/* Lifts */}
-        <div className="space-y-6">
-          {workout.lifts && workout.lifts.map((lift) => (
-            <div
-              key={lift.exercise_id}
-              className={`bg-surface border rounded-lg overflow-hidden transition-all ${getStatusBorderClass(lift.status)}`}
-            >
-              {/* Lift Header */}
-              <div
-                className={`px-3 sm:px-4 md:px-6 py-3 sm:py-4 ${!isLiftCollapsed(lift.exercise_id) ? 'border-b border-gray-200' : ''} ${getStatusBgClass(lift.status)} ${(lift.status === 'completed' || lift.status === 'failed') ? 'cursor-pointer' : ''}`}
-                onClick={(lift.status === 'completed' || lift.status === 'failed') ? () => toggleLiftCollapse(lift.exercise_id) : undefined}
-              >
-                <div className="flex flex-col gap-2.5 sm:gap-3">
-                  {/* Exercise Name and Status Row */}
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900">{lift.exercise_name}</h2>
-                        {/* Collapse/Expand indicator for completed/failed lifts */}
-                        {(lift.status === 'completed' || lift.status === 'failed') && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleLiftCollapse(lift.exercise_id);
-                            }}
-                            className="p-1 rounded hover:bg-gray-200 transition-colors"
-                            aria-label={isLiftCollapsed(lift.exercise_id) ? 'Expand workout details' : 'Collapse workout details'}
-                          >
-                            <svg
-                              className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${isLiftCollapsed(lift.exercise_id) ? '' : 'rotate-180'}`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </button>
+        <div className="space-y-3 sm:space-y-4">
+          {workout.lifts && workout.lifts.map((lift, liftIndex) => {
+            const collapsed = isLiftCollapsed(lift.exercise_id);
+            const topSet = lift.main_sets?.[lift.main_sets.length - 1] ?? lift.sets?.[0];
+            const statusRing = lift.status === 'completed'
+              ? '!border-success-300'
+              : lift.status === 'failed'
+                ? '!border-danger-300'
+                : '';
+            return (
+              <Card key={lift.exercise_id} padding="p-0" className={`overflow-hidden ${statusRing}`}>
+                {/* Header: tap to expand / collapse */}
+                <button
+                  type="button"
+                  onClick={() => toggleLiftCollapse(lift.exercise_id)}
+                  aria-expanded={!collapsed}
+                  className="flex w-full items-center gap-3 p-4 text-left sm:px-5"
+                >
+                  <span
+                    className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
+                      lift.status === 'completed'
+                        ? 'bg-success-600 text-white'
+                        : lift.status === 'failed'
+                          ? 'bg-danger-600 text-white'
+                          : 'bg-primary-50 text-primary-700'
+                    }`}
+                  >
+                    {lift.status === 'completed' ? <Check className="h-5 w-5" strokeWidth={3} />
+                      : lift.status === 'failed' ? <X className="h-5 w-5" strokeWidth={3} />
+                        : liftIndex + 1}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold text-gray-900">{lift.exercise_name}</span>
+                    <span className="tabular block truncate text-xs text-gray-500">
+                      {workout.program_type === '531' && `TM ${lift.training_max} lbs`}
+                      {workout.program_type === 'starting_strength' && `Working weight ${lift.current_weight} lbs`}
+                      {topSet && ` · Top set ${getAdjustedWeightInfo(topSet.weight).weight} × ${topSet.reps}${topSet.is_amrap ? '+' : ''}`}
+                    </span>
+                  </span>
+                  {lift.status && <StatusIndicator status={lift.status} />}
+                  <ChevronDown className={`h-5 w-5 flex-shrink-0 text-gray-400 transition-transform ${collapsed ? '' : 'rotate-180'}`} />
+                </button>
+
+                {!collapsed && (
+                  <div className="border-t border-gray-100 px-4 pb-4 sm:px-5">
+                    {/* 5/3/1 */}
+                    {workout.program_type === '531' && (
+                      <>
+                        {lift.warmup_sets?.length > 0 && (
+                          <section className="pt-3">
+                            <p className="eyebrow">Warm-up</p>
+                            <ul className="divide-y divide-gray-100">
+                              {lift.warmup_sets.map((set, i) => (
+                                <ProgramSetRow
+                                  key={`w${i}`}
+                                  tone="warmup"
+                                  label={`W${i + 1}`}
+                                  weight={<WeightDisplay programmedWeight={set.weight} />}
+                                  reps={set.reps}
+                                  plateWeight={getAdjustedWeightInfo(set.weight).weight}
+                                />
+                              ))}
+                            </ul>
+                          </section>
                         )}
-                      </div>
-                      <StatusIndicator status={lift.status} />
-                    </div>
-                    {/* Start Workout Button - hidden when collapsed */}
-                    {!isLiftCollapsed(lift.exercise_id) && (
-                      <Button
-                        fullWidth
-                        className="sm:w-auto whitespace-nowrap min-h-[44px] sm:min-h-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStartWorkout(lift);
-                        }}
-                      >
-                        Start Workout
-                      </Button>
+
+                        <section className="pt-3">
+                          <p className="eyebrow">Main sets</p>
+                          <ul className="divide-y divide-gray-100">
+                            {lift.main_sets?.map((set, i) => (
+                              <ProgramSetRow
+                                key={`m${i}`}
+                                label={set.set_number}
+                                weight={<WeightDisplay programmedWeight={set.weight} />}
+                                reps={`${set.reps}${set.is_amrap ? '+' : ''}`}
+                                caption={`${set.percentage}% of training max`}
+                                badge={set.is_amrap ? <Badge tone="warning">AMRAP</Badge> : null}
+                                plateWeight={getAdjustedWeightInfo(set.weight).weight}
+                              />
+                            ))}
+                          </ul>
+                        </section>
+
+                        {lift.accessory_sets?.length > 0 && (
+                          <section className="pt-3">
+                            <p className="eyebrow">Boring But Big</p>
+                            <ul>
+                              <ProgramSetRow
+                                tone="accessory"
+                                label={`${lift.accessory_sets.length}×`}
+                                weight={<WeightDisplay programmedWeight={lift.accessory_sets[0].weight} />}
+                                reps={lift.accessory_sets[0].reps}
+                                caption={`${lift.accessory_sets[0].percentage}% TM · same weight every set · rest 1–2 min`}
+                                plateWeight={getAdjustedWeightInfo(lift.accessory_sets[0].weight).weight}
+                              />
+                            </ul>
+                          </section>
+                        )}
+                      </>
                     )}
-                  </div>
 
-                  {/* Training Max / Current Weight */}
-                  <p className="text-xs sm:text-sm text-gray-600">
-                    {workout.program_type === '531' && `Training Max: ${lift.training_max} lbs`}
-                    {workout.program_type === 'starting_strength' && `Current Weight: ${lift.current_weight} lbs`}
-                  </p>
+                    {/* Starting Strength */}
+                    {workout.program_type === 'starting_strength' && lift.sets && (
+                      <>
+                        {lift.warmup_sets?.length > 0 && (
+                          <section className="pt-3">
+                            <p className="eyebrow">Warm-up</p>
+                            <ul className="divide-y divide-gray-100">
+                              {lift.warmup_sets.map((set, i) => (
+                                <ProgramSetRow
+                                  key={`w${i}`}
+                                  tone="warmup"
+                                  label={`W${i + 1}`}
+                                  weight={<WeightDisplay programmedWeight={set.weight} />}
+                                  reps={set.reps}
+                                  plateWeight={getAdjustedWeightInfo(set.weight).weight}
+                                />
+                              ))}
+                            </ul>
+                          </section>
+                        )}
+                        <section className="pt-3">
+                          <p className="eyebrow">Working sets</p>
+                          <ul>
+                            <ProgramSetRow
+                              label={`${lift.sets.length}×`}
+                              weight={<WeightDisplay programmedWeight={lift.sets[0].weight} />}
+                              reps={lift.sets[0].reps}
+                              caption={`Next session: ${lift.sets[0].weight + (lift.exercise_name === 'Barbell Squat' || lift.exercise_name === 'Barbell Deadlift' ? 10 : 5)} lbs · rest 3–5 min`}
+                              plateWeight={getAdjustedWeightInfo(lift.sets[0].weight).weight}
+                            />
+                          </ul>
+                        </section>
+                      </>
+                    )}
 
-                  {/* Status Controls - hidden when collapsed */}
-                  {!isLiftCollapsed(lift.exercise_id) && (
-                    <div onClick={(e) => e.stopPropagation()}>
+                    <div className="mt-3 space-y-3 border-t border-gray-100 pt-4">
+                      <Button fullWidth icon={Play} onClick={() => handleStartWorkout(lift)}>
+                        Start workout
+                      </Button>
                       {renderStatusControls({
                         exerciseId: lift.exercise_id,
                         currentStatus: lift.status,
                         recordedAmrapReps: lift.amrap_reps,
                       })}
                     </div>
-                  )}
-
-                  {/* Collapsed summary - show tap to expand hint */}
-                  {isLiftCollapsed(lift.exercise_id) && (
-                    <p className="text-xs text-gray-500 italic">
-                      Tap to expand workout details
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* 5/3/1 Program Content - Hidden when collapsed */}
-              {workout.program_type === '531' && !isLiftCollapsed(lift.exercise_id) && (
-                <>
-                  {/* Warmup Sets */}
-                  {lift.warmup_sets && lift.warmup_sets.length > 0 && (
-                    <div className="p-4 sm:p-6 bg-gray-50 border-b border-gray-200">
-                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Warmup Sets</h3>
-                      <div className="space-y-3">
-                        {lift.warmup_sets.map((set, setIndex) => (
-                          <div key={setIndex} className="border border-gray-300 rounded-lg p-3 sm:p-4 bg-surface">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                <span className="text-base sm:text-lg font-bold text-gray-700">
-                                  Warmup {setIndex + 1}:
-                                </span>
-                                {/* Use WeightDisplay to show plate-adjusted weights */}
-                                <WeightDisplay programmedWeight={set.weight} className="text-gray-700" />
-                                <span className="text-sm sm:text-base text-gray-600">
-                                  × {set.reps} reps
-                                </span>
-                              </div>
-                            </div>
-                            {/* Plate Calculator */}
-                            <PlateCalculator targetWeight={set.weight} />
-                          </div>
-                        ))}
-                      </div>
-                      <p className="mt-3 text-xs sm:text-sm text-gray-600">
-                        <strong>💡 Tip:</strong> Warmup sets prepare your muscles and nervous system. Rest 30-60 seconds between warmup sets.
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Main Sets */}
-                  <div className="p-4 sm:p-6">
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Main Sets (5/3/1)</h3>
-                    <div className="space-y-4">
-                      {lift.main_sets && lift.main_sets.map((set, setIndex) => (
-                        <div key={setIndex} className="border border-gray-200 rounded-lg p-3 sm:p-4">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                              <span className="text-base sm:text-lg font-bold text-gray-900">
-                                Set {set.set_number}:
-                              </span>
-                              <WeightDisplay programmedWeight={set.weight} />
-                              <span className="text-sm sm:text-base text-gray-600">
-                                × {set.reps}{set.is_amrap ? '+' : ''} reps
-                              </span>
-                              <span className="text-xs sm:text-sm text-gray-500">
-                                ({set.percentage}% TM)
-                              </span>
-                            </div>
-                            {set.is_amrap && (
-                              <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded self-start">
-                                AMRAP
-                              </span>
-                            )}
-                          </div>
-                          {/* Plate Calculator */}
-                          <PlateCalculator targetWeight={set.weight} />
-                        </div>
-                      ))}
-                    </div>
                   </div>
-
-                  {/* BBB Accessory Sets */}
-                  {lift.accessory_sets && lift.accessory_sets.length > 0 && (
-                    <div className="px-4 sm:px-6 pb-4 sm:pb-6">
-                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
-                        Boring But Big (BBB) Accessory
-                      </h3>
-                      <div className="bg-primary-50 border border-primary-200 rounded-lg p-3 sm:p-4">
-                        <div className="mb-2">
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <span className="text-base sm:text-lg font-bold text-gray-900">
-                              5 sets:
-                            </span>
-                            <WeightDisplay programmedWeight={lift.accessory_sets[0].weight} />
-                            <span className="text-sm sm:text-base text-gray-600">
-                              × {lift.accessory_sets[0].reps} reps
-                            </span>
-                            <span className="text-xs sm:text-sm text-gray-500">
-                              ({lift.accessory_sets[0].percentage}% TM)
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-xs sm:text-sm text-gray-600 mb-3">
-                          Same weight for all 5 sets. Rest 1-2 minutes between sets.
-                        </p>
-                        {/* Plate Calculator */}
-                        <PlateCalculator targetWeight={lift.accessory_sets[0].weight} />
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Starting Strength Program Content - Hidden when collapsed */}
-              {workout.program_type === 'starting_strength' && lift.sets && !isLiftCollapsed(lift.exercise_id) && (
-                <>
-                  {/* Warmup Sets */}
-                  {lift.warmup_sets && lift.warmup_sets.length > 0 && (
-                    <div className="p-4 sm:p-6 bg-gray-50 border-b border-gray-200">
-                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Warmup Sets</h3>
-                      <div className="space-y-3">
-                        {lift.warmup_sets.map((set, setIndex) => (
-                          <div key={setIndex} className="border border-gray-300 rounded-lg p-3 sm:p-4 bg-surface">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                <span className="text-base sm:text-lg font-bold text-gray-700">
-                                  Warmup {setIndex + 1}:
-                                </span>
-                                {/* Use WeightDisplay to show plate-adjusted weights */}
-                                <WeightDisplay programmedWeight={set.weight} className="text-gray-700" />
-                                <span className="text-sm sm:text-base text-gray-600">
-                                  × {set.reps} reps
-                                </span>
-                              </div>
-                            </div>
-                            {/* Plate Calculator */}
-                            <PlateCalculator targetWeight={set.weight} />
-                          </div>
-                        ))}
-                      </div>
-                      <p className="mt-3 text-xs sm:text-sm text-gray-600">
-                        <strong>💡 Tip:</strong> Warmup sets prepare your muscles and nervous system. Rest 30-60 seconds between warmup sets.
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Working Sets */}
-                  <div className="p-4 sm:p-6">
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
-                      Working Sets
-                    </h3>
-                    <div className="border border-gray-200 rounded-lg p-3 sm:p-4">
-                      <div className="mb-2">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="text-base sm:text-lg font-bold text-gray-900">
-                            {lift.sets.length} × {lift.sets[0].reps}:
-                          </span>
-                          <WeightDisplay programmedWeight={lift.sets[0].weight} />
-                          <span className="text-sm text-gray-600">
-                            ({lift.sets.length} sets of {lift.sets[0].reps} reps)
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-xs sm:text-sm text-gray-600 mb-3">
-                        Same weight for all sets. Rest 3-5 minutes between sets.
-                      </p>
-                      {/* Plate Calculator */}
-                      <PlateCalculator targetWeight={lift.sets[0].weight} />
-                    </div>
-                    
-                    {/* Next Session Info */}
-                    <div className="mt-4 p-3 bg-success-50 border border-success-200 rounded-lg">
-                      <p className="text-xs sm:text-sm text-success-800">
-                        <strong>Next session:</strong> {' '}
-                        {lift.exercise_name === 'Barbell Squat' || lift.exercise_name === 'Barbell Deadlift' 
-                          ? `${lift.sets[0].weight + 10} lbs (+10 lbs)`
-                          : `${lift.sets[0].weight + 5} lbs (+5 lbs)`
-                        }
-                      </p>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
+                )}
+              </Card>
+            );
+          })}
         </div>
 
         {/* Training Notes */}

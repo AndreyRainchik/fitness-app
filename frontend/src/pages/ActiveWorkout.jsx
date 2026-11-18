@@ -172,7 +172,7 @@ function ActiveWorkout() {
   return (
     <Layout focus width="max-w-3xl">
       {/* Sticky session bar */}
-      <div className="pt-safe sticky top-0 z-30 -mx-4 -mt-6 mb-5 border-b border-gray-200/80 bg-canvas/85 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:-mt-10">
+      <div className="pt-safe sticky top-0 z-30 -mx-3 -mt-6 mb-5 border-b border-gray-200/80 bg-canvas/85 px-3 py-3 backdrop-blur-xl min-[360px]:-mx-4 min-[360px]:px-4 sm:-mx-6 sm:px-6 lg:-mt-10">
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
             to="/dashboard"
@@ -207,31 +207,39 @@ function ActiveWorkout() {
             aria-label="Discard workout"
             title="Discard"
           />
-          <Button variant="success" icon={Check} onClick={() => editorRef.current?.submit()}>
-            Finish
+          <Button variant="success" icon={Check} onClick={() => editorRef.current?.submit()} aria-label="Finish workout" className="max-[359px]:!px-3">
+            <span className="max-[359px]:hidden">Finish</span>
           </Button>
         </div>
-        <div className="mt-3 flex items-center gap-2 overflow-x-auto scrollbar-none">
-          <span className="flex flex-shrink-0 items-center gap-1 text-xs font-medium text-gray-500">
-            <Timer className="h-3.5 w-3.5" /> Rest
-          </span>
-          {REST_OPTIONS.map((sec) => (
-            <button
-              key={sec}
-              type="button"
-              onClick={() => changeRestSeconds(sec)}
-              aria-pressed={restSeconds === sec}
-              className={`tabular flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
-                restSeconds === sec ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {formatDuration(sec * 1000)}
-            </button>
-          ))}
+        <div className="mt-3 flex items-center gap-2">
+          <Timer className="h-4 w-4 flex-shrink-0 text-gray-400" aria-label="Rest length" />
+          {/* Chips scroll sideways on narrow phones; the fade hints there are more */}
+          <div
+            className="scrollbar-none flex min-w-0 flex-1 gap-1.5 overflow-x-auto"
+            style={{ maskImage: 'linear-gradient(to right, black 85%, transparent)', WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent)' }}
+            role="radiogroup"
+            aria-label="Rest length"
+          >
+            {REST_OPTIONS.map((sec) => (
+              <button
+                key={sec}
+                type="button"
+                role="radio"
+                onClick={() => changeRestSeconds(sec)}
+                aria-checked={restSeconds === sec}
+                className={`tabular h-8 flex-shrink-0 rounded-full px-3 text-xs font-semibold transition-colors ${
+                  restSeconds === sec ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {formatDuration(sec * 1000)}
+              </button>
+            ))}
+            <span className="w-4 flex-shrink-0" aria-hidden="true" />
+          </div>
           <button
             type="button"
             onClick={() => startRest()}
-            className="ml-auto flex-shrink-0 rounded-full border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+            className="h-8 flex-shrink-0 rounded-full border border-gray-200 bg-surface px-3 text-xs font-semibold text-gray-700 hover:bg-gray-50"
           >
             Start rest
           </button>

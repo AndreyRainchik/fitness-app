@@ -70,7 +70,7 @@ function Register() {
     <AuthLayout
       title="Create your account"
       subtitle="Start tracking your training in under a minute."
-      footer={<>Already have an account?{' '}<Link to="/login" className="font-semibold text-primary-600 hover:text-primary-700">Sign in</Link></>}
+      footer={<>Already have an account?{' '}<Link to="/login" className="inline-block py-2.5 font-semibold text-primary-600 hover:text-primary-700">Sign in</Link></>}
     >
         {error && (
           <Alert className="mb-4">

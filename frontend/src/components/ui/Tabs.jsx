@@ -20,7 +20,7 @@ function Tabs({ tabs, active, onChange, label, className = '' }) {
               role="tab"
               aria-selected={selected}
               onClick={() => onChange(id)}
-              className={`flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-medium transition-all sm:flex-none ${
+              className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2 text-[13px] font-medium transition-all sm:flex-none sm:gap-2 sm:px-3.5 sm:text-sm ${
                 selected
                   ? 'bg-surface text-gray-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-800'

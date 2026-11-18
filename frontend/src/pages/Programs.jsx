@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { CalendarCheck, CalendarRange, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { programsAPI, exercisesAPI } from '../services/api';
 import Layout from '../components/Layout/Layout';
 import { useAuth } from '../context/AuthContext';
 import { getLocalDateString } from '../utils/dateUtils';
-import { Alert, Button, EmptyState, LoadingState, PageHeader, useConfirm } from '../components/ui';
+import { Alert, Badge, Button, Card, EmptyState, LoadingState, PageHeader, useConfirm } from '../components/ui';
 
 // Program Types Configuration
 const PROGRAM_TYPES = {
@@ -185,7 +187,7 @@ const Programs = () => {
     if (!type) return null;
     
     return (
-      <span className={`px-2 py-1 ${type.badge.bg} ${type.badge.text} text-xs font-medium rounded`}>
+      <span className={`rounded-md px-1.5 py-0.5 ${type.badge.bg} ${type.badge.text} text-xs font-semibold`}>
         {type.shortName}
       </span>
     );
@@ -209,7 +211,7 @@ const Programs = () => {
   return (
     <Layout>
       <div className="max-w-5xl mx-auto">
-        <PageHeader title="Training Programs" subtitle="Create and manage your strength training programs" />
+        <PageHeader title="Programs" subtitle="Create and manage your strength training programs" />
 
         {message.text && (
           <Alert
@@ -225,16 +227,18 @@ const Programs = () => {
         {!showCreateForm && (
           <Button
             fullWidth
-            className="mb-4 sm:mb-6 sm:w-auto min-h-[44px] sm:min-h-0"
+            className="mb-4 sm:mb-6 sm:w-auto"
+            icon={Plus}
+            size="lg"
             onClick={() => setShowCreateForm(true)}
           >
-            + Create New Program
+            New program
           </Button>
         )}
 
         {/* Create Form */}
         {showCreateForm && (
-          <div className="mb-6 sm:mb-8 bg-surface border border-gray-200 rounded-lg p-4 sm:p-6">
+          <div className="mb-6 rounded-2xl border border-gray-200/80 bg-surface p-4 shadow-card sm:mb-8 sm:p-6">
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Create Training Program</h2>
             
             <form onSubmit={handleCreateProgram} className="space-y-5 sm:space-y-6">
@@ -250,7 +254,7 @@ const Programs = () => {
                       type="button"
                       onClick={() => type.available && setSelectedProgramType(type.id)}
                       disabled={!type.available}
-                      className={`relative p-3 sm:p-4 border-2 rounded-lg text-left transition-all min-h-[80px] ${
+                      className={`relative rounded-xl border-2 p-3 text-left transition-all sm:p-4 ${
                         selectedProgramType === type.id
                           ? 'border-primary-500 bg-primary-50'
                           : type.available
@@ -302,7 +306,7 @@ const Programs = () => {
                   type="text"
                   value={programName}
                   onChange={(e) => setProgramName(e.target.value)}
-                  className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm sm:text-base min-h-[44px] sm:min-h-0"
+                  className="h-11 w-full px-3.5 text-sm"
                   placeholder={`e.g., ${PROGRAM_TYPES[selectedProgramType]?.shortName} - Cycle 1`}
                   required
                 />
@@ -324,7 +328,7 @@ const Programs = () => {
                           <select
                             value={lift.exercise_id}
                             onChange={(e) => handleLiftChange(index, 'exercise_id', e.target.value)}
-                            className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                            className="h-11 w-full px-3.5 text-sm"
                           >
                             <option value="">Select exercise...</option>
                             <optgroup label="Main Lifts (Recommended)">
@@ -350,7 +354,7 @@ const Programs = () => {
                             placeholder="Training Max"
                             step="2.5"
                             min="0"
-                            className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                            className="h-11 w-full px-3.5 text-sm"
                           />
                         </div>
                       </div>
@@ -381,7 +385,7 @@ const Programs = () => {
                         <select
                           value={selectedLifts[0]?.exercise_id || ''}
                           onChange={(e) => handleLiftChange(0, 'exercise_id', e.target.value)}
-                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                          className="h-11 w-full px-3.5 text-sm"
                           required
                         >
                           <option value="">Select Squat...</option>
@@ -401,7 +405,7 @@ const Programs = () => {
                           placeholder="0"
                           step="5"
                           min="0"
-                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                          className="h-11 w-full px-3.5 text-sm"
                           required
                         />
                       </div>
@@ -416,7 +420,7 @@ const Programs = () => {
                         <select
                           value={selectedLifts[1]?.exercise_id || ''}
                           onChange={(e) => handleLiftChange(1, 'exercise_id', e.target.value)}
-                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                          className="h-11 w-full px-3.5 text-sm"
                           required
                         >
                           <option value="">Select Bench...</option>
@@ -436,7 +440,7 @@ const Programs = () => {
                           placeholder="0"
                           step="5"
                           min="0"
-                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                          className="h-11 w-full px-3.5 text-sm"
                           required
                         />
                       </div>
@@ -451,7 +455,7 @@ const Programs = () => {
                         <select
                           value={selectedLifts[2]?.exercise_id || ''}
                           onChange={(e) => handleLiftChange(2, 'exercise_id', e.target.value)}
-                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                          className="h-11 w-full px-3.5 text-sm"
                           required
                         >
                           <option value="">Select OHP...</option>
@@ -471,7 +475,7 @@ const Programs = () => {
                           placeholder="0"
                           step="5"
                           min="0"
-                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                          className="h-11 w-full px-3.5 text-sm"
                           required
                         />
                       </div>
@@ -486,7 +490,7 @@ const Programs = () => {
                         <select
                           value={selectedLifts[3]?.exercise_id || ''}
                           onChange={(e) => handleLiftChange(3, 'exercise_id', e.target.value)}
-                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                          className="h-11 w-full px-3.5 text-sm"
                           required
                         >
                           <option value="">Select Deadlift...</option>
@@ -506,7 +510,7 @@ const Programs = () => {
                           placeholder="0"
                           step="5"
                           min="0"
-                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm min-h-[44px] sm:min-h-0"
+                          className="h-11 w-full px-3.5 text-sm"
                           required
                         />
                       </div>
@@ -531,7 +535,7 @@ const Programs = () => {
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <Button
                   fullWidth
-                  className="sm:w-auto min-h-[44px] sm:min-h-0"
+                  
                   type="submit"
                   disabled={!PROGRAM_TYPES[selectedProgramType]?.available}
                 >
@@ -540,7 +544,7 @@ const Programs = () => {
                 <Button
                   variant="secondary"
                   fullWidth
-                  className="sm:w-auto min-h-[44px] sm:min-h-0"
+                  
                   onClick={() => {
                     setShowCreateForm(false);
                     resetForm();
@@ -556,77 +560,64 @@ const Programs = () => {
         {/* Programs List */}
         {programs.length === 0 ? (
           <EmptyState
-            icon="📅"
+            icon={CalendarRange}
             title="No programs yet"
             description="Create a 5/3/1 or Starting Strength program and the app will plan each week's weights for you."
           />
         ) : (
-          <div className="space-y-3 sm:space-y-4">
+          <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
             {programs.map(program => (
-              <div
+              <Card
                 key={program.id}
-                className={`bg-surface border rounded-lg p-4 sm:p-6 ${
-                  program.is_active ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200'
-                }`}
+                padding="p-4 sm:p-5"
+                className={program.is_active ? '!border-primary-300 ring-4 ring-primary-500/10' : ''}
               >
-                <div className="flex flex-col gap-4">
-                  {/* Program Info */}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap mb-2">
-                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">{program.name}</h3>
+                <Link to={`/programs/${program.id}`} className="group -m-1 flex items-start gap-3 rounded-xl p-1">
+                  <span className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${program.is_active ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                    <CalendarRange className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="truncate font-semibold text-gray-900 group-hover:text-primary-700">{program.name}</span>
+                      {program.is_active === 1 && <Badge tone="success">Active</Badge>}
+                    </span>
+                    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-gray-500">
                       {getProgramTypeBadge(program.type)}
-                      {program.is_active === 1 && (
-                        <span className="px-2 py-1 bg-success-100 text-success-800 text-xs font-medium rounded">
-                          ACTIVE
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs sm:text-sm text-gray-600 mb-3">
-                      Week {program.current_week} · Cycle {program.current_cycle}
-                    </p>
-                    
-                    {/* Lifts */}
-                    {program.lifts && program.lifts.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {program.lifts.map((lift, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded"
-                          >
-                            {getExerciseName(lift.exercise_id)}: {lift.training_max} {units}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                      <span>Week {program.current_week} · Cycle {program.current_cycle}</span>
+                    </span>
+                  </span>
+                  <ChevronRight className="mt-2.5 h-4 w-4 flex-shrink-0 text-gray-300" />
+                </Link>
 
-                  {/* Actions */}
-                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    {!program.is_active && (
-                      <Button
-                        className="min-h-[44px] sm:min-h-0"
-                        onClick={() => handleSetActive(program.id)}
-                      >
-                        Set Active
-                      </Button>
-                    )}
-                    <Button
-                      variant="secondary"
-                      to={`/programs/${program.id}`}
-                      className="min-h-[44px] sm:min-h-0"
-                    >
-                      View Details
-                    </Button>
-                    <Button
-                      variant="danger-subtle"
-                      className="min-h-[44px] sm:min-h-0"
-                      onClick={() => handleDeleteProgram(program)}
-                    >
-                      Delete
-                    </Button>
-                  </div>
+                {program.lifts && program.lifts.length > 0 && (
+                  <ul className="mt-4 grid grid-cols-2 gap-2">
+                    {program.lifts.map((lift, idx) => (
+                      <li key={idx} className="min-w-0 rounded-xl bg-gray-50 px-3 py-2">
+                        <span className="block truncate text-xs text-gray-500">{getExerciseName(lift.exercise_id)}</span>
+                        <span className="tabular block text-sm font-semibold text-gray-900">
+                          {lift.training_max} <span className="text-xs font-medium text-gray-500">{units} TM</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="mt-4 flex gap-2">
+                  {program.is_active ? (
+                    <Button to="/current-week" icon={CalendarCheck} className="flex-1">This week</Button>
+                  ) : (
+                    <Button variant="secondary" className="flex-1" onClick={() => handleSetActive(program.id)}>Set active</Button>
+                  )}
+                  <Button
+                    variant="danger-subtle"
+                    iconOnly
+                    icon={Trash2}
+                    onClick={() => handleDeleteProgram(program)}
+                    aria-label={`Delete ${program.name}`}
+                    title="Delete program"
+                  />
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}

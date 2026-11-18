@@ -8,10 +8,10 @@ const RPE_OPTIONS = [...Array(11).keys()]; // 0–10
  * set # | previous (sm+) | weight | reps | RPE | done (optional) | remove
  */
 const setGridClass = (trackCompletion) =>
-  `grid items-center gap-1.5 sm:gap-2 ${
+  `grid items-center gap-1 sm:gap-2 ${
     trackCompletion
-      ? 'grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_3.25rem_2.5rem_1.75rem] sm:grid-cols-[2.25rem_5.5rem_minmax(0,1fr)_minmax(0,1fr)_4rem_2.5rem_2rem]'
-      : 'grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_3.25rem_1.75rem] sm:grid-cols-[2.25rem_5.5rem_minmax(0,1fr)_minmax(0,1fr)_4rem_2rem]'
+      ? 'grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_2.5rem_2.25rem_1.75rem] sm:grid-cols-[2.25rem_5.5rem_minmax(0,1fr)_minmax(0,1fr)_4rem_2.5rem_2rem]'
+      : 'grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_2.75rem_1.75rem] sm:grid-cols-[2.25rem_5.5rem_minmax(0,1fr)_minmax(0,1fr)_4rem_2rem]'
   }`;
 
 export function SetRowHeader({ units, trackCompletion }) {
@@ -43,7 +43,7 @@ const fmt = (n) => (Number.isInteger(Number(n)) ? String(Number(n)) : String(n))
 function SetRow({ set, units, previous, onChange, onRemove, onToggleDone, trackCompletion = false, disabled = false }) {
   const rpeDisabled = set.isWarmup || disabled;
   const done = trackCompletion && set.done;
-  const input = `h-10 w-full px-1 text-center text-[15px] font-semibold tabular ${done ? '!border-success-200 !bg-success-50' : ''}`;
+  const input = `h-10 w-full px-0.5 text-center text-[15px] font-semibold tabular ${done ? '!border-success-200 !bg-success-50' : ''}`;
 
   return (
     <div
@@ -109,7 +109,7 @@ function SetRow({ set, units, previous, onChange, onRemove, onToggleDone, trackC
           disabled={disabled}
           aria-pressed={!!set.done}
           aria-label={set.done ? `Mark set ${set.setNumber} not done` : `Mark set ${set.setNumber} done`}
-          className={`flex h-10 w-10 items-center justify-center justify-self-center rounded-xl transition-all active:scale-90 ${
+          className={`flex h-10 w-9 items-center justify-center justify-self-center rounded-xl transition-all active:scale-90 sm:w-10 ${
             set.done ? 'bg-success-600 text-white shadow-sm' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
           }`}
         >
@@ -121,7 +121,7 @@ function SetRow({ set, units, previous, onChange, onRemove, onToggleDone, trackC
         type="button"
         onClick={onRemove}
         disabled={disabled}
-        className="flex h-8 w-7 items-center justify-center justify-self-center rounded-lg text-gray-300 transition-colors hover:bg-danger-50 hover:text-danger-600"
+        className="flex h-10 w-7 items-center justify-center justify-self-center rounded-lg text-gray-300 sm:w-8 transition-colors hover:bg-danger-50 hover:text-danger-600"
         title="Delete set"
         aria-label={`Delete set ${set.setNumber}`}
       >

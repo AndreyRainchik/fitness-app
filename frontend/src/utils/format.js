@@ -57,3 +57,8 @@ export const chartColors = {
   danger: 'rgb(var(--danger-500))',
   surface: 'rgb(var(--surface))',
 };
+
+/** plural(1, 'set') -> "1 set", plural(3, 'set') -> "3 sets" */
+export function plural(count, word, pluralWord = `${word}s`) {
+  return `${count} ${count === 1 ? word : pluralWord}`;
+}

@@ -74,7 +74,7 @@ function BodyweightChart({ units }) {
   };
 
   return (
-    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 md:p-6">
+    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
         <h2 className="text-xl md:text-2xl font-bold text-gray-900">Bodyweight Trend</h2>
         <select
@@ -132,17 +132,18 @@ function BodyweightChart({ units }) {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={chartData}
-                margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+                margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--gray-200))" />
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgb(var(--gray-200))" />
                 <XAxis 
                   dataKey="dateFormatted" 
                   stroke="rgb(var(--gray-500))"
                   style={{ fontSize: '12px' }}
                   interval="preserveStartEnd"
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
+              minTickGap={24}
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
                 />
                 <YAxis 
                   stroke="rgb(var(--gray-500))"

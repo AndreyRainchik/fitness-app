@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ClipboardList, Pencil, Trash2 } from 'lucide-react';
+import { ClipboardList, Pencil, Trash2, Trophy } from 'lucide-react';
 import { workoutsAPI, templatesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout/Layout';
@@ -11,11 +11,12 @@ import {
   LoadingState,
   Modal,
   PageHeader,
-  StatTile,
   useConfirm,
   useToast
 } from '../components/ui';
 import { groupSetsByExercise } from '../utils/workoutPayload';
+import { formatNumber } from '../utils/format';
+import { ExerciseSetsCard, WorkoutStats } from '../components/Workout/ExerciseSetsCard';
 
 function WorkoutDetail() {
   const { id } = useParams();
@@ -105,9 +106,9 @@ function WorkoutDetail() {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
-      weekday: 'long',
+      weekday: 'short',
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
       timeZone: 'UTC'
     });
@@ -160,7 +161,7 @@ function WorkoutDetail() {
           subtitle={(
             <>
               {formatDate(workout.date)}
-              {workout.duration_minutes > 0 && ` • ${workout.duration_minutes} minutes`}
+              {workout.duration_minutes > 0 && ` · ${workout.duration_minutes} min`}
             </>
           )}
           actions={(
@@ -172,155 +173,49 @@ function WorkoutDetail() {
           )}
         />
 
-        {/* PR Celebration Banner */}
+        {/* PR summary */}
         {prSummary.length > 0 && totalPRs > 0 && (
-          <div className="bg-gradient-to-br from-warning-500 via-orange-500 to-pink-500 rounded-2xl shadow-lift p-4 md:p-6 mb-8 text-white">
-            <div className="flex items-start md:items-center gap-3 mb-4">
-              <span className="text-4xl md:text-5xl">🏆</span>
-              <div>
-                <h2 className="text-xl md:text-2xl font-bold">
-                  Congratulations! You hit {totalPRs} PR{totalPRs !== 1 ? 's' : ''} in this workout!
+          <Card padding="p-4 sm:p-5" className="mb-6 !border-warning-200 !bg-warning-50">
+            <div className="mb-3 flex items-center gap-3">
+              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-warning-500 text-white shadow-sm">
+                <Trophy className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <h2 className="font-semibold text-warning-900">
+                  {totalPRs} personal record{totalPRs === 1 ? '' : 's'}
                 </h2>
-                <p className="text-sm md:text-base text-white text-opacity-90">Personal Records achieved:</p>
+                <p className="text-xs text-warning-800">Best sets ever for these lifts</p>
               </div>
             </div>
-            
-            <div className="space-y-3">
-              {prSummary.map((exercise, idx) => (
-                <div key={idx} className="bg-white/15 rounded-xl p-3 md:p-4 backdrop-blur-sm">
-                  <h3 className="font-bold text-base md:text-lg mb-2">{exercise.exerciseName}</h3>
-                  <div className="space-y-1 text-xs md:text-sm">
-                    {exercise.volumePRs.map((pr, prIdx) => (
-                      <div key={`vol-${prIdx}`} className="flex items-start md:items-center gap-2">
-                        <span className="text-lg md:text-xl flex-shrink-0">🏆</span>
-                        <span className="break-words">
-                          Set {pr.setNumber}: {pr.weight} {units} × {pr.reps} reps
-                          <span className="font-bold ml-2">Volume PR!</span>
-                          <span className="ml-1 text-white text-opacity-80">
-                            ({pr.volume.toLocaleString()} {units} total)
-                          </span>
-                        </span>
-                      </div>
-                    ))}
-                    {exercise.oneRMPRs.map((pr, prIdx) => (
-                      <div key={`1rm-${prIdx}`} className="flex items-start md:items-center gap-2">
-                        <span className="text-lg md:text-xl flex-shrink-0">🏆</span>
-                        <span className="break-words">
-                          Set {pr.setNumber}: {pr.weight} {units} × {pr.reps} reps
-                          <span className="font-bold ml-2">1RM PR!</span>
-                          <span className="ml-1 text-white text-opacity-80">
-                            (Est. {pr.estimated1RM} {units})
-                          </span>
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+            <ul className="space-y-2">
+              {prSummary.map((exercise) => {
+                const best1RM = Math.max(0, ...exercise.oneRMPRs.map((p) => p.estimated1RM));
+                const bestVolume = Math.max(0, ...exercise.volumePRs.map((p) => p.volume));
+                return (
+                  <li key={exercise.exerciseName} className="rounded-xl bg-surface/70 px-3 py-2.5">
+                    <p className="truncate text-sm font-semibold text-gray-900">{exercise.exerciseName}</p>
+                    <p className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-600">
+                      {best1RM > 0 && <span>Est. 1RM <b className="tabular font-semibold text-gray-900">{formatNumber(best1RM, 1)}</b> {units}</span>}
+                      {bestVolume > 0 && <span>Set volume <b className="tabular font-semibold text-gray-900">{formatNumber(bestVolume)}</b> {units}</span>}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
         )}
 
-        <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-8">
-          <StatTile label="Volume" value={totalVolume >= 10000 ? `${(totalVolume / 1000).toFixed(1)}k` : totalVolume.toLocaleString()} unit={units} />
-          <StatTile label="Exercises" value={exerciseGroups.length} />
-          <StatTile label="Sets" value={workout.sets?.length || 0} />
-        </div>
+        <WorkoutStats volume={totalVolume} exercises={exerciseGroups.length} sets={workout.sets?.length || 0} units={units} />
 
-        {/* Exercises */}
-        <div className="space-y-6">
-          {exerciseGroups.map((group, index) => (
-            <Card key={index}>
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">
-                {group.exercise_name}
-              </h2>
-
-              {/* Sets Table - Mobile Optimized */}
-              <div className="overflow-x-auto -mx-4 md:mx-0">
-                <div className="inline-block min-w-full align-middle">
-                  <table className="min-w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-2 px-2 md:px-3 text-xs md:text-sm font-medium text-gray-700">Set</th>
-                        <th className="text-left py-2 px-2 md:px-3 text-xs md:text-sm font-medium text-gray-700">
-                          Weight<span className="hidden sm:inline"> ({units})</span>
-                        </th>
-                        <th className="text-left py-2 px-2 md:px-3 text-xs md:text-sm font-medium text-gray-700">Reps</th>
-                        <th className="text-left py-2 px-2 md:px-3 text-xs md:text-sm font-medium text-gray-700">RPE</th>
-                        <th className="text-left py-2 px-2 md:px-3 text-xs md:text-sm font-medium text-gray-700">
-                          <span className="hidden sm:inline">Volume</span>
-                          <span className="sm:hidden">Vol</span>
-                        </th>
-                        <th className="text-left py-2 px-2 md:px-3 text-xs md:text-sm font-medium text-gray-700"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.sets.map((set) => {
-                        const hasPR = set.isVolumePR || set.is1RMPR;
-                        const rowClass = hasPR 
-                          ? "border-b last:border-0 bg-success-50 hover:bg-success-100" 
-                          : "border-b last:border-0 hover:bg-gray-50";
-                        
-                        return (
-                          <tr key={set.id} className={rowClass}>
-                            <td className="py-2 md:py-3 px-2 md:px-3 text-sm md:text-base text-gray-900">{set.set_number}</td>
-                            <td className="py-2 md:py-3 px-2 md:px-3 text-sm md:text-base text-gray-900 font-medium">{set.weight}</td>
-                            <td className="py-2 md:py-3 px-2 md:px-3 text-sm md:text-base text-gray-900 font-medium">{set.reps}</td>
-                            <td className="py-2 md:py-3 px-2 md:px-3 text-sm md:text-base text-gray-900">
-                              {set.is_warmup === 1 ? (
-                                <span className="text-success-600 font-bold text-base md:text-lg">W</span>
-                              ) : (
-                                set.rpe || '-'
-                              )}
-                            </td>
-                            <td className="py-2 md:py-3 px-2 md:px-3 text-sm md:text-base text-gray-600">{set.weight * set.reps}</td>
-                            <td className="py-2 md:py-3 px-2 md:px-3">
-                              {hasPR && (
-                                <div className="flex flex-col gap-1 text-xs">
-                                  {set.isVolumePR && (
-                                    <span className="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 bg-yellow-100 text-yellow-800 rounded font-semibold whitespace-nowrap">
-                                      🏆 <span className="hidden sm:inline ml-1">Volume PR</span>
-                                    </span>
-                                  )}
-                                  {set.is1RMPR && (
-                                    <span className="inline-flex items-center px-1.5 md:px-2 py-0.5 md:py-1 bg-orange-100 text-orange-800 rounded font-semibold whitespace-nowrap">
-                                      🏆 <span className="hidden sm:inline ml-1">1RM PR</span>
-                                      <span className="ml-1 text-gray-600 hidden md:inline">
-                                        ({set.estimated1RM} {units})
-                                      </span>
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t-2 font-bold">
-                        <td className="py-2 md:py-3 px-2 md:px-3 text-xs md:text-base text-gray-700" colSpan="4">
-                          <span className="hidden sm:inline">Subtotal</span>
-                          <span className="sm:hidden">Total</span>
-                        </td>
-                        <td className="py-2 md:py-3 px-2 md:px-3 text-sm md:text-base text-gray-900">
-                          {group.sets.reduce((sum, set) => sum + (set.weight * set.reps), 0).toLocaleString()}
-                        </td>
-                        <td></td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </div>
-            </Card>
-          ))}
+        <div className="space-y-4">
+          {exerciseGroups.map((group, index) => <ExerciseSetsCard key={index} group={group} units={units} />)}
         </div>
 
         {/* Workout Notes */}
         {workout.notes && (
-          <Card className="mt-6">
-            <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-2">Workout Notes</h2>
-            <p className="text-sm md:text-base text-gray-700 whitespace-pre-wrap">{workout.notes}</p>
+          <Card className="mt-4">
+            <p className="eyebrow mb-1.5">Notes</p>
+            <p className="whitespace-pre-wrap text-sm text-gray-700">{workout.notes}</p>
           </Card>
         )}
 
@@ -356,7 +251,7 @@ function WorkoutDetail() {
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
                 placeholder="e.g., Upper Body A"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="h-11 w-full px-3.5"
                 required
               />
             </div>
@@ -370,7 +265,7 @@ function WorkoutDetail() {
                 onChange={(e) => setTemplateDescription(e.target.value)}
                 placeholder="e.g., Chest and back focus"
                 rows={3}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3.5 py-2.5"
               />
             </div>
           </form>

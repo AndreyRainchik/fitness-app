@@ -55,7 +55,7 @@ function ProfileInfo({ user, onUpdate }) {
 
   if (isEditing) {
     return (
-      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 md:p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
         <div className="flex justify-between items-center mb-4 md:mb-6">
           <h2 className="text-xl md:text-2xl font-bold text-gray-900">Edit Profile</h2>
         </div>
@@ -77,7 +77,7 @@ function ProfileInfo({ user, onUpdate }) {
               name="username"
               value={formData.username}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="h-11 w-full px-3.5"
               required
             />
           </div>
@@ -91,7 +91,7 @@ function ProfileInfo({ user, onUpdate }) {
               name="sex"
               value={formData.sex}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="h-11 w-full px-3.5"
             >
               <option value="">Prefer not to say</option>
               <option value="M">Male</option>
@@ -108,7 +108,7 @@ function ProfileInfo({ user, onUpdate }) {
               name="units"
               value={formData.units}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="h-11 w-full px-3.5"
             >
               <option value="lbs">Pounds (lbs)</option>
               <option value="kg">Kilograms (kg)</option>
@@ -137,7 +137,7 @@ function ProfileInfo({ user, onUpdate }) {
   }
 
   return (
-    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 md:p-6">
+    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
       <div className="flex justify-between items-center mb-4 md:mb-6">
         <h2 className="text-xl md:text-2xl font-bold text-gray-900">Profile Information</h2>
         <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>

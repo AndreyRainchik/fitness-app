@@ -222,7 +222,7 @@ const PlateInventory = () => {
 
   if (isLoading) {
     return (
-      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 md:p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
         <div className="text-center py-8">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mb-4"></div>
           <p className="text-gray-600">Loading plate inventories...</p>
@@ -334,12 +334,12 @@ const PlateInventory = () => {
                         onChange={(e) => handlePlateChange(weight, e.target.value)}
                         min="0"
                         max="20"
-                        className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        className="h-10 min-w-0 flex-1 px-3 text-sm"
                       />
                       <button
                         type="button"
                         onClick={() => removePlate(weight)}
-                        className="text-danger-600 hover:text-danger-700 text-lg font-bold px-2"
+                        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-lg font-bold text-danger-600 hover:bg-danger-50"
                         title="Remove this plate weight"
                       >
                         ×

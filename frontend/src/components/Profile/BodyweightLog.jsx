@@ -111,7 +111,7 @@ function BodyweightLog({ units, onLogAdded }) {
   };
 
   return (
-    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 md:p-6">
+    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
         <h2 className="text-xl md:text-2xl font-bold text-gray-900">Bodyweight Log</h2>
         {!isAdding && (
@@ -153,7 +153,7 @@ function BodyweightLog({ units, onLogAdded }) {
                   onChange={handleChange}
                   step="0.1"
                   min="0"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="h-11 w-full px-3.5"
                   placeholder="185.5"
                   required
                 />
@@ -170,7 +170,7 @@ function BodyweightLog({ units, onLogAdded }) {
                   value={formData.date}
                   onChange={handleChange}
                   max={getLocalDateString()}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="h-11 w-full px-3.5"
                   required
                 />
               </div>

@@ -40,9 +40,9 @@ function AuthLayout({ title, subtitle, children, footer }) {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center px-5 py-10 sm:px-8">
+      <div className="pt-safe pb-safe flex flex-1 flex-col items-center justify-start px-5 py-8 sm:justify-center sm:px-8 sm:py-10">
         <div className="w-full max-w-sm animate-fade-in">
-          <Link to="/" className="mb-10 flex items-center gap-2.5 lg:hidden">
+          <Link to="/" className="mb-8 flex items-center gap-2.5 sm:mb-10 lg:hidden">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-purple-600 text-white shadow-glow">
               <Dumbbell className="h-5 w-5" strokeWidth={2.5} />
             </span>

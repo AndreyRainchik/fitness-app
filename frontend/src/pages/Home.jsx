@@ -41,7 +41,7 @@ function Home() {
           <span className="chip mb-6 !bg-primary-50 !text-primary-700">
             <Check className="h-3.5 w-3.5" /> Free and open source
           </span>
-          <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-[1.05] tracking-tight text-gray-900 sm:text-6xl">
+          <h1 className="mx-auto max-w-3xl text-[2.5rem] font-bold leading-[1.05] tracking-tight text-gray-900 max-[359px]:text-[2rem] sm:text-6xl">
             Your training log,{' '}
             <span className="bg-gradient-to-r from-primary-600 to-purple-600 bg-clip-text text-transparent">without the friction.</span>
           </h1>
@@ -58,14 +58,16 @@ function Home() {
       </section>
 
       <section className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {FEATURES.map(({ icon: Icon, title, text }) => (
-            <div key={title} className="rounded-2xl border border-gray-200/80 bg-surface p-6 shadow-card">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
+            <div key={title} className="flex gap-4 rounded-2xl border border-gray-200/80 bg-surface p-4 shadow-card sm:block sm:p-6">
+              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
                 <Icon className="h-5 w-5" />
               </span>
-              <h3 className="mt-4 font-semibold text-gray-900">{title}</h3>
-              <p className="mt-1.5 text-sm text-gray-500">{text}</p>
+              <div className="min-w-0">
+                <h3 className="font-semibold text-gray-900 sm:mt-4">{title}</h3>
+                <p className="mt-1 text-sm text-gray-500 sm:mt-1.5">{text}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -75,11 +77,11 @@ function Home() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-5 py-6 text-sm text-gray-500 sm:flex-row sm:px-8">
           <p>
             Built by{' '}
-            <a href="https://github.com/AndreyRainchik" target="_blank" rel="noopener noreferrer" className="font-medium text-gray-700 hover:text-gray-900">
+            <a href="https://github.com/AndreyRainchik" target="_blank" rel="noopener noreferrer" className="inline-block py-2.5 font-medium text-gray-700 hover:text-gray-900">
               Andrey Rainchik
             </a>
           </p>
-          <a href="https://github.com/AndreyRainchik/fitness-app" target="_blank" rel="noopener noreferrer" className="font-medium text-gray-700 hover:text-gray-900">
+          <a href="https://github.com/AndreyRainchik/fitness-app" target="_blank" rel="noopener noreferrer" className="inline-block py-2.5 font-medium text-gray-700 hover:text-gray-900">
             View on GitHub →
           </a>
         </div>

@@ -12,7 +12,7 @@ import React from 'react';
 function StrengthStandardsTable({ strengthData }) {
   if (!strengthData) {
     return (
-      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
         <h3 className="text-xl font-bold text-gray-900 mb-4">Strength Standards</h3>
         <div className="text-center text-gray-500 py-8">
           <p>No strength data available</p>
@@ -265,10 +265,10 @@ function StrengthStandardsTable({ strengthData }) {
         <div className="p-4 md:p-6 bg-gray-50 border-t border-gray-200">
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-gray-700">
-              Powerlifting Total (Squat + Bench + Deadlift)
+              Powerlifting total
             </span>
-            <span className="text-xl md:text-2xl font-bold text-primary-600">
-              {strengthData.total} lbs
+            <span className="tabular whitespace-nowrap text-xl font-bold text-primary-600 md:text-2xl">
+ lbs
             </span>
           </div>
         </div>

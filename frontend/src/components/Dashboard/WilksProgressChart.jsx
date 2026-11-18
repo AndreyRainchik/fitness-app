@@ -101,7 +101,7 @@ function WilksProgressChart({ weeks = 12 }) {
 
   if (loading) {
     return (
-      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
         <h3 className="text-xl font-bold text-gray-900 mb-4">Percentile Progress</h3>
         <div className="h-64 flex items-center justify-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -112,7 +112,7 @@ function WilksProgressChart({ weeks = 12 }) {
 
   if (error) {
     return (
-      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
         <h3 className="text-xl font-bold text-gray-900 mb-4">Percentile Progress</h3>
         <div className="h-64 flex items-center justify-center">
           <p className="text-danger-600">{error}</p>
@@ -123,7 +123,7 @@ function WilksProgressChart({ weeks = 12 }) {
 
   if (chartData.length === 0) {
     return (
-      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-6">
+      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
         <h3 className="text-xl font-bold text-gray-900 mb-4">Percentile Progress</h3>
         <div className="h-64 flex items-center justify-center">
           <div className="text-center">
@@ -138,7 +138,7 @@ function WilksProgressChart({ weeks = 12 }) {
   }
 
   return (
-    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 md:p-6">
+    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
       {/* Header */}
       <div className="mb-6">
         <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
@@ -154,21 +154,24 @@ function WilksProgressChart({ weeks = 12 }) {
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={chartData}
-            margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+            margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--gray-200))" />
+            <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgb(var(--gray-200))" />
             <XAxis
               dataKey="dateFormatted"
               stroke="rgb(var(--gray-500))"
               style={{ fontSize: '12px' }}
-              angle={-45}
-              textAnchor="end"
-              height={60}
+              minTickGap={24}
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
             />
             <YAxis
               stroke="rgb(var(--gray-500))"
               style={{ fontSize: '12px' }}
-              label={{ value: 'Percentile', angle: -90, position: 'insideLeft', style: { fontSize: '12px' } }}
+              width={40}
+              tickLine={false}
+              axisLine={false}
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend 

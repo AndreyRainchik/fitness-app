@@ -27,7 +27,7 @@ function ExerciseBlock({
   const doneCount = exercise.sets.filter((s) => s.done).length;
 
   return (
-    <Card padding="p-3 sm:p-5" className="animate-fade-in">
+    <Card padding="p-2.5 sm:p-5" className="animate-fade-in">
       <div className="mb-3 flex items-start gap-2 sm:gap-3">
         <span className="mt-2 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-primary-50 text-xs font-bold text-primary-700">
           {index + 1}

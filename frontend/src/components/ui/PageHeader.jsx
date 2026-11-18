@@ -12,7 +12,7 @@ function PageHeader({ title, subtitle, actions, backTo, backLabel = 'Back', eyeb
       {backTo && (
         <Link
           to={backTo}
-          className="-ml-1 mb-3 inline-flex items-center gap-0.5 rounded-lg px-1 py-0.5 text-sm font-medium text-gray-500 hover:text-gray-900"
+          className="-ml-2 mb-2 inline-flex min-h-[40px] items-center gap-0.5 rounded-lg px-2 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           {backLabel}

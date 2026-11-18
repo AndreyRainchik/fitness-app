@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ChevronRight, ClipboardList, Play, Trash2 } from 'lucide-react';
 import { templatesAPI } from '../services/api';
+import { plural } from '../utils/format';
 import Layout from '../components/Layout/Layout';
 import {
   Alert,
@@ -79,9 +81,9 @@ function Templates() {
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto">
+      <div>
         <PageHeader
-          title="Workout Templates"
+          title="Templates"
           subtitle="Save and reuse your favorite workout routines"
         />
 
@@ -92,62 +94,52 @@ function Templates() {
         ) : templates.length === 0 ? (
           !error && (
             <EmptyState
-              icon="📋"
+              icon={ClipboardList}
               title="No templates yet"
               description="Open any saved workout and choose “Save as Template” to reuse it later."
               action={<Button to="/workouts">View Your Workouts</Button>}
             />
           )
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
             {templates.map((template) => (
-              <Card key={template.id} className="flex flex-col hover:shadow-md transition-shadow">
-                <div className="mb-4">
-                  <h2 className="text-xl font-bold text-gray-900 mb-2">
-                    <Link to={`/templates/${template.id}`} className="hover:text-primary-700">
-                      {template.name}
-                    </Link>
-                  </h2>
-                  {template.description && (
-                    <p className="text-sm text-gray-600">{template.description}</p>
-                  )}
+              <Card key={template.id} padding="p-4 sm:p-5" className="flex flex-col">
+                <Link to={`/templates/${template.id}`} className="group -m-1 mb-3 flex items-start gap-3 rounded-xl p-1">
+                  <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
+                    <ClipboardList className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold text-gray-900 group-hover:text-primary-700">{template.name}</span>
+                    <span className="block truncate text-sm text-gray-500">
+                      {template.description || `Created ${formatDate(template.created_at)}`}
+                    </span>
+                  </span>
+                  <ChevronRight className="mt-2.5 h-4 w-4 flex-shrink-0 text-gray-300" />
+                </Link>
+
+                <div className="mb-4 flex flex-wrap gap-1.5">
+                  <span className="chip">{plural(template.exercise_count, 'exercise')}</span>
+                  <span className="chip">{plural(template.total_sets, 'set')}</span>
                 </div>
 
-                <div className="flex gap-4 mb-4 text-sm">
-                  <div>
-                    <span className="text-gray-600">Exercises: </span>
-                    <span className="font-semibold text-gray-900">{template.exercise_count}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Sets: </span>
-                    <span className="font-semibold text-gray-900">{template.total_sets}</span>
-                  </div>
-                </div>
-
-                <p className="text-xs text-gray-500 mb-4">Created {formatDate(template.created_at)}</p>
-
-                <div className="mt-auto flex flex-col gap-2">
+                <div className="mt-auto flex gap-2">
                   <Button
-                    fullWidth
+                    className="flex-1"
+                    icon={Play}
                     onClick={() => handleStartWorkout(template.id)}
                     loading={startingId === template.id}
                     loadingText="Starting..."
                   >
-                    Start Workout
+                    Start workout
                   </Button>
-                  <div className="flex gap-2">
-                    <Button variant="secondary" to={`/templates/${template.id}`} className="flex-1">
-                      View
-                    </Button>
-                    <Button
-                      variant="danger-subtle"
-                      onClick={() => handleDelete(template)}
-                      className="flex-1"
-                      aria-label={`Delete ${template.name}`}
-                    >
-                      Delete
-                    </Button>
-                  </div>
+                  <Button
+                    variant="danger-subtle"
+                    iconOnly
+                    icon={Trash2}
+                    onClick={() => handleDelete(template)}
+                    aria-label={`Delete ${template.name}`}
+                    title="Delete template"
+                  />
                 </div>
               </Card>
             ))}

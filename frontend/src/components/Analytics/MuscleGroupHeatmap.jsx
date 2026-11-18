@@ -120,7 +120,7 @@ function MuscleGroupHeatmap() {
                     onMouseLeave={() => setActive(null)}
                     onFocus={() => setActive(group)}
                     onBlur={() => setActive(null)}
-                    className={`flex w-full items-center gap-3 rounded-lg px-2 py-1 text-left text-sm transition-colors ${active === group ? 'bg-gray-100' : ''}`}
+                    className={`flex min-h-[36px] w-full items-center gap-3 rounded-lg px-2 py-1 text-left text-sm transition-colors ${active === group ? 'bg-gray-100' : ''}`}
                   >
                     <span className={`w-24 flex-shrink-0 ${sets ? 'font-medium text-gray-800' : 'text-gray-400'}`}>{group}</span>
                     <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">

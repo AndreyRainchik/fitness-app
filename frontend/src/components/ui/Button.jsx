@@ -19,10 +19,11 @@ const VARIANTS = {
 };
 
 const SIZES = {
-  xs: 'h-8 px-2.5 text-xs rounded-lg',
-  sm: 'h-9 px-3 text-sm rounded-lg',
-  md: 'h-10 px-4 text-sm rounded-xl',
-  lg: 'h-12 px-5 text-base rounded-xl',
+  // min-h keeps the height when a stacked layout gives the button flex-basis 0 (flex-1 in a column)
+  xs: 'h-8 min-h-[2rem] px-2.5 text-xs rounded-lg',
+  sm: 'h-9 min-h-[2.25rem] px-3 text-sm rounded-lg',
+  md: 'h-10 min-h-[2.5rem] px-4 text-sm rounded-xl',
+  lg: 'h-12 min-h-[3rem] px-5 text-base rounded-xl',
 };
 
 const ICON_SIZES = { xs: 'h-8 w-8', sm: 'h-9 w-9', md: 'h-10 w-10', lg: 'h-12 w-12' };

@@ -81,7 +81,7 @@ function Workouts() {
         actions={(
           <>
             <Button variant="secondary" to="/workout/new" icon={Plus}>Log past workout</Button>
-            <Button to="/workout/active" icon={Dumbbell}>Start workout</Button>
+            <Button to="/workout/active" icon={Dumbbell} className="hidden sm:inline-flex">Start workout</Button>
           </>
         )}
       />
@@ -143,7 +143,7 @@ function Workouts() {
                         <li key={workout.id} className="group relative">
                           <Link
                             to={`/workout/${workout.id}`}
-                            className="flex items-center gap-3 rounded-xl p-2.5 pr-12 transition-colors hover:bg-gray-50 sm:gap-4 sm:p-3 sm:pr-14"
+                            className="flex items-center gap-3 rounded-xl p-2.5 transition-colors hover:bg-gray-50 active:bg-gray-100 sm:gap-4 sm:p-3 sm:pr-14"
                           >
                             <span className="flex h-12 w-12 flex-shrink-0 flex-col items-center justify-center rounded-xl bg-gray-100 leading-none">
                               <span className="text-[10px] font-semibold uppercase text-gray-500">{formatDate(workout.date, { weekday: 'short' })}</span>
@@ -154,7 +154,16 @@ function Workouts() {
                                 <span className="truncate font-semibold text-gray-900">{workout.name || 'Untitled workout'}</span>
                                 <span className="hidden flex-shrink-0 text-xs text-gray-400 sm:inline">{relativeDay(workout.date)}</span>
                               </span>
-                              <span className="mt-1 flex flex-wrap gap-1">
+                              <span className="mt-1 block truncate text-xs text-gray-500 sm:hidden">
+                                {(workout.exercises || []).map((ex) => ex.name).join(' · ') || 'No exercises'}
+                              </span>
+                              <span className="tabular mt-0.5 block text-xs text-gray-400 sm:hidden">
+                                {[
+                                  workout.total_volume > 0 ? `${formatCompact(workout.total_volume)} ${units}` : null,
+                                  workout.duration_minutes > 0 ? `${workout.duration_minutes} min` : null,
+                                ].filter(Boolean).join(' · ')}
+                              </span>
+                              <span className="mt-1 hidden flex-wrap gap-1 sm:flex">
                                 {(workout.exercises || []).slice(0, 3).map((ex) => (
                                   <span key={ex.name} className="chip !py-0.5">{ex.name}</span>
                                 ))}
@@ -175,12 +184,12 @@ function Workouts() {
                                 </span>
                               )}
                             </span>
-                            <ChevronRight className="hidden h-4 w-4 flex-shrink-0 text-gray-300 sm:block" />
+                            <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-300 sm:hidden" />
                           </Link>
                           <button
                             type="button"
                             onClick={() => handleDeleteWorkout(workout)}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-gray-300 transition-colors hover:bg-danger-50 hover:text-danger-600 sm:opacity-0 sm:focus:opacity-100 sm:group-hover:opacity-100"
+                            className="absolute right-2 top-1/2 hidden -translate-y-1/2 rounded-lg p-2 text-gray-300 transition-colors hover:bg-danger-50 hover:text-danger-600 sm:block sm:opacity-0 sm:focus:opacity-100 sm:group-hover:opacity-100"
                             aria-label={`Delete ${workout.name || 'workout'}`}
                             title="Delete workout"
                           >

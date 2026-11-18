@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Dumbbell, Ellipsis, LogOut, Play, Plus, X } from 'lucide-react';
+import { Dumbbell, Ellipsis, LogOut, NotebookPen, Play, Plus, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useWorkoutDraft } from '../../utils/workoutDraft';
 import { NAV_ITEMS, isActivePath } from './nav';
 import ThemeToggle from './ThemeToggle';
+
+// Extra shortcuts that only appear in the phone "More" sheet
+const SHEET_EXTRAS = [{ to: '/workout/new', label: 'Log past', icon: NotebookPen, exact: true }];
 
 function Logo({ compact = false }) {
   return (
@@ -115,9 +118,9 @@ function MoreSheet({ open, onClose, user, onLogout }) {
           </button>
         </div>
         <nav className="grid grid-cols-3 gap-2" aria-label="All pages">
-          {NAV_ITEMS.map((item) => {
+          {[...NAV_ITEMS, ...SHEET_EXTRAS].map((item) => {
             const Icon = item.icon;
-            const active = isActivePath(pathname, item);
+            const active = item.exact ? pathname === item.to : isActivePath(pathname, item);
             return (
               <Link
                 key={item.to}
@@ -256,7 +259,7 @@ function Layout({ children, focus = false, width = 'max-w-6xl' }) {
       )}
 
       <main className={focus ? '' : 'lg:pl-64'}>
-        <div className={`mx-auto ${width} px-4 pt-6 sm:px-6 lg:px-8 lg:pt-10 ${focus ? 'pb-40' : 'pb-safe-nav lg:pb-10'}`}>
+        <div className={`mx-auto ${width} px-3 pt-6 min-[360px]:px-4 sm:px-6 lg:px-8 lg:pt-10 ${focus ? 'pb-40' : 'pb-safe-nav lg:pb-10'}`}>
           {showDraftBanner && <DraftBanner draft={draft} />}
           <div className="animate-fade-in">{children}</div>
         </div>

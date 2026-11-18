@@ -12,6 +12,7 @@ export const NAV_ITEMS = [
 ];
 
 export function isActivePath(pathname, item) {
+  if (pathname === '/workout/new' || pathname === '/workout/active') return item.to === pathname;
   const prefixes = item.match ?? [item.to];
   return prefixes.some((p) => pathname === p || pathname.startsWith(p.endsWith('/') ? p : `${p}/`));
 }

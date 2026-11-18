@@ -14,7 +14,7 @@ const getPlateColor = (weight) => {
   if (w === 20) return 'bg-primary-500';
   
   // Yellow plates: 15 kg, 25 lbs
-  if (w === 15 || w === 25) return 'bg-yellow-500';
+  if (w === 15) return 'bg-yellow-500';
   
   // Green plates: 10 kg, 10 lbs, 5 lbs, 5 kg
   if (w === 10 || w === 5) return 'bg-success-500';
@@ -38,163 +38,113 @@ const getTextColor = (weight) => {
   return 'text-gray-800';
 };
 
+// Plate height by weight, so the bar reads like the real thing
+const plateHeight = (weight) => {
+  const w = parseFloat(weight);
+  if (w >= 35) return 'h-14';
+  if (w >= 25) return 'h-12';
+  if (w >= 10) return 'h-10';
+  if (w >= 5) return 'h-8';
+  return 'h-6';
+};
+
 /**
- * PlateCalculator Component
- * Shows what plates to load on the barbell for a target weight
- * Expandable/collapsible with click
+ * What to load for a target weight: one side of the bar (the other side
+ * mirrors it), plus the per-side total. Fetches when mounted.
  */
-const PlateCalculator = ({ targetWeight, className = '' }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+export function PlateLoadout({ targetWeight }) {
   const [platesData, setPlatesData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (isExpanded && targetWeight) {
-      calculatePlates();
-    }
-  }, [isExpanded, targetWeight]);
-
-  const calculatePlates = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await profileAPI.calculatePlates(targetWeight);
-      setPlatesData(data);
-    } catch (err) {
-      console.error('Error calculating plates:', err);
-      if(err.message.includes('active plate preset')) {
-        setError('No active plate preset selected');
-      } else {
-        setError('Failed to calculate plates');
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await profileAPI.calculatePlates(targetWeight);
+        if (!cancelled) setPlatesData(data);
+      } catch (err) {
+        console.error('Error calculating plates:', err);
+        if (!cancelled) {
+          setError(err.message?.includes('active plate preset') ? 'No active plate preset selected' : 'Failed to calculate plates');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  };
+    })();
+    return () => { cancelled = true; };
+  }, [targetWeight]);
 
-  const toggleExpanded = () => {
-    setIsExpanded(!isExpanded);
-  };
+  return (
+    <div className="rounded-xl bg-gray-50 p-3">
+      {loading && <div className="text-sm text-gray-500">Calculating plates…</div>}
+      {error && <div className="text-sm text-danger-600">{error}</div>}
+      {platesData && !loading && (
+        <>
+          {platesData.plates && platesData.plates.length > 0 ? (
+            <div className="flex items-center gap-3">
+              {/* One side of the bar: sleeve, then plates heaviest first */}
+              <div className="flex min-w-0 flex-1 items-center overflow-x-auto scrollbar-none" aria-label="Plates per side">
+                <span className="h-3 w-6 flex-shrink-0 rounded-l-sm bg-gray-400" aria-hidden="true" />
+                <span className="h-5 w-1.5 flex-shrink-0 rounded-sm bg-gray-500" aria-hidden="true" />
+                <span className="flex items-center gap-[3px] pl-[3px]">
+                  {platesData.plates.map((plate, index) => (
+                    <span
+                      key={index}
+                      className={`${getPlateColor(plate)} ${getTextColor(plate)} ${plateHeight(plate)} flex w-7 flex-shrink-0 items-center justify-center rounded-[4px] text-[10px] font-bold shadow-sm`}
+                      title={`${plate} lbs`}
+                    >
+                      {plate}
+                    </span>
+                  ))}
+                </span>
+                <span className="h-3 w-8 flex-shrink-0 rounded-r-sm bg-gray-400" aria-hidden="true" />
+              </div>
+              <div className="flex-shrink-0 text-right">
+                <p className="tabular text-sm font-semibold text-gray-900">{platesData.per_side} lbs</p>
+                <p className="text-[11px] text-gray-500">per side</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm font-medium text-gray-700">Empty bar</p>
+          )}
+          {!platesData.exact && (
+            <p className="mt-2 rounded-lg bg-warning-50 px-2 py-1 text-xs text-warning-700">
+              Approximate: not enough plates for {targetWeight} lbs exactly
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * PlateCalculator: a "Plates" toggle that reveals PlateLoadout.
+ */
+const PlateCalculator = ({ targetWeight, className = '' }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
 
   if (!targetWeight || targetWeight <= 0) {
     return null;
   }
 
   return (
-    <div className={`${className}`}>
-      {/* Toggle Button */}
+    <div className={className}>
       <button
-        onClick={toggleExpanded}
-        className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 transition-colors"
+        type="button"
+        onClick={() => setIsExpanded((v) => !v)}
+        className="-mx-2 flex min-h-[36px] items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-primary-600 hover:bg-primary-50"
         aria-expanded={isExpanded}
       >
-        <svg
-          className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
-        <span className="font-medium">Show plate loading</span>
+        Plate loading
       </button>
-
-      {/* Expanded Content */}
-      {isExpanded && (
-        <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-          {loading && (
-            <div className="text-sm text-gray-600">Calculating plates...</div>
-          )}
-
-          {error && (
-            <div className="text-sm text-danger-600">{error}</div>
-          )}
-
-          {platesData && !loading && (
-            <div className="space-y-3">
-              {/* Summary */}
-              <div className="text-sm text-gray-700">
-                <span className="font-semibold">{targetWeight} lbs</span>
-                {' = '}
-                <span>Bar ({platesData.total === targetWeight ? 'exact' : 'approx'})</span>
-              </div>
-
-              {/* Visual Barbell */}
-              {platesData.plates && platesData.plates.length > 0 ? (
-                <div className="flex items-center justify-center gap-1 py-2">
-                  {/* Left side plates (smallest to largest from center) */}
-                  <div className="flex items-center gap-1">
-                    {[...platesData.plates].reverse().map((plate, index) => (
-                      <div
-                        key={`left-${index}`}
-                        className={`
-                          ${getPlateColor(plate)}
-                          ${getTextColor(plate)}
-                          px-2 py-3 rounded
-                          text-xs font-bold
-                          shadow-sm
-                          min-w-[32px] text-center
-                        `}
-                        title={`${plate} lbs`}
-                      >
-                        {plate}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Bar */}
-                  <div className="px-3 py-2 bg-gray-700 text-white text-xs font-bold rounded">
-                    BAR
-                  </div>
-
-                  {/* Right side plates (mirrored) */}
-                  <div className="flex items-center gap-1">
-                    {[...platesData.plates].map((plate, index) => (
-                      <div
-                        key={`right-${index}`}
-                        className={`
-                          ${getPlateColor(plate)}
-                          ${getTextColor(plate)}
-                          px-2 py-3 rounded
-                          text-xs font-bold
-                          shadow-sm
-                          min-w-[32px] text-center
-                        `}
-                        title={`${plate} lbs`}
-                      >
-                        {plate}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-2">
-                  <div className="px-3 py-2 bg-gray-700 text-white text-xs font-bold rounded inline-block">
-                    BAR ONLY
-                  </div>
-                </div>
-              )}
-
-              {/* Per Side Info */}
-              {platesData.plates && platesData.plates.length > 0 && (
-                <div className="text-xs text-gray-600 text-center">
-                  <span className="font-medium">{platesData.per_side} lbs per side</span>
-                  {' · '}
-                  <span>{platesData.plates.length} plate{platesData.plates.length !== 1 ? 's' : ''} each side</span>
-                </div>
-              )}
-
-              {/* Warning if not exact */}
-              {!platesData.exact && (
-                <div className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
-                  ⚠️ Approximate - insufficient plates for exact weight
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      {isExpanded && <div className="mt-1"><PlateLoadout targetWeight={targetWeight} /></div>}
     </div>
   );
 };

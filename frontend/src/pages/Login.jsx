@@ -48,7 +48,7 @@ function Login() {
     <AuthLayout
       title="Welcome back"
       subtitle="Sign in to pick up where you left off."
-      footer={<>Don't have an account?{' '}<Link to="/register" className="font-semibold text-primary-600 hover:text-primary-700">Sign up</Link></>}
+      footer={<>Don't have an account?{' '}<Link to="/register" className="inline-block py-2.5 font-semibold text-primary-600 hover:text-primary-700">Sign up</Link></>}
     >
         {error && (
           <Alert className="mb-4">

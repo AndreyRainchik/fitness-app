@@ -1,4 +1,5 @@
 import React from 'react';
+import { Badge, Card } from '../ui';
 
 /**
  * StrengthScoreCard
@@ -10,123 +11,66 @@ import React from 'react';
  * - Progress to next level
  * - Recent PR
  */
-function StrengthScoreCard({ lift }) {
+const LEVEL_TONES = {
+  Elite: 'purple',
+  Advanced: 'danger',
+  Intermediate: 'warning',
+  Novice: 'primary',
+  Beginner: 'success',
+  Untrained: 'neutral',
+};
+
+const fmtDate = (d) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+/**
+ * One lift's strength summary: estimated 1RM, standard level, progress to
+ * the next level, and the most recent PR.
+ */
+function StrengthScoreCard({ lift, title }) {
   if (!lift || lift.estimated1RM === 0) {
     return (
-      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-6">
-        <div className="text-center text-gray-500">
-          <p className="text-sm">No data available</p>
-        </div>
-      </div>
+      <Card padding="p-4 sm:p-5">
+        <p className="font-semibold text-gray-900">{title}</p>
+        <p className="mt-1 text-sm text-gray-500">No data yet</p>
+      </Card>
     );
   }
 
-  // Color based on standard level
-  const getStandardColor = (standard) => {
-    const colors = {
-      'Elite': 'text-purple-600',
-      'Advanced': 'text-danger-600',
-      'Intermediate': 'text-orange-600',
-      'Novice': 'text-yellow-600',
-      'Beginner': 'text-success-600',
-      'Untrained': 'text-gray-600',
-    };
-    return colors[standard] || 'text-gray-600';
-  };
-
-  const getBgColor = (standard) => {
-    const colors = {
-      'Elite': 'bg-purple-50',
-      'Advanced': 'bg-danger-50',
-      'Intermediate': 'bg-orange-50',
-      'Novice': 'bg-yellow-50',
-      'Beginner': 'bg-success-50',
-      'Untrained': 'bg-gray-50',
-    };
-    return colors[standard] || 'bg-gray-50';
-  };
-
-  const getBorderColor = (standard) => {
-    const colors = {
-      'Elite': 'border-purple-200',
-      'Advanced': 'border-danger-200',
-      'Intermediate': 'border-orange-200',
-      'Novice': 'border-yellow-200',
-      'Beginner': 'border-success-200',
-      'Untrained': 'border-gray-200',
-    };
-    return colors[standard] || 'border-gray-200';
-  };
-
-  // Calculate progress percentage to next level
-  const getProgressPercentage = () => {
-    if (!lift.nextLevel) return 100;
-    const current = lift.estimated1RM;
-    const target = lift.nextLevel.weight;
-    // Assume we started from 0 for simplicity
-    return Math.min(Math.round((current / target) * 100), 100);
-  };
-
-  const progressPercentage = getProgressPercentage();
+  const progress = lift.nextLevel ? Math.min(Math.round((lift.estimated1RM / lift.nextLevel.weight) * 100), 100) : 100;
 
   return (
-    <div className={`bg-surface rounded-2xl border border-gray-200/80 shadow-card p-6 border-l-4 ${getBorderColor(lift.standard)}`}>
-      {/* 1RM Display */}
-      <div className="mb-4">
-        <p className="text-3xl font-bold tracking-tight text-gray-900">
+    <Card padding="p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-semibold text-gray-900">{title}</p>
+        <Badge tone={LEVEL_TONES[lift.standard] ?? 'neutral'}>{lift.standard}</Badge>
+      </div>
+
+      <div className="mt-2 flex items-baseline gap-2">
+        <p className="tabular text-3xl font-bold tracking-tight text-gray-900">
           {lift.estimated1RM}
-          <span className="text-lg md:text-xl text-gray-500 ml-2">lbs</span>
+          <span className="ml-1 text-sm font-medium text-gray-500">lbs</span>
         </p>
-        <p className="text-sm text-gray-600 mt-1">Estimated 1RM</p>
+        <p className="text-xs text-gray-500">est. 1RM · {lift.percentile}th pct</p>
       </div>
 
-      {/* Standard Badge */}
-      <div className={`inline-block px-3 py-1 rounded-full ${getBgColor(lift.standard)} mb-4`}>
-        <span className={`text-sm font-semibold ${getStandardColor(lift.standard)}`}>
-          {lift.standard}
-        </span>
-        <span className="text-sm text-gray-600 ml-2">
-          ({lift.percentile}th percentile)
-        </span>
-      </div>
-
-      {/* Next Level Progress */}
       {lift.nextLevel && (
-        <div className="mb-4">
-          <div className="flex justify-between text-sm mb-2">
-            <span className="text-gray-600">Next: {lift.nextLevel.level}</span>
-            <span className="font-semibold text-gray-700">{lift.nextLevel.weight} lbs</span>
+        <div className="mt-3">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+            <div className="h-full rounded-full bg-primary-500 transition-all duration-500" style={{ width: `${progress}%` }} />
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-primary-600 h-2 rounded-full transition-all duration-500"
-              style={{ width: `${progressPercentage}%` }}
-            />
-          </div>
-          <p className="text-xs text-gray-500 mt-1">
-            {(lift.nextLevel.weight - lift.estimated1RM).toFixed(1)} lbs to go
+          <p className="tabular mt-1.5 flex justify-between gap-2 text-xs text-gray-500">
+            <span>{(lift.nextLevel.weight - lift.estimated1RM).toFixed(1)} lbs to {lift.nextLevel.level}</span>
+            <span className="font-medium text-gray-700">{lift.nextLevel.weight} lbs</span>
           </p>
         </div>
       )}
 
-      {/* Recent PR */}
       {lift.recentPR && (
-        <div className="pt-4 border-t border-gray-200">
-          <p className="text-xs text-gray-600 mb-1">Recent PR</p>
-          <p className="text-sm font-medium text-gray-900">
-            {lift.recentPR.weight} lbs × {lift.recentPR.reps} reps
-          </p>
-          <p className="text-xs text-gray-500">
-            {new Date(lift.recentPR.date).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-              timeZone: 'UTC'
-            })}
-          </p>
-        </div>
+        <p className="tabular mt-3 border-t border-gray-100 pt-3 text-xs text-gray-500">
+          Recent PR <span className="font-semibold text-gray-900">{lift.recentPR.weight} × {lift.recentPR.reps}</span> · {fmtDate(lift.recentPR.date)}
+        </p>
       )}
-    </div>
+    </Card>
   );
 }
 

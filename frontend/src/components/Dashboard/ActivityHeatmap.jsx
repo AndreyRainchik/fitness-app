@@ -47,37 +47,35 @@ function ActivityHeatmap({ activity = [] }) {
 
   return (
     <div>
-      <div className="scrollbar-none overflow-x-auto">
-        <div className="inline-flex flex-col gap-1.5">
-          <div className="ml-8 flex gap-[3px] text-[10px] text-gray-400">
-            {columns.map((_, i) => {
-              const label = months.find((m) => m.index === i);
+      {/* Fluid grid: cells shrink to fit any card width, no sideways scrolling */}
+      <div
+        className="grid max-w-xl gap-[3px] sm:gap-1"
+        style={{ gridTemplateColumns: `1.75rem repeat(${WEEKS}, minmax(0, 1fr))` }}
+      >
+        <span />
+        {columns.map((_, i) => {
+          const label = months.find((m) => m.index === i);
+          return (
+            <span key={`m${i}`} className="overflow-visible whitespace-nowrap text-[10px] leading-4 text-gray-400">
+              {label?.label ?? ''}
+            </span>
+          );
+        })}
+        {DAY_LABELS.map((dayLabel, d) => (
+          <React.Fragment key={`r${d}`}>
+            <span className="flex items-center text-[10px] leading-none text-gray-400">{dayLabel}</span>
+            {columns.map((col) => {
+              const cell = col[d];
               return (
-                <span key={i} className="w-3.5 overflow-visible whitespace-nowrap sm:w-4">
-                  {label?.label ?? ''}
-                </span>
+                <span
+                  key={cell.date}
+                  className={`aspect-square w-full rounded-[3px] sm:rounded-[4px] ${cellClass(cell)}`}
+                  title={cell.future ? undefined : `${formatDate(cell.date, { weekday: 'short', month: 'short', day: 'numeric' })}: ${cell.count} workout${cell.count === 1 ? '' : 's'}`}
+                />
               );
             })}
-          </div>
-          <div className="flex gap-[3px]">
-            <div className="mr-1 flex w-7 flex-col gap-[3px] text-[10px] text-gray-400">
-              {DAY_LABELS.map((d, i) => (
-                <span key={i} className="flex h-3.5 items-center sm:h-4">{d}</span>
-              ))}
-            </div>
-            {columns.map((col, i) => (
-              <div key={i} className="flex flex-col gap-[3px]">
-                {col.map((cell) => (
-                  <span
-                    key={cell.date}
-                    className={`h-3.5 w-3.5 rounded-[4px] sm:h-4 sm:w-4 ${cellClass(cell)}`}
-                    title={cell.future ? undefined : `${formatDate(cell.date, { weekday: 'short', month: 'short', day: 'numeric' })}: ${cell.count} workout${cell.count === 1 ? '' : 's'}`}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
+          </React.Fragment>
+        ))}
       </div>
       <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
         <span>{total} workouts in the last {WEEKS} weeks</span>
