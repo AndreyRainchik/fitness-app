@@ -268,7 +268,7 @@ function StrengthStandardsTable({ strengthData }) {
               Powerlifting total
             </span>
             <span className="tabular whitespace-nowrap text-xl font-bold text-primary-600 md:text-2xl">
- lbs
+              {strengthData.total} lbs
             </span>
           </div>
         </div>
