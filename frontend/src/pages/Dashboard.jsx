@@ -105,7 +105,7 @@ function Dashboard() {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [insightTab, setInsightTab] = useState('muscles');
+  const [insightTab, setInsightTab] = useState('strength');
   const [startingId, setStartingId] = useState(null);
 
   useEffect(() => {
@@ -302,12 +302,12 @@ function Dashboard() {
                 active={insightTab}
                 onChange={setInsightTab}
                 tabs={[
-                  { id: 'muscles', label: 'Muscles this week' },
                   { id: 'strength', label: 'Strength trend' },
+                  { id: 'muscles', label: 'Muscles this week' },
                 ]}
               />
             </div>
-            {insightTab === 'muscles' ? <MuscleGroupHeatmap /> : <WilksProgressChart weeks={12} />}
+            {insightTab === 'strength' ? <WilksProgressChart weeks={12} /> : <MuscleGroupHeatmap />}
           </section>
         </div>
       )}
