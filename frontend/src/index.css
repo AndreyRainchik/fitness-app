@@ -277,14 +277,13 @@
   .chip {
     @apply inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700;
   }
-
-  /* Bottom padding that clears the mobile tab bar and the iOS home indicator */
-  .pb-safe-nav {
-    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
-  }
 }
 
 @layer utilities {
+  /* Bottom padding that clears the mobile tab bar and the iOS home indicator */
+  .pb-safe-nav {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+  }
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }

@@ -256,7 +256,7 @@ function Layout({ children, focus = false, width = 'max-w-6xl' }) {
       )}
 
       <main className={focus ? '' : 'lg:pl-64'}>
-        <div className={`mx-auto ${width} px-4 py-6 sm:px-6 lg:px-8 lg:py-10 ${focus ? 'pb-40' : 'pb-safe-nav lg:pb-10'}`}>
+        <div className={`mx-auto ${width} px-4 pt-6 sm:px-6 lg:px-8 lg:pt-10 ${focus ? 'pb-40' : 'pb-safe-nav lg:pb-10'}`}>
           {showDraftBanner && <DraftBanner draft={draft} />}
           <div className="animate-fade-in">{children}</div>
         </div>
