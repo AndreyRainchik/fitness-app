@@ -271,7 +271,10 @@
     appearance: none;
     min-width: 0;
     max-width: 100%;
-    display: block;
+    /* Without native appearance iOS pins the value to the top of the box;
+       flex centers it vertically at every input height (sm/md/lg). */
+    display: flex;
+    align-items: center;
   }
   input[type='date']::-webkit-date-and-time-value,
   input[type='datetime-local']::-webkit-date-and-time-value,
@@ -279,6 +282,8 @@
   input[type='month']::-webkit-date-and-time-value {
     text-align: left;
     margin: 0;
+    padding: 0;
+    line-height: 1.5;
   }
 
   :focus-visible {
