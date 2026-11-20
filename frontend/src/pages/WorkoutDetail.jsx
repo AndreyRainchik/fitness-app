@@ -162,6 +162,7 @@ function WorkoutDetail() {
             <>
               {formatDate(workout.date)}
               {workout.duration_minutes > 0 && ` · ${workout.duration_minutes} min`}
+              {workout.hevy_workout_id && ' · Imported from Hevy'}
             </>
           )}
           actions={(

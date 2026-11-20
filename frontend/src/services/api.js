@@ -739,7 +739,43 @@ export const platePresetsAPI = {
   },
 };
 
+/**
+ * Hevy import API calls (see backend/src/routes/hevy.js)
+ */
+export const hevyAPI = {
+  /** { connected, key_hint?, hevy_username?, last_synced_at?, key_readable? } */
+  getStatus: () => apiCall('/hevy/status'),
+
+  /** Saves the key after Hevy accepts it */
+  connect: (apiKey) => apiCall('/hevy/connection', {
+    method: 'PUT',
+    body: JSON.stringify({ api_key: apiKey }),
+  }),
+
+  disconnect: () => apiCall('/hevy/connection', { method: 'DELETE' }),
+
+  /** mode 'all' (every workout, newest first) or 'new' (changed in Hevy since the last import) */
+  listWorkouts: (page = 1, mode = 'all') => apiCall(`/hevy/workouts?page=${page}&mode=${mode}`),
+
+  /** Exercises the chosen workouts use, with suggested matches */
+  preview: (workoutIds) => apiCall('/hevy/preview', {
+    method: 'POST',
+    body: JSON.stringify({ workout_ids: workoutIds }),
+  }),
+
+  /** exercises: { [templateId]: { exercise_id } | { create: {...} } | { skip: true } } */
+  importWorkouts: (workoutIds, exercises) => apiCall('/hevy/import', {
+    method: 'POST',
+    body: JSON.stringify({
+      workout_ids: workoutIds,
+      exercises,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    }),
+  }),
+};
+
 export default {
+  hevy: hevyAPI,
   auth: authAPI,
   exercises: exercisesAPI,
   workouts: workoutsAPI,

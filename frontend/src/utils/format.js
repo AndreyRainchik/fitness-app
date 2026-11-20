@@ -22,6 +22,14 @@ export function relativeDay(value) {
   return formatDate(value, { month: 'short', day: 'numeric', ...(diff > 300 ? { year: 'numeric' } : {}) });
 }
 
+/** Server timestamp -> "Nov 18, 2026, 6:30 PM" in the user's timezone. */
+export function formatTimestamp(iso) {
+  if (!iso) return '';
+  // SQLite CURRENT_TIMESTAMP ("2026-11-18 23:30:00") has no zone marker but is UTC
+  const value = /[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : `${String(iso).replace(' ', 'T')}Z`;
+  return new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
 /** 12400 -> "12,400" */
 export function formatNumber(value, digits = 0) {
   return Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: digits });

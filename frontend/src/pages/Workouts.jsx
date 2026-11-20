@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, Clock, Dumbbell, Plus, Search, Trash2, X } from 'lucide-react';
+import { ChevronRight, Clock, Download, Dumbbell, Plus, Search, Trash2, X } from 'lucide-react';
 import { workoutsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout/Layout';
@@ -81,6 +81,7 @@ function Workouts() {
         actions={(
           <>
             <Button variant="secondary" to="/workout/new" icon={Plus}>Log past workout</Button>
+            <Button variant="secondary" to="/import/hevy" icon={Download}>Import from Hevy</Button>
             <Button to="/workout/active" icon={Dumbbell} className="hidden sm:inline-flex">Start workout</Button>
           </>
         )}

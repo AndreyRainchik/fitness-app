@@ -1,7 +1,8 @@
 import React from 'react';
 import { Check, X } from 'lucide-react';
 
-const RPE_OPTIONS = [...Array(11).keys()]; // 0–10
+// 0–10 in half steps (Hevy logs RPE like 8.5). RPE is optional: '–' leaves it empty.
+const RPE_OPTIONS = Array.from({ length: 21 }, (_, i) => i / 2);
 
 /**
  * Column layout shared by SetRow and SetRowHeader:

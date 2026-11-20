@@ -6,6 +6,8 @@ import BodyweightChart from '../components/Profile/BodyweightChart';
 import BodyweightLog from '../components/Profile/BodyweightLog';
 import SecuritySettings from '../components/Profile/SecuritySettings';
 import PlateInventory from '../components/PlateCalculator/PlateInventory.jsx';
+import HevyConnectionCard from '../components/Hevy/HevyConnectionCard';
+import { hevyAPI } from '../services/api';
 import Layout from '../components/Layout/Layout';
 import { Button, EmptyState, LoadingState, PageHeader, Tabs } from '../components/ui';
 
@@ -14,7 +16,22 @@ const TABS = [
   { id: 'bodyweight', label: 'Bodyweight' },
   { id: 'security', label: 'Security' },
   { id: 'plates', label: 'Plates' },
+  { id: 'integrations', label: 'Integrations' },
 ];
+
+/** Connected services (currently just Hevy). */
+function IntegrationsTab() {
+  const [status, setStatus] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    hevyAPI.getStatus().then(setStatus).catch((err) => setError(err.message || 'Could not load integrations'));
+  }, []);
+
+  if (error) return <EmptyState tone="error" title="Couldn't load integrations" description={error} />;
+  if (!status) return <LoadingState label="Loading integrations..." />;
+  return <HevyConnectionCard status={status} onChange={setStatus} showImportLink />;
+}
 
 function Profile() {
   const location = useLocation();
@@ -95,6 +112,8 @@ function Profile() {
         )}
 
         {activeTab === 'plates' && <PlateInventory />}
+
+        {activeTab === 'integrations' && <IntegrationsTab />}
       </>
     );
   }

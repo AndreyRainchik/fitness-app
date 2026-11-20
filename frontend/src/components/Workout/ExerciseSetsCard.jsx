@@ -35,7 +35,12 @@ export function ExerciseSetsCard({ group, units }) {
                   {formatNumber(set.weight, 2)} <span className="text-xs font-medium text-gray-500">{units}</span> × {set.reps}
                 </span>
                 <span className="tabular block text-xs text-gray-500">
-                  {[set.rpe != null && !warmup ? `RPE ${set.rpe}` : null, `${formatNumber(set.weight * set.reps)} ${units}`].filter(Boolean).join(' · ')}
+                  {/* RPE only shows when one was logged */}
+                  {[
+                    set.rpe != null && !warmup ? `RPE ${set.rpe}` : null,
+                    `${formatNumber(set.weight * set.reps)} ${units}`,
+                    set.notes || null,
+                  ].filter(Boolean).join(' · ')}
                 </span>
               </span>
               {hasPR && (
