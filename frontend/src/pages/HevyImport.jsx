@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, RefreshCw, TriangleAlert,
 } from 'lucide-react';
@@ -525,10 +525,14 @@ function ResultStep({ result, onAgain }) {
 // ---------------------------------------------------------------------------
 
 function HevyImport() {
+  // The dashboard can send one workout to import: { importWorkout: summary }.
+  // It starts selected, on the review step.
+  const location = useLocation();
+  const preselected = location.state?.importWorkout;
   const [status, setStatus] = useState(null);
   const [statusError, setStatusError] = useState('');
-  const [step, setStep] = useState('select');
-  const [selected, setSelected] = useState(() => new Map());
+  const [step, setStep] = useState(preselected ? 'review' : 'select');
+  const [selected, setSelected] = useState(() => new Map(preselected ? [[preselected.id, preselected]] : []));
   const [result, setResult] = useState(null);
   // Which list and page the picker shows; kept here so it survives the review step
   const [view, setView] = useState({ mode: 'new', page: 1 });
