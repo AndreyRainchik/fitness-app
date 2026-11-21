@@ -22,6 +22,10 @@ function EditWorkout() {
       try {
         const { workout } = await workoutsAPI.getById(id);
         if (cancelled) return;
+        if (workout.kind === 'cardio') {
+          navigate(`/cardio/${id}/edit`, { replace: true });
+          return;
+        }
         setInitialValues({
           name: workout.name || '',
           date: workout.date,
@@ -38,7 +42,7 @@ function EditWorkout() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, navigate]);
 
   const handleSave = async ({ name, date, notes, sets }) => {
     // Updates the workout and replaces its set list in one request

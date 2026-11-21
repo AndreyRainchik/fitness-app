@@ -38,12 +38,14 @@ export async function initDatabase() {
         // Column already exists, ignore
       }
       ensureHevySchema();
+      ensureCardioSchema();
       saveDatabase();
     } else {
       console.log('🆕 Creating new database...');
       db = new SQL.Database();
       createTables();
       ensureHevySchema();
+      ensureCardioSchema();
       seedExercises();
       saveDatabase();
     }
@@ -298,6 +300,53 @@ function ensureHevySchema() {
       synced_at TEXT NOT NULL,
       PRIMARY KEY (user_id, date),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+}
+
+/**
+ * Tables and columns for cardio sessions (runs, rides, rows, bouldering).
+ * Safe to run on every start: each step is skipped when already applied.
+ *
+ * A cardio session is a row in `workouts` with kind = 'cardio' plus one row in
+ * `cardio_sessions`, so history, streaks and the activity heatmap see every
+ * session. `session_metrics` holds heart rate and calories for any session,
+ * strength included (filled in from the watch once Strava sync exists).
+ */
+function ensureCardioSchema() {
+  // 'strength' (sets) or 'cardio' (a cardio_sessions row). start_time is the
+  // ISO timestamp the session started, when known (to match the same session
+  // arriving from different sources).
+  for (const column of ["kind TEXT NOT NULL DEFAULT 'strength'", 'start_time TEXT']) {
+    try {
+      db.run(`ALTER TABLE workouts ADD COLUMN ${column}`);
+    } catch (e) {
+      // Column already exists
+    }
+  }
+  db.run('CREATE INDEX IF NOT EXISTS idx_workouts_user_kind_date ON workouts(user_id, kind, date)');
+
+  // duration_s is moving time; distance and elevation in metres
+  db.run(`
+    CREATE TABLE IF NOT EXISTS cardio_sessions (
+      workout_id INTEGER PRIMARY KEY,
+      sport TEXT NOT NULL CHECK(sport IN ('run', 'ride', 'row', 'boulder', 'other')),
+      environment TEXT CHECK(environment IN ('indoor', 'outdoor')),
+      duration_s INTEGER NOT NULL,
+      distance_m REAL,
+      elevation_gain_m REAL,
+      avg_cadence REAL,
+      FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS session_metrics (
+      workout_id INTEGER PRIMARY KEY,
+      avg_hr INTEGER,
+      max_hr INTEGER,
+      calories INTEGER,
+      FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE
     )
   `);
 }

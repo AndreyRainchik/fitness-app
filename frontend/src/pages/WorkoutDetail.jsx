@@ -17,6 +17,8 @@ import {
 import { groupSetsByExercise } from '../utils/workoutPayload';
 import { formatNumber } from '../utils/format';
 import { ExerciseSetsCard, WorkoutStats } from '../components/Workout/ExerciseSetsCard';
+import CardioSessionView from '../components/Cardio/CardioSessionView';
+import { distanceUnit, sessionTitle, sportInfo } from '../utils/cardio';
 
 function WorkoutDetail() {
   const { id } = useParams();
@@ -59,7 +61,9 @@ function WorkoutDetail() {
   const handleDelete = async () => {
     const confirmed = await confirm({
       title: 'Delete workout?',
-      message: `“${workout.name || 'Untitled workout'}” and all its sets will be permanently deleted.`,
+      message: workout.kind === 'cardio'
+        ? `“${workout.name || sessionTitle(workout.cardio?.sport, workout.cardio?.environment)}” will be permanently deleted.`
+        : `“${workout.name || 'Untitled workout'}” and all its sets will be permanently deleted.`,
       confirmLabel: 'Delete',
       tone: 'danger'
     });
@@ -142,6 +146,40 @@ function WorkoutDetail() {
             description={error}
             action={<Button variant="secondary" to="/workouts">← Back to Workouts</Button>}
           />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (workout.kind === 'cardio') {
+    const SportIcon = sportInfo(workout.cardio?.sport).icon;
+    return (
+      <Layout>
+        <div className="max-w-3xl mx-auto">
+          <PageHeader
+            backTo="/workouts"
+            backLabel="History"
+            eyebrow={(
+              <span className="inline-flex items-center gap-1.5">
+                <SportIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                {sessionTitle(workout.cardio?.sport, workout.cardio?.environment)}
+              </span>
+            )}
+            title={workout.name || sessionTitle(workout.cardio?.sport, workout.cardio?.environment)}
+            subtitle={(
+              <>
+                {formatDate(workout.date)}
+                {workout.start_time && ` · ${new Date(workout.start_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}
+              </>
+            )}
+            actions={(
+              <>
+                <Button variant="secondary" icon={Pencil} to={`/cardio/${id}/edit`}>Edit</Button>
+                <Button variant="danger-subtle" iconOnly icon={Trash2} onClick={handleDelete} aria-label="Delete session" title="Delete session" />
+              </>
+            )}
+          />
+          <CardioSessionView workout={workout} unit={distanceUnit(units)} />
         </div>
       </Layout>
     );

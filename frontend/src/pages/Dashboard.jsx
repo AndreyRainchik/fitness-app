@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Activity, CalendarCheck, ChevronRight, ClipboardList, Download, Dumbbell, Eye, Flame, Play, Plus, RefreshCw, Timer,
+  Activity, CalendarCheck, ChevronRight, ClipboardList, Download, Dumbbell, Eye, Flame, HeartPulse, Play, Plus, RefreshCw, Timer,
   TrendingUp, Trophy,
 } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
@@ -13,6 +13,7 @@ import { analyticsAPI, hevyAPI, templatesAPI, workoutsAPI } from '../services/ap
 import { useWorkoutDraft } from '../utils/workoutDraft';
 import { formatCompact, formatDate, formatNumber, greeting, plural, relativeDay } from '../utils/format';
 import { getLocalDateString } from '../utils/dateUtils';
+import { cardioSummaryLine, distanceUnit, sessionTitle, sportInfo } from '../utils/cardio';
 import WilksProgressChart from '../components/Dashboard/WilksProgressChart';
 import WeeklyVolumeChart from '../components/Dashboard/WeeklyVolumeChart';
 import ActivityHeatmap from '../components/Dashboard/ActivityHeatmap';
@@ -325,7 +326,7 @@ function Dashboard() {
           <div className="grid gap-6 lg:grid-cols-3">
             <Card className="lg:col-span-2">
               <CardHeader
-                title="Recent workouts"
+                title="Recent sessions"
                 icon={Timer}
                 action={<Button variant="ghost" size="sm" to="/workouts">View all</Button>}
               />
@@ -346,9 +347,14 @@ function Dashboard() {
                           <span className="tabular text-base font-bold text-gray-900">{formatDate(w.date, { day: 'numeric' })}</span>
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate font-semibold text-gray-900">{w.name || 'Workout'}</span>
-                          <span className="block truncate text-xs text-gray-500">
-                            {[
+                          <span className="flex items-center gap-1.5">
+                            {w.kind === 'cardio' && React.createElement(sportInfo(w.sport).icon, { className: 'h-4 w-4 flex-shrink-0 text-gray-400', 'aria-hidden': true })}
+                            <span className="truncate font-semibold text-gray-900">
+                              {w.name || (w.kind === 'cardio' ? sessionTitle(w.sport, w.environment) : 'Workout')}
+                            </span>
+                          </span>
+                          <span className="tabular block truncate text-xs text-gray-500">
+                            {w.kind === 'cardio' ? cardioSummaryLine(w, distanceUnit(units)) : [
                               plural(w.exercise_count || w.exercises?.length || 0, 'exercise'),
                               w.duration_minutes > 0 ? `${w.duration_minutes} min` : null,
                               w.total_volume > 0 ? `${formatCompact(w.total_volume)} ${units}` : null,
@@ -369,8 +375,9 @@ function Dashboard() {
                 {[
                   { to: '/current-week', label: "This week's program", icon: CalendarCheck },
                   { to: '/templates', label: 'Templates', icon: ClipboardList },
+                  { to: '/cardio/new', label: 'Log cardio', icon: HeartPulse },
                   { to: '/profile#bodyweight', label: 'Log bodyweight', icon: Activity },
-                  { to: '/analytics', label: 'Strength analytics', icon: TrendingUp },
+                  { to: '/analytics', label: 'Analytics', icon: TrendingUp },
                 ].map(({ to, label, icon: Icon }) => (
                   <Link key={to} to={to} className="flex items-center gap-3 rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50">
                     <Icon className="h-4 w-4 text-gray-400" />

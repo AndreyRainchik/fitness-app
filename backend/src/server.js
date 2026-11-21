@@ -12,6 +12,7 @@ import analyticsRoutes from './routes/analytics.js';
 import templateRoutes from './routes/templates.js';
 import programRoutes from './routes/programs.js';
 import hevyRoutes from './routes/hevy.js';
+import cardioRoutes from './routes/cardio.js';
 import platePresetRoutes from './routes/platepresets.js';
 
 // Load environment variables
@@ -72,6 +73,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/programs', programRoutes);
 app.use('/api/hevy', hevyRoutes);
+app.use('/api/cardio', cardioRoutes);
 app.use('/api/plate-presets', platePresetRoutes);
 
 // 404 handler

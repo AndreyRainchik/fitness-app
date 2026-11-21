@@ -111,10 +111,25 @@
     --teal-800: 17 94 89;
     --teal-900: 19 78 74;
     --teal-950: 4 47 46;
+
+    /* Chart series per activity type, fixed order (validated for colour-blind
+       separation in light and dark). Used as var(--activity-<type>). */
+    --activity-strength: #2a78d6;
+    --activity-run: #eb6834;
+    --activity-ride: #1baf7a;
+    --activity-row: #eda100;
+    --activity-boulder: #e87ba4;
+    --activity-other: #008300;
   }
   
   .dark {
     color-scheme: dark;
+    --activity-strength: #3987e5;
+    --activity-run: #d95926;
+    --activity-ride: #199e70;
+    --activity-row: #c98500;
+    --activity-boulder: #d55181;
+    --activity-other: #0ca30c;
     --canvas: 10 10 12;
     --surface: 22 22 26;
     --gray-50: 29 29 34;

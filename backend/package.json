@@ -14,7 +14,8 @@
   "test:api": "node src/test-api.js",
   "test:analytics": "node src/test-analytics.js",
   "show-exercises": "node src/show-exercises.js",
-  "test:hevy": "node src/test-hevy.js"
+  "test:hevy": "node src/test-hevy.js",
+  "test:cardio": "node src/test-cardio.js"
  },
  "keywords": [
   "fitness",

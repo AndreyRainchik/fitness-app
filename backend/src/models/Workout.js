@@ -1,4 +1,5 @@
 import { get, all, run, insert, transaction } from '../config/database.js';
+import Cardio, { CARDIO_LIST_COLUMNS, CARDIO_LIST_JOINS } from './Cardio.js';
 
 const SET_COLUMNS = '(workout_id, exercise_id, set_number, reps, weight, rpe, is_warmup, notes)';
 
@@ -99,9 +100,11 @@ class Workout {
       SELECT 
         w.*,
         COUNT(DISTINCT s.exercise_id) as exercise_count,
-        SUM(s.weight * s.reps) as total_volume
+        SUM(s.weight * s.reps) as total_volume,
+        ${CARDIO_LIST_COLUMNS}
       FROM workouts w
       LEFT JOIN sets s ON w.id = s.workout_id
+      ${CARDIO_LIST_JOINS}
       WHERE w.user_id = ?
       GROUP BY w.id
       ORDER BY w.date DESC, w.id DESC
@@ -160,9 +163,11 @@ class Workout {
       `SELECT 
         w.*,
         COUNT(DISTINCT s.exercise_id) as exercise_count,
-        SUM(s.weight * s.reps) as total_volume
+        SUM(s.weight * s.reps) as total_volume,
+        ${CARDIO_LIST_COLUMNS}
        FROM workouts w
        LEFT JOIN sets s ON w.id = s.workout_id
+       ${CARDIO_LIST_JOINS}
        WHERE w.user_id = ? AND w.date >= ? AND w.date <= ?
        GROUP BY w.id
        ORDER BY w.date DESC, w.id DESC`,
@@ -198,6 +203,7 @@ class Workout {
     );
     
     workout.sets = sets;
+    Object.assign(workout, Cardio.detailsFor(id));
     return workout;
   }
   
@@ -242,7 +248,10 @@ class Workout {
    * Delete workout (cascades to sets)
    */
   static delete(id) {
-    run('DELETE FROM workouts WHERE id = ?', [id]);
+    transaction(() => {
+      Cardio.deleteDetails(id);
+      run('DELETE FROM workouts WHERE id = ?', [id]);
+    });
     return { success: true };
   }
   

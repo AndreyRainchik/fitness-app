@@ -115,6 +115,10 @@ router.post('/from-workout/:workoutId',
       if (workout.user_id !== req.user.id) {
         return res.status(403).json({ error: 'Access denied' });
       }
+
+      if (workout.kind === 'cardio') {
+        return res.status(400).json({ error: 'Cardio sessions cannot be saved as templates' });
+      }
       
       // Create the template
       const template = WorkoutTemplate.create({

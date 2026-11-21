@@ -364,6 +364,24 @@ export const profileAPI = {
 /**
  * Analytics API calls
  */
+export const cardioAPI = {
+  /** Log a cardio session. Returns { workout } with `cardio` and `metrics`. */
+  create: async (session) => {
+    return await apiCall('/cardio', { method: 'POST', body: JSON.stringify(session) });
+  },
+
+  /** Replace every field of a cardio session. */
+  update: async (id, session) => {
+    return await apiCall(`/cardio/${id}`, { method: 'PUT', body: JSON.stringify(session) });
+  },
+
+  /** Weekly minutes by activity type, this week's totals and per-sport totals. */
+  getSummary: async (weeks = 12) => {
+    const params = new URLSearchParams({ weeks, localDate: getLocalDateString() });
+    return await apiCall(`/cardio/summary?${params}`);
+  },
+};
+
 export const analyticsAPI = {
   /**
    * Get lift progression data for a specific exercise
@@ -791,6 +809,7 @@ export default {
   auth: authAPI,
   exercises: exercisesAPI,
   workouts: workoutsAPI,
+  cardio: cardioAPI,
   profile: profileAPI,
   analytics: analyticsAPI,
   templates: templatesAPI,

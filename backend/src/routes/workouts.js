@@ -470,6 +470,10 @@ router.put('/:id',
       const { date, name, notes, duration_minutes, sets: rawSets } = req.body;
       const fields = { date, name, notes, duration_minutes };
 
+      if (workout.kind === 'cardio' && (Array.isArray(rawSets) || duration_minutes !== undefined)) {
+        return res.status(400).json({ error: 'Edit cardio sessions through /api/cardio' });
+      }
+
       let updatedWorkout;
       if (Array.isArray(rawSets)) {
         // Replace the workout's sets with this list in a single transaction
@@ -549,6 +553,10 @@ router.post('/:id/sets',
 
       if (workout.user_id !== req.user.id) {
         return res.status(403).json({ error: 'Access denied' });
+      }
+
+      if (workout.kind === 'cardio') {
+        return res.status(400).json({ error: 'Cardio sessions do not have sets' });
       }
 
       const { exercise_id, set_number, reps, weight, rpe, is_warmup, notes } = req.body;
