@@ -757,6 +757,9 @@ export const hevyAPI = {
   /** mode 'all' (every workout, newest first) or 'new' (changed in Hevy since the last import) */
   listWorkouts: (page = 1, mode = 'all') => apiCall(`/hevy/workouts?page=${page}&mode=${mode}`),
 
+  /** { workout: newest Hevy workout with its import status, or null } */
+  getLatestWorkout: () => apiCall('/hevy/workouts/latest'),
+
   /** Exercises the chosen workouts use, with suggested matches */
   preview: (workoutIds) => apiCall('/hevy/preview', {
     method: 'POST',

@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Activity, CalendarCheck, ChevronRight, ClipboardList, Dumbbell, Flame, Play, Plus, Timer, TrendingUp, Trophy,
+  Activity, CalendarCheck, ChevronRight, ClipboardList, Download, Dumbbell, Eye, Flame, Play, Plus, RefreshCw, Timer,
+  TrendingUp, Trophy,
 } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import { useAuth } from '../context/AuthContext';
 import {
   Alert, Badge, Button, Card, CardHeader, EmptyState, Skeleton, StatTile, Tabs, useToast,
 } from '../components/ui';
-import { analyticsAPI, templatesAPI, workoutsAPI } from '../services/api';
+import { analyticsAPI, hevyAPI, templatesAPI, workoutsAPI } from '../services/api';
 import { useWorkoutDraft } from '../utils/workoutDraft';
 import { formatCompact, formatDate, formatNumber, greeting, plural, relativeDay } from '../utils/format';
 import { getLocalDateString } from '../utils/dateUtils';
@@ -42,29 +43,106 @@ function VolumeTrend({ current, previous }) {
   );
 }
 
-/** Hero card: start / resume a workout, or pick a template. */
-function StartCard({ draft, templates, onStartTemplate, startingId }) {
+const HERO_BUTTON = 'inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-primary-700 shadow-sm transition-transform hover:bg-white/90 active:scale-[0.98] disabled:opacity-60';
+
+/** 'YYYY-MM-DD' of an ISO timestamp in the user's timezone. */
+function localDay(iso) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * What the hero card says about the user's latest Hevy workout.
+ * hevy: { loading, error, workout } (workout null when Hevy has none).
+ */
+function hevyHero(hevy, navigate) {
+  if (hevy.loading) {
+    return { eyebrow: 'Hevy', title: 'Checking for your latest Hevy workout…', button: null };
+  }
+  const openImport = { label: 'Open Hevy import', icon: Download, onClick: () => navigate('/import/hevy') };
+  if (hevy.error) {
+    return { eyebrow: 'Hevy', title: "Couldn't reach Hevy", detail: hevy.error, button: openImport };
+  }
+  const w = hevy.workout;
+  if (!w) {
+    return { eyebrow: 'Hevy is connected', title: 'No Hevy workouts yet', detail: 'Log a workout in Hevy, then import it here.', button: openImport };
+  }
+  const detail = [w.title, relativeDay(localDay(w.start_time)), plural(w.set_count, 'set')].join(' · ');
+  const importIt = () => navigate('/import/hevy', { state: { importWorkout: w } });
+  if (w.status === 'imported') {
+    return {
+      eyebrow: 'Your latest Hevy workout is imported',
+      title: w.title,
+      detail: [relativeDay(localDay(w.start_time)), plural(w.set_count, 'set')].join(' · '),
+      button: { label: 'View workout', icon: Eye, onClick: () => navigate(`/workout/${w.local_workout_id}`) },
+      link: { label: 'Import older Hevy workouts', to: '/import/hevy' },
+    };
+  }
+  if (w.status === 'changed') {
+    return {
+      eyebrow: 'Changed in Hevy since you imported it',
+      title: 'Update your latest Hevy workout',
+      detail,
+      button: { label: 'Re-import', icon: RefreshCw, onClick: importIt },
+    };
+  }
+  return {
+    eyebrow: 'New in Hevy',
+    title: 'Import your latest Hevy workout',
+    detail,
+    button: { label: 'Import workout', icon: Download, onClick: importIt },
+  };
+}
+
+/**
+ * Hero card: resume a workout in progress; otherwise, with Hevy connected,
+ * import the latest Hevy workout; otherwise start a workout or pick a template.
+ */
+function StartCard({ draft, templates, onStartTemplate, startingId, hevy }) {
+  const navigate = useNavigate();
+  const hero = !draft && hevy ? hevyHero(hevy, navigate) : null;
+
   return (
     <Card padding="p-0" className="overflow-hidden">
       <div className="relative bg-gradient-to-br from-primary-600 via-primary-600 to-purple-600 p-5 text-white sm:p-6">
         <div className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-white/80">{draft ? 'You have a workout in progress' : 'Ready when you are'}</p>
-            <h2 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl">
-              {draft ? draft.values?.name || 'Untitled workout' : 'Start a new session'}
-            </h2>
+        {hero ? (
+          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-white/80">{hero.eyebrow}</p>
+              <h2 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl">{hero.title}</h2>
+              {hero.detail && <p className="mt-1 truncate text-sm text-white/80">{hero.detail}</p>}
+              {hero.link && (
+                <Link to={hero.link.to} className="mt-2 inline-block text-sm font-medium text-white underline-offset-2 hover:underline">
+                  {hero.link.label}
+                </Link>
+              )}
+            </div>
+            {hero.button ? (
+              <button type="button" onClick={hero.button.onClick} className={HERO_BUTTON}>
+                <hero.button.icon className="h-4 w-4" strokeWidth={2.5} />
+                {hero.button.label}
+              </button>
+            ) : (
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-white/40 border-t-white" role="status" aria-label="Loading" />
+            )}
           </div>
-          <Link
-            to="/workout/active"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-primary-700 shadow-sm transition-transform hover:bg-white/90 active:scale-[0.98]"
-          >
-            {draft ? <Play className="h-4 w-4" fill="currentColor" /> : <Plus className="h-4 w-4" strokeWidth={2.5} />}
-            {draft ? 'Resume workout' : 'Empty workout'}
-          </Link>
-        </div>
+        ) : (
+          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-white/80">{draft ? 'You have a workout in progress' : 'Ready when you are'}</p>
+              <h2 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl">
+                {draft ? draft.values?.name || 'Untitled workout' : 'Start a new session'}
+              </h2>
+            </div>
+            <Link to="/workout/active" className={HERO_BUTTON}>
+              {draft ? <Play className="h-4 w-4" fill="currentColor" /> : <Plus className="h-4 w-4" strokeWidth={2.5} />}
+              {draft ? 'Resume workout' : 'Empty workout'}
+            </Link>
+          </div>
+        )}
       </div>
-      {!draft && templates.length > 0 && (
+      {!draft && !hero && templates.length > 0 && (
         <div className="p-4 sm:p-5">
           <p className="eyebrow mb-3">Start from a template</p>
           <div className="grid gap-2 sm:grid-cols-3">
@@ -107,17 +185,27 @@ function Dashboard() {
   const [error, setError] = useState('');
   const [insightTab, setInsightTab] = useState('strength');
   const [startingId, setStartingId] = useState(null);
+  // null when Hevy isn't connected; else { loading, error, workout }
+  const [hevy, setHevy] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [summary, workouts, templateList] = await Promise.all([
+        const [summary, workouts, templateList, hevyStatus] = await Promise.all([
           analyticsAPI.getDashboardSummary(),
           workoutsAPI.getAll({ limit: 5 }),
           templatesAPI.getAll().catch(() => ({ templates: [] })),
+          hevyAPI.getStatus().catch(() => null),
         ]);
         if (cancelled) return;
+        if (hevyStatus?.connected && hevyStatus.key_readable !== false) {
+          // Hevy can be slow: show the dashboard now and fill this in when it answers
+          setHevy({ loading: true });
+          hevyAPI.getLatestWorkout()
+            .then((r) => { if (!cancelled) setHevy({ workout: r.workout }); })
+            .catch((err) => { if (!cancelled) setHevy({ error: err.message || 'Try again in a moment.' }); });
+        }
         setData(summary);
         setRecentWorkouts(workouts.workouts || []);
         setTemplates(templateList.templates || []);
@@ -158,7 +246,7 @@ function Dashboard() {
 
           {error && <Alert>{error}</Alert>}
 
-          <StartCard draft={draft} templates={templates} onStartTemplate={startTemplate} startingId={startingId} />
+          <StartCard draft={draft} templates={templates} onStartTemplate={startTemplate} startingId={startingId} hevy={hevy} />
 
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             <StatTile

@@ -464,6 +464,16 @@ async function apiTests() {
       ]);
     });
 
+    await test('latest workout: the newest one, asking Hevy for a single workout', async () => {
+      hevyRequests = [];
+      const r = await call('GET', '/hevy/workouts/latest');
+      assert.equal(r.status, 200, JSON.stringify(r.body));
+      assert.equal(r.body.workout.id, 'w-push');
+      assert.equal(r.body.workout.status, 'imported');
+      assert.equal(r.body.workout.local_workout_id, pushWorkoutId);
+      assert.deepEqual(hevyRequests, ['/v1/workouts?page=1&pageSize=1']);
+    });
+
     await test('marks imported workouts and remembers exercise choices', async () => {
       const list = (await call('GET', '/hevy/workouts')).body.workouts;
       assert.deepEqual(list.map((w) => [w.id, w.status, w.local_workout_id]), [['w-push', 'imported', pushWorkoutId], ['w-pull', 'new', null]]);
@@ -702,6 +712,7 @@ async function apiTests() {
     await test('disconnecting forgets the key', async () => {
       assert.equal((await call('DELETE', '/hevy/connection')).body.connected, false);
       assert.equal((await call('GET', '/hevy/workouts')).body.code, 'hevy_not_connected');
+      assert.equal((await call('GET', '/hevy/workouts/latest')).body.code, 'hevy_not_connected');
     });
   } finally {
     if (failures) console.log(`\nServer output:\n${app.output().slice(-3000)}`);

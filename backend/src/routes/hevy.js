@@ -21,6 +21,7 @@ import { all, transaction } from '../config/database.js';
  *   PUT    /api/hevy/connection       save (and check) a Hevy API key
  *   DELETE /api/hevy/connection       forget the API key
  *   GET    /api/hevy/workouts         one page of Hevy workouts, each marked new / imported / changed
+ *   GET    /api/hevy/workouts/latest  the newest Hevy workout, marked the same way (for the dashboard)
  *   POST   /api/hevy/preview          exercises used by the chosen workouts, with suggested matches
  *   POST   /api/hevy/import           import the chosen workouts
  *   GET    /api/hevy/weight           bodyweight dates and whether each is in Hevy
@@ -207,6 +208,22 @@ router.get('/workouts',
     }
   }
 );
+
+/**
+ * GET /api/hevy/workouts/latest
+ * { workout: summary-with-status | null } for the most recent Hevy workout.
+ */
+router.get('/workouts/latest', async (req, res) => {
+  const client = clientFor(req, res);
+  if (!client) return;
+  try {
+    const result = await client.listWorkouts(1, 1);
+    const [latest] = withImportStatus(req.user.id, result.workouts.slice(0, 1));
+    res.json({ workout: latest ?? null });
+  } catch (error) {
+    sendHevyError(res, error, 'load your latest Hevy workout');
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Import
