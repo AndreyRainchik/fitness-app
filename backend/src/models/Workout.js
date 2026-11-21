@@ -1,4 +1,6 @@
 import { get, all, run, insert, transaction } from '../config/database.js';
+import Cardio, { CARDIO_LIST_COLUMNS, CARDIO_LIST_JOINS } from './Cardio.js';
+import { StravaActivities } from './Strava.js';
 
 const SET_COLUMNS = '(workout_id, exercise_id, set_number, reps, weight, rpe, is_warmup, notes)';
 
@@ -23,11 +25,11 @@ class Workout {
   /**
    * Create a new workout
    */
-  static create({ user_id, date, name = null, notes = null, duration_minutes = null }) {
+  static create({ user_id, date, name = null, notes = null, duration_minutes = null, start_time = null }) {
     const id = insert(
-      `INSERT INTO workouts (user_id, date, name, notes, duration_minutes)
-       VALUES (?, ?, ?, ?, ?)`,
-      [user_id, date, name, notes, duration_minutes]
+      `INSERT INTO workouts (user_id, date, name, notes, duration_minutes, start_time)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [user_id, date, name, notes, duration_minutes, start_time]
     );
     return this.findById(id);
   }
@@ -99,9 +101,11 @@ class Workout {
       SELECT 
         w.*,
         COUNT(DISTINCT s.exercise_id) as exercise_count,
-        SUM(s.weight * s.reps) as total_volume
+        SUM(s.weight * s.reps) as total_volume,
+        ${CARDIO_LIST_COLUMNS}
       FROM workouts w
       LEFT JOIN sets s ON w.id = s.workout_id
+      ${CARDIO_LIST_JOINS}
       WHERE w.user_id = ?
       GROUP BY w.id
       ORDER BY w.date DESC, w.id DESC
@@ -160,9 +164,11 @@ class Workout {
       `SELECT 
         w.*,
         COUNT(DISTINCT s.exercise_id) as exercise_count,
-        SUM(s.weight * s.reps) as total_volume
+        SUM(s.weight * s.reps) as total_volume,
+        ${CARDIO_LIST_COLUMNS}
        FROM workouts w
        LEFT JOIN sets s ON w.id = s.workout_id
+       ${CARDIO_LIST_JOINS}
        WHERE w.user_id = ? AND w.date >= ? AND w.date <= ?
        GROUP BY w.id
        ORDER BY w.date DESC, w.id DESC`,
@@ -198,16 +204,22 @@ class Workout {
     );
     
     workout.sets = sets;
+    Object.assign(workout, Cardio.detailsFor(id));
+    workout.strava = StravaActivities.forWorkout(id);
     return workout;
   }
   
   /**
    * Update workout
    */
-  static update(id, { date, name, notes, duration_minutes }) {
+  static update(id, { date, name, notes, duration_minutes, start_time }) {
     const updates = [];
     const params = [];
-    
+
+    if (start_time !== undefined) {
+      updates.push('start_time = ?');
+      params.push(start_time);
+    }    
     if (date !== undefined) {
       updates.push('date = ?');
       params.push(date);
@@ -242,7 +254,11 @@ class Workout {
    * Delete workout (cascades to sets)
    */
   static delete(id) {
-    run('DELETE FROM workouts WHERE id = ?', [id]);
+    transaction(() => {
+      Cardio.deleteDetails(id);
+      StravaActivities.workoutDeleted(id);
+      run('DELETE FROM workouts WHERE id = ?', [id]);
+    });
     return { success: true };
   }
   

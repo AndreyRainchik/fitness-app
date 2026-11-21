@@ -24,6 +24,8 @@ const Templates = lazy(() => import('./pages/Templates'));
 const TemplateDetail = lazy(() => import('./pages/TemplateDetail'));
 const ActiveWorkout = lazy(() => import('./pages/ActiveWorkout'));
 const HevyImport = lazy(() => import('./pages/HevyImport'));
+const LogCardio = lazy(() => import('./pages/LogCardio'));
+const StravaCallback = lazy(() => import('./pages/StravaCallback'));
 
 /** Shown while a page's code downloads (usually a few milliseconds). */
 function PageLoading() {
@@ -90,6 +92,21 @@ function App() {
         <Route path="/workout/active" element={
           <ProtectedRoute>
             <ActiveWorkout />
+          </ProtectedRoute>
+        } />
+        <Route path="/strava/callback" element={
+          <ProtectedRoute>
+            <StravaCallback />
+          </ProtectedRoute>
+        } />
+        <Route path="/cardio/new" element={
+          <ProtectedRoute>
+            <LogCardio />
+          </ProtectedRoute>
+        } />
+        <Route path="/cardio/:id/edit" element={
+          <ProtectedRoute>
+            <LogCardio />
           </ProtectedRoute>
         } />
         <Route path="/workouts/:id/edit" element={

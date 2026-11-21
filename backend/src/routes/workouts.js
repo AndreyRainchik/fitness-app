@@ -4,6 +4,7 @@ import { Workout, Set, Exercise } from '../models/index.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { all } from '../config/database.js';
 import { estimate1RM } from '../utils/strengthCalculations.js';
+import { linkUnmatchedStrength } from '../services/stravaSync.js';
 
 /**
  * Returns true when the exercise supports negative weights (i.e. machine
@@ -426,6 +427,9 @@ router.post('/',
         workout = Workout.create(workoutData);
       }
       
+      // A Strava lifting session from that day may be this workout
+      if (linkUnmatchedStrength(req.user.id) > 0) workout = Workout.getWithDetails(workout.id);
+
       res.status(201).json({
         message: 'Workout created successfully',
         workout
@@ -469,6 +473,10 @@ router.put('/:id',
       
       const { date, name, notes, duration_minutes, sets: rawSets } = req.body;
       const fields = { date, name, notes, duration_minutes };
+
+      if (workout.kind === 'cardio' && (Array.isArray(rawSets) || duration_minutes !== undefined)) {
+        return res.status(400).json({ error: 'Edit cardio sessions through /api/cardio' });
+      }
 
       let updatedWorkout;
       if (Array.isArray(rawSets)) {
@@ -549,6 +557,10 @@ router.post('/:id/sets',
 
       if (workout.user_id !== req.user.id) {
         return res.status(403).json({ error: 'Access denied' });
+      }
+
+      if (workout.kind === 'cardio') {
+        return res.status(400).json({ error: 'Cardio sessions do not have sets' });
       }
 
       const { exercise_id, set_number, reps, weight, rpe, is_warmup, notes } = req.body;

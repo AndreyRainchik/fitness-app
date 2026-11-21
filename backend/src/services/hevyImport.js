@@ -226,7 +226,7 @@ export function collectExerciseTemplates(hevyWorkouts) {
  *   units: the user's weight unit ('kg' | 'lbs')
  *   timeZone: IANA timezone used to pick the workout's date
  *
- * Returns { workout: { date, name, notes, duration_minutes }, sets, skipped_exercises }.
+ * Returns { workout: { date, name, notes, duration_minutes, start_time }, sets, skipped_exercises }.
  * Sets are numbered from 1 within each Hevy exercise, in Hevy's order.
  * RPE is copied when Hevy has it and left empty otherwise.
  */
@@ -275,6 +275,7 @@ export function convertHevyWorkout(hevyWorkout, { exerciseFor, units, timeZone }
       name: hevyWorkout.title?.trim() || 'Hevy workout',
       notes: hevyWorkout.description?.trim() || null,
       duration_minutes: Number.isFinite(minutes) && minutes > 0 ? minutes : null,
+      start_time: Number.isNaN(start.getTime()) ? null : start.toISOString(),
     },
     sets,
     skipped_exercises: skipped,

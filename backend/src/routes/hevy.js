@@ -12,6 +12,7 @@ import {
   summarizeHevyWorkout,
 } from '../services/hevyImport.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { linkUnmatchedStrength } from '../services/stravaSync.js';
 import { all, transaction } from '../config/database.js';
 
 /**
@@ -423,6 +424,8 @@ router.post('/import',
         return { imported, skipped, created_exercises: createdExercises };
       });
 
+      // Strava lifting sessions recorded before these workouts were imported can match now
+      linkUnmatchedStrength(userId);
       res.json({ ...result, status: HevyConnection.status(userId) });
     } catch (error) {
       console.error('Hevy import error:', error);

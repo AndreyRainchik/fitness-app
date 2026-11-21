@@ -38,12 +38,16 @@ export async function initDatabase() {
         // Column already exists, ignore
       }
       ensureHevySchema();
+      ensureCardioSchema();
+      ensureStravaSchema();
       saveDatabase();
     } else {
       console.log('🆕 Creating new database...');
       db = new SQL.Database();
       createTables();
       ensureHevySchema();
+      ensureCardioSchema();
+      ensureStravaSchema();
       seedExercises();
       saveDatabase();
     }
@@ -300,6 +304,120 @@ function ensureHevySchema() {
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
+}
+
+/**
+ * Tables and columns for cardio sessions (runs, rides, rows, bouldering).
+ * Safe to run on every start: each step is skipped when already applied.
+ *
+ * A cardio session is a row in `workouts` with kind = 'cardio' plus one row in
+ * `cardio_sessions`, so history, streaks and the activity heatmap see every
+ * session. `session_metrics` holds heart rate and calories for any session,
+ * strength included (filled in from the watch once Strava sync exists).
+ */
+function ensureCardioSchema() {
+  // 'strength' (sets) or 'cardio' (a cardio_sessions row). start_time is the
+  // ISO timestamp the session started, when known (to match the same session
+  // arriving from different sources).
+  for (const column of ["kind TEXT NOT NULL DEFAULT 'strength'", 'start_time TEXT']) {
+    try {
+      db.run(`ALTER TABLE workouts ADD COLUMN ${column}`);
+    } catch (e) {
+      // Column already exists
+    }
+  }
+  db.run('CREATE INDEX IF NOT EXISTS idx_workouts_user_kind_date ON workouts(user_id, kind, date)');
+
+  // duration_s is moving time; distance and elevation in metres
+  db.run(`
+    CREATE TABLE IF NOT EXISTS cardio_sessions (
+      workout_id INTEGER PRIMARY KEY,
+      sport TEXT NOT NULL CHECK(sport IN ('run', 'ride', 'row', 'boulder', 'other')),
+      environment TEXT CHECK(environment IN ('indoor', 'outdoor')),
+      duration_s INTEGER NOT NULL,
+      distance_m REAL,
+      elevation_gain_m REAL,
+      avg_cadence REAL,
+      FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Route outline (Google encoded polyline) and per-km / per-mile splits
+  // (JSON), filled in for sessions imported from Strava
+  for (const column of ['summary_polyline TEXT', 'splits_json TEXT']) {
+    try {
+      db.run(`ALTER TABLE cardio_sessions ADD COLUMN ${column}`);
+    } catch (e) {
+      // Column already exists
+    }
+  }
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS session_metrics (
+      workout_id INTEGER PRIMARY KEY,
+      avg_hr INTEGER,
+      max_hr INTEGER,
+      calories INTEGER,
+      FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE
+    )
+  `);
+}
+
+/**
+ * Tables for syncing activities from Strava. Safe to run on every start.
+ */
+function ensureStravaSchema() {
+  // One Strava connection per user. Tokens are stored encrypted.
+  // backfill_before: epoch seconds the history import has reached (it walks
+  // backwards); backfill_done: 1 once it reached the first activity.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS strava_connections (
+      user_id INTEGER PRIMARY KEY,
+      athlete_id TEXT NOT NULL,
+      athlete_name TEXT,
+      access_token_encrypted TEXT NOT NULL,
+      refresh_token_encrypted TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      scope TEXT,
+      last_synced_at TEXT,
+      last_activity_epoch INTEGER,
+      backfill_before INTEGER,
+      backfill_done INTEGER NOT NULL DEFAULT 0,
+      connected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_strava_connections_athlete ON strava_connections(athlete_id)');
+
+  // Every Strava activity seen, and what became of it:
+  //   cardio              imported as (or linked to) the cardio session workout_id
+  //   strength_linked     its heart rate was added to the strength workout workout_id
+  //   strength_unmatched  a lifting session with no workout here yet (linked when one appears)
+  //   ignored             a type this app doesn't track
+  //   dismissed           imported, then deleted here: not imported again
+  // The metrics are kept so an unmatched lifting session can be linked later.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS strava_activities (
+      user_id INTEGER NOT NULL,
+      activity_id TEXT NOT NULL,
+      sport_type TEXT,
+      name TEXT,
+      start_date TEXT,
+      start_date_local TEXT,
+      elapsed_s INTEGER,
+      avg_hr INTEGER,
+      max_hr INTEGER,
+      calories INTEGER,
+      outcome TEXT NOT NULL,
+      workout_id INTEGER,
+      detailed INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, activity_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_strava_activities_workout ON strava_activities(workout_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_strava_activities_outcome ON strava_activities(user_id, outcome)');
 }
 
 /**

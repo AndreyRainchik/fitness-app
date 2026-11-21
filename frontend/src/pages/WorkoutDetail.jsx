@@ -17,6 +17,9 @@ import {
 import { groupSetsByExercise } from '../utils/workoutPayload';
 import { formatNumber } from '../utils/format';
 import { ExerciseSetsCard, WorkoutStats } from '../components/Workout/ExerciseSetsCard';
+import CardioSessionView from '../components/Cardio/CardioSessionView';
+import { ViewOnStrava } from '../components/Strava/StravaConnectionCard';
+import { distanceUnit, sessionTitle, sportInfo } from '../utils/cardio';
 
 function WorkoutDetail() {
   const { id } = useParams();
@@ -59,7 +62,9 @@ function WorkoutDetail() {
   const handleDelete = async () => {
     const confirmed = await confirm({
       title: 'Delete workout?',
-      message: `“${workout.name || 'Untitled workout'}” and all its sets will be permanently deleted.`,
+      message: workout.kind === 'cardio'
+        ? `“${workout.name || sessionTitle(workout.cardio?.sport, workout.cardio?.environment)}” will be permanently deleted.`
+        : `“${workout.name || 'Untitled workout'}” and all its sets will be permanently deleted.`,
       confirmLabel: 'Delete',
       tone: 'danger'
     });
@@ -147,6 +152,40 @@ function WorkoutDetail() {
     );
   }
 
+  if (workout.kind === 'cardio') {
+    const SportIcon = sportInfo(workout.cardio?.sport).icon;
+    return (
+      <Layout>
+        <div className="max-w-3xl mx-auto">
+          <PageHeader
+            backTo="/workouts"
+            backLabel="History"
+            eyebrow={(
+              <span className="inline-flex items-center gap-1.5">
+                <SportIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                {sessionTitle(workout.cardio?.sport, workout.cardio?.environment)}
+              </span>
+            )}
+            title={workout.name || sessionTitle(workout.cardio?.sport, workout.cardio?.environment)}
+            subtitle={(
+              <>
+                {formatDate(workout.date)}
+                {workout.start_time && ` · ${new Date(workout.start_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}
+              </>
+            )}
+            actions={(
+              <>
+                <Button variant="secondary" icon={Pencil} to={`/cardio/${id}/edit`}>Edit</Button>
+                <Button variant="danger-subtle" iconOnly icon={Trash2} onClick={handleDelete} aria-label="Delete session" title="Delete session" />
+              </>
+            )}
+          />
+          <CardioSessionView workout={workout} unit={distanceUnit(units)} />
+        </div>
+      </Layout>
+    );
+  }
+
   const exerciseGroups = groupSetsByExercise(workout.sets || []);
   const totalVolume = workout.sets?.reduce((sum, set) => sum + (set.weight * set.reps), 0) || 0;
   const totalPRs = getTotalPRCount();
@@ -163,6 +202,7 @@ function WorkoutDetail() {
               {formatDate(workout.date)}
               {workout.duration_minutes > 0 && ` · ${workout.duration_minutes} min`}
               {workout.hevy_workout_id && ' · Imported from Hevy'}
+              {workout.strava && ' · Heart rate from Strava'}
             </>
           )}
           actions={(
@@ -207,6 +247,28 @@ function WorkoutDetail() {
         )}
 
         <WorkoutStats volume={totalVolume} exercises={exerciseGroups.length} sets={workout.sets?.length || 0} units={units} />
+
+        {workout.metrics && (
+          <Card padding="p-4 sm:p-5" className="mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+              <dl className="flex flex-wrap gap-x-8 gap-y-2">
+                {[
+                  ['Avg heart rate', workout.metrics.avg_hr, 'bpm'],
+                  ['Max heart rate', workout.metrics.max_hr, 'bpm'],
+                  ['Calories', workout.metrics.calories, 'kcal'],
+                ].filter(([, value]) => value).map(([label, value, unit]) => (
+                  <div key={label}>
+                    <dt className="text-xs font-medium text-gray-500">{label}</dt>
+                    <dd className="tabular text-lg font-bold text-gray-900">
+                      {formatNumber(value)} <span className="text-xs font-medium text-gray-500">{unit}</span>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              {workout.strava && <ViewOnStrava activityId={workout.strava.activity_id} />}
+            </div>
+          </Card>
+        )}
 
         <div className="space-y-4">
           {exerciseGroups.map((group, index) => <ExerciseSetsCard key={index} group={group} units={units} />)}

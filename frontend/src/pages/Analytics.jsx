@@ -5,12 +5,15 @@ import StrengthScoreCard from '../components/Analytics/StrengthScoreCard';
 import LiftProgressionChart from '../components/Analytics/LiftProgressionChart';
 import SymmetryDisplay from '../components/Analytics/SymmetryDisplay';
 import StrengthStandardsTable from '../components/Analytics/StrengthStandardsTable';
+import EnduranceView from '../components/Analytics/EnduranceView';
+import { distanceUnit } from '../utils/cardio';
 import { useAuth } from '../context/AuthContext';
 import { Button, Card, EmptyState, LoadingState, PageHeader, Tabs } from '../components/ui';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'progression', label: 'Progression' },
+  { id: 'endurance', label: 'Endurance' },
   { id: 'standards', label: 'Standards' },
   { id: 'symmetry', label: 'Balance' },
 ];
@@ -110,7 +113,7 @@ function Analytics() {
       <div>
         <PageHeader
           title="Analytics"
-          subtitle="Strength, standards and balance"
+          subtitle="Strength, endurance and balance"
           actions={(
             <select
               aria-label="Time range"
@@ -188,6 +191,11 @@ function Analytics() {
             </>
           )}
 
+          {/* Endurance Tab */}
+          {activeTab === 'endurance' && (
+            <EnduranceView weeks={weeks} unit={distanceUnit(units)} />
+          )}
+
           {/* Standards Tab */}
           {activeTab === 'standards' && (
             <StrengthStandardsTable strengthData={strengthScore} />
@@ -200,7 +208,7 @@ function Analytics() {
         </div>
 
         {/* Empty State */}
-        {!strengthScore && !loading && (
+        {!strengthScore && !loading && activeTab !== 'endurance' && (
           <EmptyState
             icon="📊"
             title="No analytics data yet"
