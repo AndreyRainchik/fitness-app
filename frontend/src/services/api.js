@@ -772,6 +772,15 @@ export const hevyAPI = {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     }),
   }),
+
+  /** { entries: [{ date, log_id, weight, units, status: 'synced'|'not_synced'|'changed', synced_at }], pending_count } */
+  getWeightStatus: () => apiCall('/hevy/weight'),
+
+  /** Send bodyweight to Hevy: the given dates, or every date not in Hevy yet */
+  syncWeight: (dates) => apiCall('/hevy/weight/sync', {
+    method: 'POST',
+    body: JSON.stringify(dates ? { dates } : {}),
+  }),
 };
 
 export default {

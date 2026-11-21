@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { profileAPI } from '../services/api';
 import ProfileInfo from '../components/Profile/ProfileInfo';
@@ -7,6 +7,7 @@ import BodyweightLog from '../components/Profile/BodyweightLog';
 import SecuritySettings from '../components/Profile/SecuritySettings';
 import PlateInventory from '../components/PlateCalculator/PlateInventory.jsx';
 import HevyConnectionCard from '../components/Hevy/HevyConnectionCard';
+import HevyWeightSyncCard from '../components/Hevy/HevyWeightSyncCard';
 import { hevyAPI } from '../services/api';
 import Layout from '../components/Layout/Layout';
 import { Button, EmptyState, LoadingState, PageHeader, Tabs } from '../components/ui';
@@ -31,6 +32,46 @@ function IntegrationsTab() {
   if (error) return <EmptyState tone="error" title="Couldn't load integrations" description={error} />;
   if (!status) return <LoadingState label="Loading integrations..." />;
   return <HevyConnectionCard status={status} onChange={setStatus} showImportLink />;
+}
+
+/**
+ * Bodyweight chart and log, plus sending entries to Hevy when Hevy is
+ * connected.
+ */
+function BodyweightTab({ units, onLogChanged }) {
+  // null until loaded; stays null when Hevy isn't connected
+  const [hevyWeight, setHevyWeight] = useState(null);
+
+  const loadHevyWeight = useCallback(async () => {
+    try {
+      const status = await hevyAPI.getStatus();
+      if (!status.connected || status.key_readable === false) return setHevyWeight(null);
+      setHevyWeight(await hevyAPI.getWeightStatus());
+    } catch {
+      // Hevy status is extra here; the bodyweight log still works without it
+      setHevyWeight(null);
+    }
+  }, []);
+
+  useEffect(() => { loadHevyWeight(); }, [loadHevyWeight]);
+
+  // Each date's latest entry is the one Hevy gets
+  const hevyStatusByLogId = useMemo(
+    () => new Map((hevyWeight?.entries ?? []).map((e) => [e.log_id, e.status])),
+    [hevyWeight]
+  );
+
+  return (
+    <div className="space-y-6">
+      <BodyweightChart units={units} />
+      {hevyWeight && <HevyWeightSyncCard weight={hevyWeight} onChange={setHevyWeight} />}
+      <BodyweightLog
+        units={units}
+        hevyStatusByLogId={hevyWeight ? hevyStatusByLogId : null}
+        onLogAdded={() => { onLogChanged(); loadHevyWeight(); }}
+      />
+    </div>
+  );
 }
 
 function Profile() {
@@ -101,10 +142,7 @@ function Profile() {
         {activeTab === 'info' && <ProfileInfo user={profile} onUpdate={setProfile} />}
 
         {activeTab === 'bodyweight' && (
-          <div className="space-y-6">
-            <BodyweightChart units={profile.units} />
-            <BodyweightLog units={profile.units} onLogAdded={handleBodyweightUpdate} />
-          </div>
+          <BodyweightTab units={profile.units} onLogChanged={handleBodyweightUpdate} />
         )}
 
         {activeTab === 'security' && (

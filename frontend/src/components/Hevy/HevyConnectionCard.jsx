@@ -61,7 +61,7 @@ function HevyConnectionCard({ status, onChange, showImportLink = false }) {
         title="Hevy"
         subtitle={connected
           ? `Connected${status.hevy_username ? ` as ${status.hevy_username}` : ''} · key ending ${status.key_hint}`
-          : 'Import workouts you logged in Hevy'}
+          : 'Import workouts from Hevy and send your bodyweight to it'}
       />
 
       {connected && status.key_readable === false && (
@@ -101,7 +101,7 @@ function HevyConnectionCard({ status, onChange, showImportLink = false }) {
             </ol>
           )}
           {error && <Alert>{error}</Alert>}
-          <Field label="Hevy API key" hint="Stored encrypted on the server and only used to read your Hevy workouts.">
+          <Field label="Hevy API key" hint="Stored encrypted on the server. Used to read your Hevy workouts and to send your bodyweight to Hevy.">
             <Input
               type="password"
               autoComplete="off"

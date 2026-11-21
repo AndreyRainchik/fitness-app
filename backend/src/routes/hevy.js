@@ -1,7 +1,8 @@
 import express from 'express';
 import { body, query, validationResult } from 'express-validator';
-import { Exercise, User, Workout } from '../models/index.js';
-import { HevyConnection, HevyExerciseMapping, HevyImportedWorkouts } from '../models/Hevy.js';
+import { BodyweightLog, Exercise, User, Workout } from '../models/index.js';
+import { HevyConnection, HevyExerciseMapping, HevyImportedWorkouts, HevyWeightSyncs } from '../models/Hevy.js';
+import { pushBodyweight, weightSyncStatus } from '../services/hevyWeightSync.js';
 import { HevyApiError, HevyClient } from '../services/hevyClient.js';
 import {
   collectExerciseTemplates,
@@ -22,6 +23,8 @@ import { all, transaction } from '../config/database.js';
  *   GET    /api/hevy/workouts         one page of Hevy workouts, each marked new / imported / changed
  *   POST   /api/hevy/preview          exercises used by the chosen workouts, with suggested matches
  *   POST   /api/hevy/import           import the chosen workouts
+ *   GET    /api/hevy/weight           bodyweight dates and whether each is in Hevy
+ *   POST   /api/hevy/weight/sync      send bodyweight to Hevy
  */
 
 const router = express.Router();
@@ -408,6 +411,107 @@ router.post('/import',
       console.error('Hevy import error:', error);
       res.status(500).json({ error: 'Failed to import workouts' });
     }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Bodyweight -> Hevy
+// ---------------------------------------------------------------------------
+
+const MAX_WEIGHT_DATES_PER_SYNC = 60;
+
+function weightStatusFor(userId) {
+  const entries = weightSyncStatus(BodyweightLog.getByUser(userId), HevyWeightSyncs.getForUser(userId));
+  return { entries, pending_count: entries.filter((e) => e.status !== 'synced').length };
+}
+
+/**
+ * GET /api/hevy/weight
+ * One entry per date with a bodyweight log (newest first), each 'synced',
+ * 'not_synced' or 'changed' (edited here since it was sent).
+ */
+router.get('/weight', (req, res) => {
+  try {
+    res.json(weightStatusFor(req.user.id));
+  } catch (error) {
+    console.error('Hevy weight status error:', error);
+    res.status(500).json({ error: 'Failed to load bodyweight sync status' });
+  }
+});
+
+/**
+ * POST /api/hevy/weight/sync { dates? }
+ * Send bodyweight to Hevy: the given dates, or every date not yet in Hevy
+ * (up to 60 per request; `remaining_count` says how many are left).
+ * A date that already has an entry in Hevy (409) gets its weight updated,
+ * keeping the entry's other measurements.
+ */
+router.post('/weight/sync',
+  [
+    body('dates').optional().isArray({ max: MAX_WEIGHT_DATES_PER_SYNC })
+      .withMessage(`Send at most ${MAX_WEIGHT_DATES_PER_SYNC} dates at a time`),
+    body('dates.*').isISO8601({ strict: true }).withMessage('Dates must be YYYY-MM-DD'),
+  ],
+  async (req, res) => {
+    if (validationFailed(req, res)) return;
+    const client = clientFor(req, res);
+    if (!client) return;
+    const userId = req.user.id;
+
+    const { entries } = weightStatusFor(userId);
+    let targets;
+    if (Array.isArray(req.body.dates)) {
+      const wanted = new Set(req.body.dates.map((d) => String(d).slice(0, 10)));
+      targets = entries.filter((e) => wanted.has(e.date));
+    } else {
+      targets = entries.filter((e) => e.status !== 'synced').slice(0, MAX_WEIGHT_DATES_PER_SYNC);
+    }
+
+    const results = [];
+    const sent = [];
+    let stoppedBy = null;
+    // One at a time, oldest first, to stay well inside Hevy's rate limits
+    for (const entry of [...targets].reverse()) {
+      try {
+        const outcome = await pushBodyweight(client, entry.date, entry.weight_kg);
+        sent.push({ ...entry, synced_at: new Date().toISOString() });
+        results.push({ date: entry.date, outcome });
+      } catch (error) {
+        if (!(error instanceof HevyApiError)) {
+          console.error('Hevy weight sync error:', error);
+        }
+        const message = error instanceof HevyApiError ? error.message : 'Failed to send to Hevy';
+        results.push({ date: entry.date, outcome: 'failed', error: message });
+        // A bad key or rate limiting will fail every remaining date too
+        if (error instanceof HevyApiError && (error.isAuthError || error.status === 429)) {
+          stoppedBy = message;
+          break;
+        }
+      }
+    }
+
+    // One database write for the whole batch
+    try {
+      transaction(() => {
+        for (const e of sent) HevyWeightSyncs.record(userId, e.date, e.weight_kg, e.synced_at);
+      });
+    } catch (error) {
+      console.error('Hevy weight sync save error:', error);
+      return res.status(500).json({ error: 'Sent to Hevy, but failed to record it here. Syncing again is safe.' });
+    }
+
+    const status = weightStatusFor(userId);
+    const count = (outcome) => results.filter((r) => r.outcome === outcome).length;
+    res.json({
+      results: results.reverse(),
+      created: count('created'),
+      updated: count('updated'),
+      unchanged: count('unchanged'),
+      failed: count('failed'),
+      stopped: stoppedBy,
+      remaining_count: status.pending_count,
+      ...status,
+    });
   }
 );
 

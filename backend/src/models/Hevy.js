@@ -83,6 +83,23 @@ export class HevyExerciseMapping {
   }
 }
 
+/** The bodyweight last sent to Hevy for each date. */
+export class HevyWeightSyncs {
+  /** Map of date -> { weight_kg, synced_at } */
+  static getForUser(user_id) {
+    const rows = all('SELECT date, weight_kg, synced_at FROM hevy_weight_syncs WHERE user_id = ?', [user_id]);
+    return new Map(rows.map((r) => [r.date, r]));
+  }
+
+  static record(user_id, date, weight_kg, synced_at) {
+    run(
+      `INSERT INTO hevy_weight_syncs (user_id, date, weight_kg, synced_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT(user_id, date) DO UPDATE SET weight_kg = excluded.weight_kg, synced_at = excluded.synced_at`,
+      [user_id, date, weight_kg, synced_at]
+    );
+  }
+}
+
 /** Workouts that were imported from Hevy. */
 export class HevyImportedWorkouts {
   /** Map of hevy_workout_id -> { id, hevy_updated_at } for the given Hevy ids. */

@@ -15,6 +15,8 @@ import { fileURLToPath } from 'node:url';
 import {
   convertHevyWorkout, convertWeight, createExerciseMatcher, localDate, newExerciseFromTemplate, normalizeExerciseName,
 } from './services/hevyImport.js';
+import { mergeWeight, pushBodyweight, toKg } from './services/hevyWeightSync.js';
+import { HevyApiError } from './services/hevyClient.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let failures = 0;
@@ -88,15 +90,56 @@ const templates = {
 
 let hevyRequests = [];
 
+// Hevy body measurements by date. POST fails with 409 when the date exists;
+// PUT replaces the whole entry (fields left out become null), like Hevy.
+const bodyMeasurements = new Map();
+const MEASUREMENT_KEYS = ['weight_kg', 'lean_mass_kg', 'fat_percent', 'neck_cm', 'shoulder_cm', 'chest_cm',
+  'left_bicep_cm', 'right_bicep_cm', 'left_forearm_cm', 'right_forearm_cm', 'abdomen', 'waist', 'hips',
+  'left_thigh', 'right_thigh', 'left_calf', 'right_calf'];
+// Make the next request whose "METHOD path" matches fail with this status
+const hevyFaults = [];
+
 function startFakeHevy() {
-  const server = http.createServer((req, res) => {
+  const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     hevyRequests.push(url.pathname + url.search);
     const send = (status, body) => {
-      res.writeHead(status, { 'content-type': 'application/json' });
-      res.end(JSON.stringify(body));
+      res.writeHead(status, body === undefined ? {} : { 'content-type': 'application/json' });
+      res.end(body === undefined ? '' : JSON.stringify(body));
     };
     if (req.headers['api-key'] !== VALID_KEY) return send(401, { error: 'Unauthorized' });
+
+    const fault = hevyFaults.findIndex((f) => f.match.test(`${req.method} ${url.pathname}`));
+    if (fault >= 0) return send(hevyFaults.splice(fault, 1)[0].status, { error: 'fault' });
+
+    let body = null;
+    if (req.method === 'POST' || req.method === 'PUT') {
+      let raw = '';
+      for await (const chunk of req) raw += chunk;
+      try { body = JSON.parse(raw); } catch { return send(400, { error: 'Invalid JSON' }); }
+    }
+
+    if (url.pathname === '/v1/body_measurements' && req.method === 'POST') {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(body?.date || '')) return send(400, { error: 'date is required' });
+      if (bodyMeasurements.has(body.date)) return send(409, { error: 'A measurement for this date already exists' });
+      const entry = { date: body.date };
+      for (const k of MEASUREMENT_KEYS) entry[k] = body[k] ?? null;
+      bodyMeasurements.set(body.date, entry);
+      return send(201);
+    }
+    let bm = url.pathname.match(/^\/v1\/body_measurements\/(\d{4}-\d{2}-\d{2})$/);
+    if (bm && req.method === 'GET') {
+      const entry = bodyMeasurements.get(bm[1]);
+      return entry ? send(200, entry) : send(404, { error: 'Body measurement not found' });
+    }
+    if (bm && req.method === 'PUT') {
+      if (!bodyMeasurements.has(bm[1])) return send(404, { error: 'No measurement found for the given date' });
+      if ('date' in body) return send(400, { error: 'date is not allowed' });
+      const entry = { date: bm[1] };
+      for (const k of MEASUREMENT_KEYS) entry[k] = body[k] ?? null;
+      bodyMeasurements.set(bm[1], entry);
+      return send(200);
+    }
 
     if (url.pathname === '/v1/user/info') return send(200, { data: { id: 'u1', username: 'lifter', weight_unit: 'lbs' } });
     if (url.pathname === '/v1/workouts') {
@@ -235,6 +278,81 @@ async function unitTests() {
     });
     assert.equal(newExerciseFromTemplate('Treadmill', templates['T-RUN']).primary_muscle_group, 'Other');
     assert.equal(newExerciseFromTemplate('Treadmill', templates['T-RUN']).category, 'bodyweight');
+  });
+}
+
+async function weightUnitTests() {
+  console.log('\nBodyweight -> Hevy');
+
+  await test('converts bodyweight to kg', () => {
+    assert.equal(toKg(180, 'lbs'), 81.647);
+    assert.equal(toKg(80.5, 'kg'), 80.5);
+  });
+
+  await test('merging keeps the other measurements and only changes the weight', () => {
+    const merged = mergeWeight({ date: '2026-11-01', weight_kg: 80, fat_percent: 18, waist: 82, id: 'x' }, 81.2);
+    assert.equal(merged.weight_kg, 81.2);
+    assert.equal(merged.fat_percent, 18);
+    assert.equal(merged.waist, 82);
+    assert.equal(merged.chest_cm, null);
+    assert.ok(!('date' in merged) && !('id' in merged), 'only fields PUT accepts');
+  });
+
+  // A stub client that plays back a scripted sequence of Hevy responses
+  const scripted = (script) => {
+    const calls = [];
+    const step = (name, ...args) => {
+      calls.push(name);
+      const next = script.shift();
+      if (!next || next[0] !== name) throw new Error(`unexpected ${name}, script had ${next?.[0]}`);
+      if (next[1] instanceof Error) throw next[1];
+      return next[1];
+    };
+    return {
+      calls,
+      createBodyMeasurement: async (m) => step('create', m),
+      getBodyMeasurement: async (d) => step('get', d),
+      updateBodyMeasurement: async (d, f) => step('update', d, f),
+    };
+  };
+  const conflict = () => new HevyApiError('exists', 409);
+  const notFound = () => new HevyApiError('missing', 404);
+
+  await test('creates when the date is free', async () => {
+    const c = scripted([['create']]);
+    assert.equal(await pushBodyweight(c, '2026-11-01', 80), 'created');
+  });
+
+  await test('409: updates the existing entry', async () => {
+    const c = scripted([['create', conflict()], ['get', { date: '2026-11-01', weight_kg: 79, fat_percent: 17 }], ['update']]);
+    assert.equal(await pushBodyweight(c, '2026-11-01', 80), 'updated');
+  });
+
+  await test('409 with the same weight already there: no write', async () => {
+    const c = scripted([['create', conflict()], ['get', { date: '2026-11-01', weight_kg: 80.0001 }]]);
+    assert.equal(await pushBodyweight(c, '2026-11-01', 80), 'unchanged');
+    assert.deepEqual(c.calls, ['create', 'get']);
+  });
+
+  await test('409, then the entry is deleted before we read it: creates again', async () => {
+    const c = scripted([['create', conflict()], ['get', null], ['create']]);
+    assert.equal(await pushBodyweight(c, '2026-11-01', 80), 'created');
+  });
+
+  await test('409, then the entry is deleted before we update it: creates again', async () => {
+    const c = scripted([['create', conflict()], ['get', { weight_kg: 70 }], ['update', notFound()], ['create']]);
+    assert.equal(await pushBodyweight(c, '2026-11-01', 80), 'created');
+  });
+
+  await test('gives up with a 409 error if Hevy keeps flipping', async () => {
+    const script = [];
+    for (let i = 0; i < 3; i++) script.push(['create', conflict()], ['get', null]);
+    await assert.rejects(pushBodyweight(scripted(script), '2026-11-01', 80), (e) => e.status === 409);
+  });
+
+  await test('other errors are passed on', async () => {
+    const c = scripted([['create', new HevyApiError('bad', 400)]]);
+    await assert.rejects(pushBodyweight(c, '2026-11-01', 80), (e) => e.status === 400);
   });
 }
 
@@ -399,6 +517,95 @@ async function apiTests() {
       assert.equal(r.body.skipped[0].reason, 'Every exercise in it was skipped');
     });
 
+    const logWeight = async (weight, date, units = 'lbs') => {
+      const r = await call('POST', '/profile/bodyweight', { weight, date, units });
+      assert.equal(r.status, 201, JSON.stringify(r.body));
+      return r.body.bodyweight;
+    };
+
+    await test('weight status lists each date once, using its latest entry', async () => {
+      await logWeight(181, '2026-11-01');
+      await logWeight(180, '2026-11-01'); // later entry, same day: this one counts
+      await logWeight(182, '2026-11-02');
+      await logWeight(183, '2026-11-03');
+      const r = await call('GET', '/hevy/weight');
+      assert.equal(r.status, 200, JSON.stringify(r.body));
+      assert.deepEqual(r.body.entries.map((e) => [e.date, e.weight, e.status]), [
+        ['2026-11-03', 183, 'not_synced'], ['2026-11-02', 182, 'not_synced'], ['2026-11-01', 180, 'not_synced'],
+      ]);
+      assert.equal(r.body.pending_count, 3);
+    });
+
+    await test('sync: creates new dates; on 409 updates the weight and keeps other measurements', async () => {
+      // Logged in the Hevy app already: a different weight plus body fat and waist
+      bodyMeasurements.set('2026-11-02', { date: '2026-11-02', weight_kg: 83, fat_percent: 18.5, waist: 84 });
+      // And the same weight as here
+      bodyMeasurements.set('2026-11-03', { date: '2026-11-03', weight_kg: toKg(183, 'lbs'), fat_percent: 18 });
+      hevyRequests = [];
+
+      const r = await call('POST', '/hevy/weight/sync', {});
+      assert.equal(r.status, 200, JSON.stringify(r.body));
+      assert.deepEqual(r.body.results.map((x) => [x.date, x.outcome]), [
+        ['2026-11-03', 'unchanged'], ['2026-11-02', 'updated'], ['2026-11-01', 'created'],
+      ]);
+      assert.equal(r.body.remaining_count, 0);
+      assert.ok(r.body.entries.every((e) => e.status === 'synced'));
+
+      assert.equal(bodyMeasurements.get('2026-11-01').weight_kg, toKg(180, 'lbs'));
+      const updated = bodyMeasurements.get('2026-11-02');
+      assert.equal(updated.weight_kg, toKg(182, 'lbs'));
+      assert.equal(updated.fat_percent, 18.5, 'body fat kept');
+      assert.equal(updated.waist, 84, 'waist kept');
+      assert.equal(bodyMeasurements.get('2026-11-03').fat_percent, 18);
+      // The date that already had this weight was only read (GET), never written (PUT)
+      assert.equal(hevyRequests.filter((p) => p === '/v1/body_measurements/2026-11-03').length, 1);
+    });
+
+    await test('editing an entry here marks it changed; syncing again updates Hevy', async () => {
+      const log = (await call('GET', '/profile/bodyweight')).body.bodyweightLogs.find((l) => l.date === '2026-11-03');
+      const u = await call('PUT', `/profile/bodyweight/${log.id}`, { weight: 184 });
+      assert.equal(u.status, 200, JSON.stringify(u.body));
+      let r = await call('GET', '/hevy/weight');
+      assert.equal(r.body.entries.find((e) => e.date === '2026-11-03').status, 'changed');
+      assert.equal(r.body.pending_count, 1);
+
+      r = await call('POST', '/hevy/weight/sync', {});
+      assert.deepEqual(r.body.results.map((x) => [x.date, x.outcome]), [['2026-11-03', 'updated']]);
+      assert.equal(bodyMeasurements.get('2026-11-03').weight_kg, toKg(184, 'lbs'));
+      assert.equal(bodyMeasurements.get('2026-11-03').fat_percent, 18);
+    });
+
+    await test('syncing chosen dates resends them even when already synced', async () => {
+      bodyMeasurements.get('2026-11-01').weight_kg = 50; // changed in the Hevy app since
+      const r = await call('POST', '/hevy/weight/sync', { dates: ['2026-11-01'] });
+      assert.deepEqual(r.body.results.map((x) => [x.date, x.outcome]), [['2026-11-01', 'updated']]);
+      assert.equal(bodyMeasurements.get('2026-11-01').weight_kg, toKg(180, 'lbs'));
+    });
+
+    await test('rate limiting stops the batch and leaves the rest pending', async () => {
+      await logWeight(185, '2026-11-04');
+      await logWeight(186, '2026-11-05');
+      hevyFaults.push({ match: /^POST \/v1\/body_measurements$/, status: 429 });
+      let r = await call('POST', '/hevy/weight/sync', {});
+      assert.equal(r.status, 200);
+      assert.equal(r.body.failed, 1);
+      assert.match(r.body.stopped, /rate limiting/);
+      assert.equal(r.body.results.length, 1, 'stopped after the first failure');
+      assert.equal(r.body.remaining_count, 2);
+
+      r = await call('POST', '/hevy/weight/sync', {});
+      assert.equal(r.body.created, 2);
+      assert.equal(r.body.remaining_count, 0);
+    });
+
+    await test('a failed date is reported and stays pending', async () => {
+      await logWeight(187, '2026-11-06');
+      hevyFaults.push({ match: /^POST \/v1\/body_measurements$/, status: 500 });
+      const r = await call('POST', '/hevy/weight/sync', {});
+      assert.deepEqual(r.body.results.map((x) => [x.date, x.outcome]), [['2026-11-06', 'failed']]);
+      assert.equal(r.body.entries.find((e) => e.date === '2026-11-06').status, 'not_synced');
+    });
+
     await test('disconnecting forgets the key', async () => {
       assert.equal((await call('DELETE', '/hevy/connection')).body.connected, false);
       assert.equal((await call('GET', '/hevy/workouts')).body.code, 'hevy_not_connected');
@@ -412,6 +619,7 @@ async function apiTests() {
 }
 
 await unitTests();
+await weightUnitTests();
 await apiTests();
 console.log(failures ? `\n${failures} test(s) failed` : '\nAll Hevy tests passed');
 process.exit(failures ? 1 : 0);

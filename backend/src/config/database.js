@@ -287,6 +287,19 @@ function ensureHevySchema() {
       FOREIGN KEY (exercise_id) REFERENCES exercises(id)
     )
   `);
+
+  // The bodyweight last sent to Hevy for each date (Hevy keeps one per date),
+  // to tell which dates still need sending
+  db.run(`
+    CREATE TABLE IF NOT EXISTS hevy_weight_syncs (
+      user_id INTEGER NOT NULL,
+      date DATE NOT NULL,
+      weight_kg REAL NOT NULL,
+      synced_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, date),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
 }
 
 /**

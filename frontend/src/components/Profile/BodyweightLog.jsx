@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { profileAPI } from '../../services/api';
 import { getLocalDateString } from '../../utils/dateUtils';
-import { Alert, Button, useConfirm } from '../ui';
+import { Alert, Badge, Button, useConfirm } from '../ui';
+
+// Badge for an entry's Hevy sync status (only each date's latest entry has one)
+const HEVY_BADGES = {
+  synced: { tone: 'success', label: 'In Hevy' },
+  changed: { tone: 'warning', label: 'Edited since sent to Hevy' },
+  not_synced: { tone: 'neutral', label: 'Not in Hevy' },
+};
 
 function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -13,7 +20,8 @@ function formatDate(dateString) {
   });
 }
 
-function BodyweightLog({ units, onLogAdded }) {
+/** hevyStatusByLogId: Map of log id -> Hevy sync status, or null when Hevy isn't connected */
+function BodyweightLog({ units, onLogAdded, hevyStatusByLogId = null }) {
   const confirm = useConfirm();
   const [logs, setLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -219,8 +227,13 @@ function BodyweightLog({ units, onLogAdded }) {
                 className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 text-sm md:text-base">
+                  <p className="flex flex-wrap items-center gap-2 font-semibold text-gray-900 text-sm md:text-base">
                     {log.weight} {log.units}
+                    {HEVY_BADGES[hevyStatusByLogId?.get(log.id)] && (
+                      <Badge tone={HEVY_BADGES[hevyStatusByLogId.get(log.id)].tone}>
+                        {HEVY_BADGES[hevyStatusByLogId.get(log.id)].label}
+                      </Badge>
+                    )}
                   </p>
                   <p className="text-xs md:text-sm text-gray-500 truncate">
                     {formatDate(log.date)}

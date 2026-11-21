@@ -73,6 +73,15 @@ Users choose which Hevy workouts to import; nothing syncs on its own. Needs a He
   `{ create: {...} }` or `{ skip: true }`. Weights are converted from kg to the user's units; RPE is
   copied only when logged. Re-importing a workout replaces its sets instead of duplicating it.
 
+Bodyweight goes the other way, also on demand (Profile > Bodyweight > Send to Hevy):
+- `GET /weight`: one row per date (its latest entry; Hevy keeps one weight per date), each
+  `synced`, `not_synced` or `changed` (edited here since it was sent)
+- `POST /weight/sync` (`{ dates? }`): sends the given dates, or up to 60 not yet in Hevy. Hevy
+  answers 409 when the date already has an entry; we then read that entry and PUT it back with only
+  `weight_kg` changed, because Hevy's PUT sets any field left out to null (that would erase body fat,
+  waist, etc.). Same weight already there: no write. Rate limiting or a rejected key stops the batch;
+  unsent dates stay pending. Hevy's API has no delete, so deleting an entry here leaves it in Hevy.
+
 ## To Run:
 ```bash
 cd backend
