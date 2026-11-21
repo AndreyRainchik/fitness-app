@@ -7,8 +7,9 @@ import BodyweightLog from '../components/Profile/BodyweightLog';
 import SecuritySettings from '../components/Profile/SecuritySettings';
 import PlateInventory from '../components/PlateCalculator/PlateInventory.jsx';
 import HevyConnectionCard from '../components/Hevy/HevyConnectionCard';
+import StravaConnectionCard from '../components/Strava/StravaConnectionCard';
 import HevyWeightSyncCard from '../components/Hevy/HevyWeightSyncCard';
-import { hevyAPI } from '../services/api';
+import { hevyAPI, stravaAPI } from '../services/api';
 import Layout from '../components/Layout/Layout';
 import { Button, EmptyState, LoadingState, PageHeader, Tabs } from '../components/ui';
 
@@ -20,18 +21,29 @@ const TABS = [
   { id: 'integrations', label: 'Integrations' },
 ];
 
-/** Connected services (currently just Hevy). */
+/** Connected services: Strava and Hevy. */
 function IntegrationsTab() {
-  const [status, setStatus] = useState(null);
+  const [hevy, setHevy] = useState(null);
+  const [strava, setStrava] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    hevyAPI.getStatus().then(setStatus).catch((err) => setError(err.message || 'Could not load integrations'));
+    Promise.all([hevyAPI.getStatus(), stravaAPI.getStatus()])
+      .then(([hevyStatus, stravaStatus]) => {
+        setHevy(hevyStatus);
+        setStrava(stravaStatus);
+      })
+      .catch((err) => setError(err.message || 'Could not load integrations'));
   }, []);
 
   if (error) return <EmptyState tone="error" title="Couldn't load integrations" description={error} />;
-  if (!status) return <LoadingState label="Loading integrations..." />;
-  return <HevyConnectionCard status={status} onChange={setStatus} showImportLink />;
+  if (!hevy || !strava) return <LoadingState label="Loading integrations..." />;
+  return (
+    <div className="space-y-6">
+      <StravaConnectionCard status={strava} onChange={setStrava} />
+      <HevyConnectionCard status={hevy} onChange={setHevy} showImportLink />
+    </div>
+  );
 }
 
 /**

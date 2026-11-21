@@ -15,7 +15,9 @@
   "test:analytics": "node src/test-analytics.js",
   "show-exercises": "node src/show-exercises.js",
   "test:hevy": "node src/test-hevy.js",
-  "test:cardio": "node src/test-cardio.js"
+  "test:cardio": "node src/test-cardio.js",
+  "test:strava": "node src/test-strava.js",
+  "strava:subscribe": "node src/strava-subscribe.js"
  },
  "keywords": [
   "fitness",

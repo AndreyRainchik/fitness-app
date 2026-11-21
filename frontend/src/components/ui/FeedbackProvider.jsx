@@ -9,6 +9,7 @@ const TOAST_TONES = {
   success: 'border-success-500',
   error: 'border-danger-500',
   info: 'border-primary-500',
+  warning: 'border-warning-500',
 };
 
 const PROMPT_FORM_ID = 'feedback-prompt-form';

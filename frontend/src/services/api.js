@@ -382,6 +382,28 @@ export const cardioAPI = {
   },
 };
 
+export const stravaAPI = {
+  /** { configured, connected, athlete_name?, last_synced_at?, history_imported?, counts? } */
+  getStatus: () => apiCall('/strava/status'),
+
+  /** The strava.com page to send the user to; Strava redirects back to /strava/callback. */
+  authorizeUrl: () => apiCall('/strava/authorize', {
+    method: 'POST',
+    body: JSON.stringify({ redirect_uri: `${window.location.origin}/strava/callback` }),
+  }),
+
+  /** Finish connecting with the query parameters Strava redirected back with. */
+  exchange: ({ code, state, scope }) => apiCall('/strava/exchange', {
+    method: 'POST',
+    body: JSON.stringify({ code, state, scope }),
+  }),
+
+  /** Import new activities and more history. Resolves { result, status }. */
+  sync: () => apiCall('/strava/sync', { method: 'POST' }),
+
+  disconnect: () => apiCall('/strava/connection', { method: 'DELETE' }),
+};
+
 export const analyticsAPI = {
   /**
    * Get lift progression data for a specific exercise
@@ -810,6 +832,7 @@ export default {
   exercises: exercisesAPI,
   workouts: workoutsAPI,
   cardio: cardioAPI,
+  strava: stravaAPI,
   profile: profileAPI,
   analytics: analyticsAPI,
   templates: templatesAPI,

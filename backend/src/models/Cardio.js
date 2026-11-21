@@ -27,8 +27,11 @@ function sessionParams(fields) {
   ];
 }
 
-/** Insert, replace or remove (when every value is empty) a session's metrics row. */
-function saveMetrics(workoutId, fields) {
+/**
+ * Insert, replace or remove (when every value is empty) a session's heart
+ * rate and calories. Used for strength workouts too.
+ */
+export function saveMetrics(workoutId, fields) {
   const values = METRIC_FIELDS.map((f) => fields[f] ?? null);
   run('DELETE FROM session_metrics WHERE workout_id = ?', [workoutId]);
   if (values.some((v) => v !== null)) {
@@ -44,7 +47,9 @@ function saveMetrics(workoutId, fields) {
  * and session_metrics rows.
  *
  * Fields: date, start_time?, name?, notes?, sport, environment?, duration_s,
- * distance_m?, elevation_gain_m?, avg_cadence?, avg_hr?, max_hr?, calories?
+ * distance_m?, elevation_gain_m?, avg_cadence?, avg_hr?, max_hr?, calories?,
+ * summary_polyline?, splits_json? (the last two come from Strava; update()
+ * leaves them alone when they're not given, so editing by hand keeps them)
  */
 class Cardio {
   static create(userId, fields) {
@@ -58,9 +63,10 @@ class Cardio {
         ]
       );
       run(
-        `INSERT INTO cardio_sessions (workout_id, sport, environment, duration_s, distance_m, elevation_gain_m, avg_cadence)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [workoutId, ...sessionParams(fields)]
+        `INSERT INTO cardio_sessions (workout_id, sport, environment, duration_s, distance_m, elevation_gain_m, avg_cadence,
+           summary_polyline, splits_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [workoutId, ...sessionParams(fields), fields.summary_polyline ?? null, fields.splits_json ?? null]
       );
       saveMetrics(workoutId, fields);
       return workoutId;
@@ -85,6 +91,11 @@ class Cardio {
          WHERE workout_id = ?`,
         [...sessionParams(fields), workoutId]
       );
+      for (const column of ['summary_polyline', 'splits_json']) {
+        if (fields[column] !== undefined) {
+          run(`UPDATE cardio_sessions SET ${column} = ? WHERE workout_id = ?`, [fields[column], workoutId]);
+        }
+      }
       saveMetrics(workoutId, fields);
     });
     return this.findById(workoutId);

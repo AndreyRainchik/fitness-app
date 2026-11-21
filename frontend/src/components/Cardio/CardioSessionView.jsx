@@ -1,5 +1,7 @@
 import React from 'react';
 import { Card } from '../ui';
+import { RouteOutline, SplitsTable } from './RouteAndSplits';
+import { ViewOnStrava } from '../Strava/StravaConnectionCard';
 import {
   elevationUnit, formatClock, formatDistance, formatPaceOrSpeed, metersToElevation, paceLabel, sportInfo,
 } from '../../utils/cardio';
@@ -39,11 +41,23 @@ function CardioSessionView({ workout, unit }) {
         ))}
       </div>
 
+      <div className="space-y-4">
+        {c.summary_polyline && <RouteOutline polyline={c.summary_polyline} />}
+        <SplitsTable splitsJson={c.splits_json} sport={c.sport} unit={unit} />
+      </div>
+
       {workout.notes && (
-        <Card>
+        <Card className="mt-4">
           <p className="eyebrow mb-1.5">Notes</p>
           <p className="whitespace-pre-wrap text-sm text-gray-700">{workout.notes}</p>
         </Card>
+      )}
+
+      {workout.strava && (
+        <p className="mt-6 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+          <span>Synced from Strava</span>
+          <ViewOnStrava activityId={workout.strava.activity_id} />
+        </p>
       )}
     </>
   );

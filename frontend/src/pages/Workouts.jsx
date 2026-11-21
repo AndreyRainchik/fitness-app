@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, ChevronRight, Clock, Download, Dumbbell, Plus, Search, Trash2, X } from 'lucide-react';
+import { Activity, ChevronRight, Clock, Download, Dumbbell, HeartPulse, Plus, Search, Trash2, X } from 'lucide-react';
 import { workoutsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout/Layout';
@@ -221,6 +221,7 @@ function Workouts() {
                                 {[
                                   workout.total_volume > 0 ? `${formatCompact(workout.total_volume)} ${units}` : null,
                                   workout.duration_minutes > 0 ? `${workout.duration_minutes} min` : null,
+                                  workout.avg_hr ? `${workout.avg_hr} bpm` : null,
                                 ].filter(Boolean).join(' · ')}
                               </span>
                               <span className="mt-1 hidden flex-wrap gap-1 sm:flex">
@@ -243,6 +244,11 @@ function Workouts() {
                               {workout.duration_minutes > 0 && (
                                 <span className="tabular flex items-center justify-end gap-1 text-xs text-gray-500">
                                   <Clock className="h-3 w-3" /> {workout.duration_minutes} min
+                                </span>
+                              )}
+                              {!cardio && workout.avg_hr > 0 && (
+                                <span className="tabular flex items-center justify-end gap-1 text-xs text-gray-500">
+                                  <HeartPulse className="h-3 w-3" /> {workout.avg_hr} bpm
                                 </span>
                               )}
                             </span>

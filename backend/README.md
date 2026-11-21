@@ -48,6 +48,9 @@ backend/
 - `npm start`: Start the server
 - `npm run dev`: Start with auto-reload (Node 18+)
 - `npm run test:hevy`: Hevy import tests (uses a fake Hevy server and a throwaway database)
+- `npm run test:cardio`: cardio session and training summary tests
+- `npm run test:strava`: Strava sync tests (fake Strava server, throwaway database)
+- `npm run strava:subscribe -- <https://your-app/api/strava/webhook>`: register the Strava webhook (once per deployment; `--list`, `--delete <id>`)
 
 ### Environment Variables (.env):
 - `PORT=3000`: Server port
@@ -56,6 +59,10 @@ backend/
 - `DB_PATH=./fitness.db`: SQLite database path
 - `SECRETS_ENCRYPTION_KEY` (optional): Key for encrypting stored Hevy API keys. Defaults to one derived from `JWT_SECRET`; changing either means users re-enter their Hevy key.
 - `HEVY_API_BASE_URL` (optional): Override `https://api.hevyapp.com` (tests only)
+- `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`: from strava.com/settings/api. Without them the Strava card says Strava isn't set up.
+- `STRAVA_WEBHOOK_VERIFY_TOKEN`: any random string; Strava sends it back when the webhook is registered
+- `STRAVA_DETAIL_LIMIT` (default 25), `STRAVA_BACKFILL_PAGES` (default 10): per-sync request budget (see below)
+- `STRAVA_API_BASE_URL`, `STRAVA_OAUTH_BASE_URL` (optional): overrides (tests only)
 
 ### Current Endpoints:
 - `GET /health`: Health check
@@ -85,6 +92,38 @@ background, and a failed date stays pending for the "Send" button (Profile > Bod
   `weight_kg` changed, because Hevy's PUT sets any field left out to null (that would erase body fat,
   waist, etc.). Same weight already there: no write. Rate limiting or a rejected key stops the batch;
   unsent dates stay pending. Hevy's API has no delete, so deleting an entry here leaves it in Hevy.
+
+### Cardio (`/api/cardio`, `routes/cardio.js`)
+A cardio session is a `workouts` row with `kind = 'cardio'` plus a `cardio_sessions` row (sport,
+indoor/outdoor, moving time, distance, elevation, cadence, and for Strava imports the route outline
+and splits). Heart rate and calories live in `session_metrics`, which strength workouts use too.
+- `POST /` and `PUT /:id`: log or replace a session (sport `run|ride|row|boulder|other`)
+- `GET /summary?weeks=&localDate=`: weekly minutes by activity (strength included), this week, per-sport totals
+
+### Strava sync (`/api/strava`, `routes/strava.js`, `services/strava*.js`)
+Setup: create an API application at strava.com/settings/api, set its *Authorization Callback
+Domain* to the app's domain (`localhost` while developing), set the three `STRAVA_*` variables, then
+after deploying run `npm run strava:subscribe -- https://<domain>/api/strava/webhook` once.
+
+- Connect: Profile > Integrations > Connect with Strava. `POST /authorize` returns the strava.com URL
+  (scope `read,activity:read_all`, a signed 15-minute `state`); Strava redirects to the app's
+  `/strava/callback` page, which sends the code to `POST /exchange`. Tokens are stored encrypted and
+  refreshed before they expire.
+- Sync (`POST /sync`, also run in the background right after connecting): new activities since the
+  last sync, fetching full details (calories, description, splits) for up to `STRAVA_DETAIL_LIMIT`
+  of them; then up to `STRAVA_BACKFILL_PAGES` pages (200 each) of older history, from the activity
+  list only. Progress is saved per page, so hitting Strava's rate limit just means the next sync
+  carries on.
+- Webhook (`GET`/`POST /webhook`, no sign-in): created / updated / deleted activities arrive as they
+  happen. Events aren't signed, so a delete is only applied after Strava confirms the activity is gone.
+- Mapping (`services/stravaImport.js`): runs, rides, rows and climbing become cardio sessions
+  (treadmill/trainer/virtual = indoor); other types become `other`. `WeightTraining` / `Crossfit`
+  are matched to a strength workout here instead (start within 30 minutes of a Hevy workout's start,
+  or the same day for workouts without a start time) and add their heart rate and calories to it.
+  Unmatched ones wait and are matched when a workout is imported from Hevy or logged. A session
+  logged by hand that matches a Strava activity is linked instead of duplicated.
+- `strava_activities` records every activity seen and what happened to it. A session deleted here is
+  marked `dismissed` and not imported again. Disconnecting keeps imported sessions.
 
 ## To Run:
 ```bash

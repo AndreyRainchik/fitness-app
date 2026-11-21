@@ -261,7 +261,7 @@ async function unitTests() {
     const out = convertHevyWorkout(hevyWorkouts[0], {
       exerciseFor: (id) => exercises[id] ?? null, units: 'lbs', timeZone: 'America/New_York',
     });
-    assert.deepEqual(out.workout, { date: '2026-11-18', name: 'Push Day', notes: 'Felt strong', duration_minutes: 75 });
+    assert.deepEqual(out.workout, { date: '2026-11-18', name: 'Push Day', notes: 'Felt strong', duration_minutes: 75, start_time: '2026-11-18T23:30:00.000Z' });
     assert.deepEqual(out.skipped_exercises, ['Cable Crossover']);
     assert.equal(out.sets.length, 4);
     assert.deepEqual(out.sets[0], { exercise_id: 10, set_number: 1, reps: 10, weight: 45, rpe: null, is_warmup: true, notes: 'Paused reps' });

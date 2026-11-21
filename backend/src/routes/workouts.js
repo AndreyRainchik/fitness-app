@@ -4,6 +4,7 @@ import { Workout, Set, Exercise } from '../models/index.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { all } from '../config/database.js';
 import { estimate1RM } from '../utils/strengthCalculations.js';
+import { linkUnmatchedStrength } from '../services/stravaSync.js';
 
 /**
  * Returns true when the exercise supports negative weights (i.e. machine
@@ -426,6 +427,9 @@ router.post('/',
         workout = Workout.create(workoutData);
       }
       
+      // A Strava lifting session from that day may be this workout
+      if (linkUnmatchedStrength(req.user.id) > 0) workout = Workout.getWithDetails(workout.id);
+
       res.status(201).json({
         message: 'Workout created successfully',
         workout
