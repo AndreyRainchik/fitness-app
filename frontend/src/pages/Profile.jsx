@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { profileAPI } from '../services/api';
 import ProfileInfo from '../components/Profile/ProfileInfo';
@@ -55,6 +55,19 @@ function BodyweightTab({ units, onLogChanged }) {
 
   useEffect(() => { loadHevyWeight(); }, [loadHevyWeight]);
 
+  // A send still running when the server answered finishes in the background:
+  // check again shortly so the badge catches up
+  const recheckRef = useRef(null);
+  useEffect(() => () => clearTimeout(recheckRef.current), []);
+  const handleLogChanged = (hevySync) => {
+    onLogChanged();
+    loadHevyWeight();
+    if (hevySync?.status === 'pending') {
+      clearTimeout(recheckRef.current);
+      recheckRef.current = setTimeout(loadHevyWeight, 8000);
+    }
+  };
+
   // Each date's latest entry is the one Hevy gets
   const hevyStatusByLogId = useMemo(
     () => new Map((hevyWeight?.entries ?? []).map((e) => [e.log_id, e.status])),
@@ -68,7 +81,7 @@ function BodyweightTab({ units, onLogChanged }) {
       <BodyweightLog
         units={units}
         hevyStatusByLogId={hevyWeight ? hevyStatusByLogId : null}
-        onLogAdded={() => { onLogChanged(); loadHevyWeight(); }}
+        onLogAdded={handleLogChanged}
       />
     </div>
   );

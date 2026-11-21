@@ -110,7 +110,11 @@ function startFakeHevy() {
     if (req.headers['api-key'] !== VALID_KEY) return send(401, { error: 'Unauthorized' });
 
     const fault = hevyFaults.findIndex((f) => f.match.test(`${req.method} ${url.pathname}`));
-    if (fault >= 0) return send(hevyFaults.splice(fault, 1)[0].status, { error: 'fault' });
+    if (fault >= 0) {
+      const f = hevyFaults.splice(fault, 1)[0];
+      if (f.delayMs) await new Promise((r) => setTimeout(r, f.delayMs)); // slow Hevy, then carry on
+      else return send(f.status, { error: 'fault' });
+    }
 
     let body = null;
     if (req.method === 'POST' || req.method === 'PUT') {
@@ -183,6 +187,7 @@ async function startApp(hevyUrl, dbPath) {
       JWT_SECRET: Buffer.from('test-secret-for-hevy-tests').toString('base64'),
       HEVY_API_BASE_URL: hevyUrl,
       NODE_ENV: 'test',
+      HEVY_AUTO_SYNC_WAIT_MS: '400',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -520,14 +525,25 @@ async function apiTests() {
     const logWeight = async (weight, date, units = 'lbs') => {
       const r = await call('POST', '/profile/bodyweight', { weight, date, units });
       assert.equal(r.status, 201, JSON.stringify(r.body));
-      return r.body.bodyweight;
+      return r.body;
+    };
+    // New entries go to Hevy automatically while connected. The manual-sync
+    // tests set up their entries while disconnected so they start unsent.
+    const offline = async (fn) => {
+      await call('DELETE', '/hevy/connection');
+      try { return await fn(); } finally {
+        const r = await call('PUT', '/hevy/connection', { api_key: VALID_KEY });
+        assert.equal(r.status, 200, JSON.stringify(r.body));
+      }
     };
 
     await test('weight status lists each date once, using its latest entry', async () => {
-      await logWeight(181, '2026-11-01');
-      await logWeight(180, '2026-11-01'); // later entry, same day: this one counts
-      await logWeight(182, '2026-11-02');
-      await logWeight(183, '2026-11-03');
+      await offline(async () => {
+        assert.deepEqual((await logWeight(181, '2026-11-01')).hevy_sync, { status: 'not_connected' });
+        await logWeight(180, '2026-11-01'); // later entry, same day: this one counts
+        await logWeight(182, '2026-11-02');
+        await logWeight(183, '2026-11-03');
+      });
       const r = await call('GET', '/hevy/weight');
       assert.equal(r.status, 200, JSON.stringify(r.body));
       assert.deepEqual(r.body.entries.map((e) => [e.date, e.weight, e.status]), [
@@ -563,8 +579,10 @@ async function apiTests() {
 
     await test('editing an entry here marks it changed; syncing again updates Hevy', async () => {
       const log = (await call('GET', '/profile/bodyweight')).body.bodyweightLogs.find((l) => l.date === '2026-11-03');
-      const u = await call('PUT', `/profile/bodyweight/${log.id}`, { weight: 184 });
-      assert.equal(u.status, 200, JSON.stringify(u.body));
+      await offline(async () => {
+        const u = await call('PUT', `/profile/bodyweight/${log.id}`, { weight: 184 });
+        assert.equal(u.status, 200, JSON.stringify(u.body));
+      });
       let r = await call('GET', '/hevy/weight');
       assert.equal(r.body.entries.find((e) => e.date === '2026-11-03').status, 'changed');
       assert.equal(r.body.pending_count, 1);
@@ -583,8 +601,10 @@ async function apiTests() {
     });
 
     await test('rate limiting stops the batch and leaves the rest pending', async () => {
-      await logWeight(185, '2026-11-04');
-      await logWeight(186, '2026-11-05');
+      await offline(async () => {
+        await logWeight(185, '2026-11-04');
+        await logWeight(186, '2026-11-05');
+      });
       hevyFaults.push({ match: /^POST \/v1\/body_measurements$/, status: 429 });
       let r = await call('POST', '/hevy/weight/sync', {});
       assert.equal(r.status, 200);
@@ -599,11 +619,84 @@ async function apiTests() {
     });
 
     await test('a failed date is reported and stays pending', async () => {
-      await logWeight(187, '2026-11-06');
+      await offline(() => logWeight(187, '2026-11-06'));
       hevyFaults.push({ match: /^POST \/v1\/body_measurements$/, status: 500 });
       const r = await call('POST', '/hevy/weight/sync', {});
       assert.deepEqual(r.body.results.map((x) => [x.date, x.outcome]), [['2026-11-06', 'failed']]);
       assert.equal(r.body.entries.find((e) => e.date === '2026-11-06').status, 'not_synced');
+    });
+
+    // Automatic sending of new weigh-ins
+    const hevyWeight = async (date) => (await call('GET', '/hevy/weight')).body.entries.find((e) => e.date === date);
+
+    await test('auto: a new weigh-in is sent to Hevy straight away', async () => {
+      const r = await logWeight(188, '2026-11-10');
+      assert.deepEqual(r.hevy_sync, { status: 'done', results: [{ date: '2026-11-10', outcome: 'created' }] });
+      assert.equal(bodyMeasurements.get('2026-11-10').weight_kg, toKg(188, 'lbs'));
+      assert.equal((await hevyWeight('2026-11-10')).status, 'synced');
+    });
+
+    await test('auto: Hevy already has that day (409): weight updated, other measurements kept', async () => {
+      bodyMeasurements.set('2026-11-11', { date: '2026-11-11', weight_kg: 90, fat_percent: 19, hips: 100 });
+      const r = await logWeight(189, '2026-11-11');
+      assert.equal(r.hevy_sync.results[0].outcome, 'updated');
+      const entry = bodyMeasurements.get('2026-11-11');
+      assert.equal(entry.weight_kg, toKg(189, 'lbs'));
+      assert.equal(entry.fat_percent, 19);
+      assert.equal(entry.hips, 100);
+    });
+
+    await test('auto: a second weigh-in the same day replaces the first in Hevy', async () => {
+      const r = await logWeight(187.5, '2026-11-10');
+      assert.equal(r.hevy_sync.results[0].outcome, 'updated');
+      assert.equal(bodyMeasurements.get('2026-11-10').weight_kg, toKg(187.5, 'lbs'));
+    });
+
+    await test('auto: editing an entry sends the new weight; moving it sends both dates', async () => {
+      const logs = (await call('GET', '/profile/bodyweight')).body.bodyweightLogs;
+      const log = logs.find((l) => l.date === '2026-11-11');
+      let r = await call('PUT', `/profile/bodyweight/${log.id}`, { weight: 190 });
+      assert.equal(r.body.hevy_sync.results[0].outcome, 'updated');
+      assert.equal(bodyMeasurements.get('2026-11-11').weight_kg, toKg(190, 'lbs'));
+      assert.equal(bodyMeasurements.get('2026-11-11').fat_percent, 19);
+
+      // Move the 187.5 entry from the 10th to the 12th: the 10th falls back to 188
+      const later = logs.filter((l) => l.date === '2026-11-10').sort((a, b) => b.id - a.id)[0];
+      r = await call('PUT', `/profile/bodyweight/${later.id}`, { date: '2026-11-12' });
+      assert.deepEqual(r.body.hevy_sync.results.map((x) => [x.date, x.outcome]), [['2026-11-12', 'created'], ['2026-11-10', 'updated']]);
+      assert.equal(bodyMeasurements.get('2026-11-12').weight_kg, toKg(187.5, 'lbs'));
+      assert.equal(bodyMeasurements.get('2026-11-10').weight_kg, toKg(188, 'lbs'));
+    });
+
+    await test('auto: deleting the latest entry of a day sends the one left', async () => {
+      const a = (await logWeight(191, '2026-11-13')).bodyweight;
+      const b = (await logWeight(192, '2026-11-13')).bodyweight;
+      let r = await call('DELETE', `/profile/bodyweight/${b.id}`);
+      assert.equal(r.body.hevy_sync.results[0].outcome, 'updated');
+      assert.equal(bodyMeasurements.get('2026-11-13').weight_kg, toKg(191, 'lbs'));
+      // Deleting the day's only entry: nothing to send (Hevy's API can't delete)
+      r = await call('DELETE', `/profile/bodyweight/${a.id}`);
+      assert.deepEqual(r.body.hevy_sync.results, [{ date: '2026-11-13', outcome: 'no_entry' }]);
+    });
+
+    await test('auto: Hevy failing still saves the weigh-in; it stays pending for the button', async () => {
+      hevyFaults.push({ match: /^POST \/v1\/body_measurements$/, status: 500 });
+      const r = await logWeight(193, '2026-11-14');
+      assert.equal(r.hevy_sync.results[0].outcome, 'failed');
+      assert.equal((await hevyWeight('2026-11-14')).status, 'not_synced');
+      const s = await call('POST', '/hevy/weight/sync', { dates: ['2026-11-14'] });
+      assert.equal(s.body.results[0].outcome, 'created');
+    });
+
+    await test('auto: slow Hevy doesn\'t hold up the weigh-in; the send finishes in the background', async () => {
+      hevyFaults.push({ match: /^POST \/v1\/body_measurements$/, delayMs: 1000 });
+      const started = Date.now();
+      const r = await logWeight(194, '2026-11-15');
+      assert.ok(Date.now() - started < 900, `answered in ${Date.now() - started} ms`);
+      assert.deepEqual(r.hevy_sync, { status: 'pending' });
+      await new Promise((res) => setTimeout(res, 1000));
+      assert.equal(bodyMeasurements.get('2026-11-15').weight_kg, toKg(194, 'lbs'));
+      assert.equal((await hevyWeight('2026-11-15')).status, 'synced');
     });
 
     await test('disconnecting forgets the key', async () => {

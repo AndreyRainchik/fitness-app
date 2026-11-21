@@ -101,7 +101,7 @@ function HevyConnectionCard({ status, onChange, showImportLink = false }) {
             </ol>
           )}
           {error && <Alert>{error}</Alert>}
-          <Field label="Hevy API key" hint="Stored encrypted on the server. Used to read your Hevy workouts and to send your bodyweight to Hevy.">
+          <Field label="Hevy API key" hint="Stored encrypted on the server. Used to read your Hevy workouts and to send your weigh-ins to Hevy as you log them.">
             <Input
               type="password"
               autoComplete="off"

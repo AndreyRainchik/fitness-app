@@ -73,7 +73,11 @@ Users choose which Hevy workouts to import; nothing syncs on its own. Needs a He
   `{ create: {...} }` or `{ skip: true }`. Weights are converted from kg to the user's units; RPE is
   copied only when logged. Re-importing a workout replaces its sets instead of duplicating it.
 
-Bodyweight goes the other way, also on demand (Profile > Bodyweight > Send to Hevy):
+Bodyweight goes the other way. Adding, editing or deleting an entry (`/api/profile/bodyweight`)
+sends that date to Hevy automatically when Hevy is connected (`services/hevyAutoSync.js`); the
+response's `hevy_sync` says how it went. Hevy never blocks or fails the save: after
+`HEVY_AUTO_SYNC_WAIT_MS` (default 4000) the request answers `pending` and the send finishes in the
+background, and a failed date stays pending for the "Send" button (Profile > Bodyweight):
 - `GET /weight`: one row per date (its latest entry; Hevy keeps one weight per date), each
   `synced`, `not_synced` or `changed` (edited here since it was sent)
 - `POST /weight/sync` (`{ dates? }`): sends the given dates, or up to 60 not yet in Hevy. Hevy

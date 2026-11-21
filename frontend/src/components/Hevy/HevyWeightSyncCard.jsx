@@ -48,7 +48,7 @@ function HevyWeightSyncCard({ weight, onChange }) {
     <Card>
       <CardHeader
         icon={Upload}
-        title="Send to Hevy"
+        title="Bodyweight in Hevy"
         subtitle={!weight || weight.entries.length === 0
           ? 'Log a bodyweight entry to send it to Hevy.'
           : pending === 0
@@ -61,9 +61,10 @@ function HevyWeightSyncCard({ weight, onChange }) {
         ) : weight?.entries.length ? <CheckCircle2 className="h-5 w-5 text-success-600" aria-label="Up to date" /> : null}
       />
       <p className="text-sm text-gray-500">
-        Hevy keeps one weight per day, so the latest entry for each date is sent. If Hevy already has
-        an entry for that day, only its weight is changed; body fat and other measurements logged in
-        Hevy are kept.
+        New weigh-ins and edits are sent to Hevy automatically. Use the button for older entries or any
+        that didn&apos;t go through. Hevy keeps one weight per day, so each date&apos;s latest entry is sent;
+        if Hevy already has that day, only the weight changes and body fat and other measurements logged
+        in Hevy are kept.
       </p>
 
       {error && <Alert className="mt-4">{error}</Alert>}

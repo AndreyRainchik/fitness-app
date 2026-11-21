@@ -10,6 +10,23 @@ const HEVY_BADGES = {
   not_synced: { tone: 'neutral', label: 'Not in Hevy' },
 };
 
+/**
+ * What happened when the server sent a change to Hevy (hevy_sync in the
+ * bodyweight response): { tone, note } to add to the message, or null.
+ */
+function hevyNote(hevySync) {
+  if (!hevySync || hevySync.status === 'not_connected') return null;
+  if (hevySync.status === 'pending') return { tone: 'success', note: 'Sending to Hevy…' };
+  const failed = hevySync.results?.find((r) => r.outcome === 'failed');
+  if (failed) {
+    return { tone: 'warning', note: `Couldn't send it to Hevy (${failed.error}). Use "Send to Hevy" above to try again.` };
+  }
+  if (hevySync.results?.some((r) => ['created', 'updated', 'unchanged'].includes(r.outcome))) {
+    return { tone: 'success', note: 'Sent to Hevy.' };
+  }
+  return null;
+}
+
 function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString('en-US', {
     weekday: 'short',
@@ -33,6 +50,13 @@ function BodyweightLog({ units, onLogAdded, hevyStatusByLogId = null }) {
   });
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [messageTone, setMessageTone] = useState('success');
+
+  const showResult = (message, hevySync) => {
+    const hevy = hevyNote(hevySync);
+    setMessageTone(hevy?.tone ?? 'success');
+    setSuccessMessage(hevy ? `${message} ${hevy.note}` : message);
+  };
 
   useEffect(() => {
     fetchLogs();
@@ -68,13 +92,13 @@ function BodyweightLog({ units, onLogAdded, hevyStatusByLogId = null }) {
     setSuccessMessage('');
 
     try {
-      await profileAPI.addBodyweightLog(
+      const result = await profileAPI.addBodyweightLog(
         parseFloat(formData.weight),
         formData.date,
         formData.units
       );
       
-      setSuccessMessage('Bodyweight logged successfully!');
+      showResult('Bodyweight logged.', result.hevy_sync);
       setFormData({
         weight: '',
         date: getLocalDateString(),
@@ -87,7 +111,7 @@ function BodyweightLog({ units, onLogAdded, hevyStatusByLogId = null }) {
       
       // Notify parent component
       if (onLogAdded) {
-        onLogAdded();
+        onLogAdded(result.hevy_sync);
       }
     } catch (err) {
       setError(err.message || 'Failed to log bodyweight');
@@ -106,12 +130,14 @@ function BodyweightLog({ units, onLogAdded, hevyStatusByLogId = null }) {
     const id = log.id;
 
     try {
-      await profileAPI.deleteBodyweightLog(id);
-      setSuccessMessage('Bodyweight entry deleted');
+      const result = await profileAPI.deleteBodyweightLog(id);
+      // Only worth mentioning Hevy when another entry that day was sent in its place
+      const sentReplacement = result.hevy_sync?.results?.some((r) => r.outcome !== 'no_entry');
+      showResult('Bodyweight entry deleted.', sentReplacement ? result.hevy_sync : null);
       fetchLogs();
       
       if (onLogAdded) {
-        onLogAdded();
+        onLogAdded(result.hevy_sync);
       }
     } catch (err) {
       setError(err.message || 'Failed to delete entry');
@@ -138,7 +164,7 @@ function BodyweightLog({ units, onLogAdded, hevyStatusByLogId = null }) {
       )}
 
       {successMessage && (
-        <Alert tone="success" className="mb-4">
+        <Alert tone={messageTone} className="mb-4">
           {successMessage}
         </Alert>
       )}
