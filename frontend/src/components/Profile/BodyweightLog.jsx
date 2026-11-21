@@ -1,7 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { profileAPI } from '../../services/api';
 import { getLocalDateString } from '../../utils/dateUtils';
-import { Alert, Button, useConfirm } from '../ui';
+import { Alert, Badge, Button, useConfirm } from '../ui';
+
+// Badge for an entry's Hevy sync status (only each date's latest entry has one)
+const HEVY_BADGES = {
+  synced: { tone: 'success', label: 'In Hevy' },
+  changed: { tone: 'warning', label: 'Edited since sent to Hevy' },
+  not_synced: { tone: 'neutral', label: 'Not in Hevy' },
+};
+
+/**
+ * What happened when the server sent a change to Hevy (hevy_sync in the
+ * bodyweight response): { tone, note } to add to the message, or null.
+ */
+function hevyNote(hevySync) {
+  if (!hevySync || hevySync.status === 'not_connected') return null;
+  if (hevySync.status === 'pending') return { tone: 'success', note: 'Sending to Hevy…' };
+  const failed = hevySync.results?.find((r) => r.outcome === 'failed');
+  if (failed) {
+    return { tone: 'warning', note: `Couldn't send it to Hevy (${failed.error}). Use "Send to Hevy" above to try again.` };
+  }
+  if (hevySync.results?.some((r) => ['created', 'updated', 'unchanged'].includes(r.outcome))) {
+    return { tone: 'success', note: 'Sent to Hevy.' };
+  }
+  return null;
+}
 
 function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -13,7 +37,8 @@ function formatDate(dateString) {
   });
 }
 
-function BodyweightLog({ units, onLogAdded }) {
+/** hevyStatusByLogId: Map of log id -> Hevy sync status, or null when Hevy isn't connected */
+function BodyweightLog({ units, onLogAdded, hevyStatusByLogId = null }) {
   const confirm = useConfirm();
   const [logs, setLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,6 +50,13 @@ function BodyweightLog({ units, onLogAdded }) {
   });
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [messageTone, setMessageTone] = useState('success');
+
+  const showResult = (message, hevySync) => {
+    const hevy = hevyNote(hevySync);
+    setMessageTone(hevy?.tone ?? 'success');
+    setSuccessMessage(hevy ? `${message} ${hevy.note}` : message);
+  };
 
   useEffect(() => {
     fetchLogs();
@@ -60,13 +92,13 @@ function BodyweightLog({ units, onLogAdded }) {
     setSuccessMessage('');
 
     try {
-      await profileAPI.addBodyweightLog(
+      const result = await profileAPI.addBodyweightLog(
         parseFloat(formData.weight),
         formData.date,
         formData.units
       );
       
-      setSuccessMessage('Bodyweight logged successfully!');
+      showResult('Bodyweight logged.', result.hevy_sync);
       setFormData({
         weight: '',
         date: getLocalDateString(),
@@ -79,7 +111,7 @@ function BodyweightLog({ units, onLogAdded }) {
       
       // Notify parent component
       if (onLogAdded) {
-        onLogAdded();
+        onLogAdded(result.hevy_sync);
       }
     } catch (err) {
       setError(err.message || 'Failed to log bodyweight');
@@ -98,12 +130,14 @@ function BodyweightLog({ units, onLogAdded }) {
     const id = log.id;
 
     try {
-      await profileAPI.deleteBodyweightLog(id);
-      setSuccessMessage('Bodyweight entry deleted');
+      const result = await profileAPI.deleteBodyweightLog(id);
+      // Only worth mentioning Hevy when another entry that day was sent in its place
+      const sentReplacement = result.hevy_sync?.results?.some((r) => r.outcome !== 'no_entry');
+      showResult('Bodyweight entry deleted.', sentReplacement ? result.hevy_sync : null);
       fetchLogs();
       
       if (onLogAdded) {
-        onLogAdded();
+        onLogAdded(result.hevy_sync);
       }
     } catch (err) {
       setError(err.message || 'Failed to delete entry');
@@ -130,7 +164,7 @@ function BodyweightLog({ units, onLogAdded }) {
       )}
 
       {successMessage && (
-        <Alert tone="success" className="mb-4">
+        <Alert tone={messageTone} className="mb-4">
           {successMessage}
         </Alert>
       )}
@@ -219,8 +253,13 @@ function BodyweightLog({ units, onLogAdded }) {
                 className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 text-sm md:text-base">
+                  <p className="flex flex-wrap items-center gap-2 font-semibold text-gray-900 text-sm md:text-base">
                     {log.weight} {log.units}
+                    {HEVY_BADGES[hevyStatusByLogId?.get(log.id)] && (
+                      <Badge tone={HEVY_BADGES[hevyStatusByLogId.get(log.id)].tone}>
+                        {HEVY_BADGES[hevyStatusByLogId.get(log.id)].label}
+                      </Badge>
+                    )}
                   </p>
                   <p className="text-xs md:text-sm text-gray-500 truncate">
                     {formatDate(log.date)}

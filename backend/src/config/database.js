@@ -37,10 +37,13 @@ export async function initDatabase() {
       } catch (e) {
         // Column already exists, ignore
       }
+      ensureHevySchema();
+      saveDatabase();
     } else {
       console.log('🆕 Creating new database...');
       db = new SQL.Database();
       createTables();
+      ensureHevySchema();
       seedExercises();
       saveDatabase();
     }
@@ -239,6 +242,64 @@ function createTables() {
   db.run(`CREATE INDEX IF NOT EXISTS idx_program_lift_status_week_cycle ON program_lift_status(program_id, week, cycle)`);
   
   console.log('✅ Tables created successfully');
+}
+
+/**
+ * Tables and columns for importing workouts from Hevy. Safe to run on every
+ * start: each step is skipped when it has already been applied.
+ */
+function ensureHevySchema() {
+  // Which Hevy workout a workout was imported from, and the Hevy updated_at
+  // it was imported at (to spot workouts edited in Hevy since the import)
+  for (const column of ['hevy_workout_id TEXT', 'hevy_updated_at TEXT']) {
+    try {
+      db.run(`ALTER TABLE workouts ADD COLUMN ${column}`);
+    } catch (e) {
+      // Column already exists
+    }
+  }
+  db.run('CREATE INDEX IF NOT EXISTS idx_workouts_user_hevy ON workouts(user_id, hevy_workout_id)');
+
+  // One Hevy connection per user. The API key is stored encrypted.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS hevy_connections (
+      user_id INTEGER PRIMARY KEY,
+      api_key_encrypted TEXT NOT NULL,
+      key_hint TEXT,
+      hevy_username TEXT,
+      last_synced_at TEXT,
+      connected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // The user's choice of exercise for each Hevy exercise template, so each
+  // Hevy exercise only has to be matched once
+  db.run(`
+    CREATE TABLE IF NOT EXISTS hevy_exercise_mappings (
+      user_id INTEGER NOT NULL,
+      hevy_template_id TEXT NOT NULL,
+      hevy_title TEXT,
+      exercise_id INTEGER NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, hevy_template_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (exercise_id) REFERENCES exercises(id)
+    )
+  `);
+
+  // The bodyweight last sent to Hevy for each date (Hevy keeps one per date),
+  // to tell which dates still need sending
+  db.run(`
+    CREATE TABLE IF NOT EXISTS hevy_weight_syncs (
+      user_id INTEGER NOT NULL,
+      date DATE NOT NULL,
+      weight_kg REAL NOT NULL,
+      synced_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, date),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
 }
 
 /**

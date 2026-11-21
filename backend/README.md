@@ -47,16 +47,44 @@ backend/
 ### Available Scripts:
 - `npm start`: Start the server
 - `npm run dev`: Start with auto-reload (Node 18+)
+- `npm run test:hevy`: Hevy import tests (uses a fake Hevy server and a throwaway database)
 
 ### Environment Variables (.env):
 - `PORT=3000`: Server port
 - `NODE_ENV=development`: Environment
 - `JWT_SECRET`: Secret for JWT tokens
 - `DB_PATH=./fitness.db`: SQLite database path
+- `SECRETS_ENCRYPTION_KEY` (optional): Key for encrypting stored Hevy API keys. Defaults to one derived from `JWT_SECRET`; changing either means users re-enter their Hevy key.
+- `HEVY_API_BASE_URL` (optional): Override `https://api.hevyapp.com` (tests only)
 
 ### Current Endpoints:
 - `GET /health`: Health check
 - `GET /api`: API info
+
+### Hevy import (`/api/hevy`, `routes/hevy.js`)
+Users choose which Hevy workouts to import; nothing syncs on its own. Needs a Hevy Pro API key
+(hevy.com > Settings > Developer), entered in Profile > Integrations and stored encrypted.
+- `GET /status`, `PUT /connection` (`{ api_key }`, checked against Hevy before saving), `DELETE /connection`
+- `GET /workouts?page=&mode=all|new`: a page of Hevy workouts (10 per page, Hevy's limit), each marked
+  `new`, `imported` or `changed` (edited in Hevy after import). `new` mode lists workouts changed since the last import.
+- `POST /preview` (`{ workout_ids }`): the exercises those workouts use, with a suggested match
+  (the user's earlier choice, else by name) and defaults for creating a new exercise
+- `POST /import` (`{ workout_ids, exercises, timezone }`): each exercise maps to `{ exercise_id }`,
+  `{ create: {...} }` or `{ skip: true }`. Weights are converted from kg to the user's units; RPE is
+  copied only when logged. Re-importing a workout replaces its sets instead of duplicating it.
+
+Bodyweight goes the other way. Adding, editing or deleting an entry (`/api/profile/bodyweight`)
+sends that date to Hevy automatically when Hevy is connected (`services/hevyAutoSync.js`); the
+response's `hevy_sync` says how it went. Hevy never blocks or fails the save: after
+`HEVY_AUTO_SYNC_WAIT_MS` (default 4000) the request answers `pending` and the send finishes in the
+background, and a failed date stays pending for the "Send" button (Profile > Bodyweight):
+- `GET /weight`: one row per date (its latest entry; Hevy keeps one weight per date), each
+  `synced`, `not_synced` or `changed` (edited here since it was sent)
+- `POST /weight/sync` (`{ dates? }`): sends the given dates, or up to 60 not yet in Hevy. Hevy
+  answers 409 when the date already has an entry; we then read that entry and PUT it back with only
+  `weight_kg` changed, because Hevy's PUT sets any field left out to null (that would erase body fat,
+  waist, etc.). Same weight already there: no write. Rate limiting or a rejected key stops the batch;
+  unsent dates stay pending. Hevy's API has no delete, so deleting an entry here leaves it in Hevy.
 
 ## To Run:
 ```bash

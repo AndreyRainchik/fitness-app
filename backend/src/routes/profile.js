@@ -2,6 +2,7 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import { User, BodyweightLog } from '../models/index.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { autoSendBodyweightToHevy } from '../services/hevyAutoSync.js';
 
 const router = express.Router();
 
@@ -178,7 +179,7 @@ router.post('/bodyweight',
     body('date').isISO8601().withMessage('Valid date is required (YYYY-MM-DD)'),
     body('units').isIn(['kg', 'lbs']).withMessage('Units must be kg or lbs')
   ],
-  (req, res) => {
+  async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -196,10 +197,14 @@ router.post('/bodyweight',
       
       // Also update user's current bodyweight in profile
       User.update(req.user.id, { bodyweight: weight, units });
+
+      // Send it to Hevy when Hevy is connected (never fails the request)
+      const hevy_sync = await autoSendBodyweightToHevy(req.user.id, [log.date]);
       
       res.status(201).json({
         message: 'Bodyweight logged successfully',
-        bodyweight: log
+        bodyweight: log,
+        hevy_sync
       });
     } catch (error) {
       console.error('Log bodyweight error:', error);
@@ -218,7 +223,7 @@ router.put('/bodyweight/:id',
     body('date').optional().isISO8601().withMessage('Valid date required'),
     body('units').optional().isIn(['kg', 'lbs']).withMessage('Units must be kg or lbs')
   ],
-  (req, res) => {
+  async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -239,10 +244,16 @@ router.put('/bodyweight/:id',
       
       const { weight, date, units } = req.body;
       const updatedLog = BodyweightLog.update(id, { weight, date, units });
+
+      // Hevy gets the new value; if the date moved, the old date's latest
+      // remaining entry too (Hevy's API can't delete, so a date left empty
+      // keeps its old weight there)
+      const hevy_sync = await autoSendBodyweightToHevy(req.user.id, [updatedLog.date, log.date]);
       
       res.json({
         message: 'Bodyweight log updated successfully',
-        bodyweight: updatedLog
+        bodyweight: updatedLog,
+        hevy_sync
       });
     } catch (error) {
       console.error('Update bodyweight log error:', error);
@@ -255,7 +266,7 @@ router.put('/bodyweight/:id',
  * DELETE /api/profile/bodyweight/:id
  * Delete a bodyweight entry
  */
-router.delete('/bodyweight/:id', (req, res) => {
+router.delete('/bodyweight/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const log = BodyweightLog.findById(id);
@@ -270,8 +281,11 @@ router.delete('/bodyweight/:id', (req, res) => {
     }
     
     BodyweightLog.delete(id);
+
+    // If another entry remains on that date it becomes the date's weight in Hevy
+    const hevy_sync = await autoSendBodyweightToHevy(req.user.id, [log.date]);
     
-    res.json({ message: 'Bodyweight log deleted successfully' });
+    res.json({ message: 'Bodyweight log deleted successfully', hevy_sync });
   } catch (error) {
     console.error('Delete bodyweight log error:', error);
     res.status(500).json({ error: 'Failed to delete bodyweight log' });

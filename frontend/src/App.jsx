@@ -23,6 +23,7 @@ const Profile = lazy(() => import('./pages/Profile'));
 const Templates = lazy(() => import('./pages/Templates'));
 const TemplateDetail = lazy(() => import('./pages/TemplateDetail'));
 const ActiveWorkout = lazy(() => import('./pages/ActiveWorkout'));
+const HevyImport = lazy(() => import('./pages/HevyImport'));
 
 /** Shown while a page's code downloads (usually a few milliseconds). */
 function PageLoading() {
@@ -104,6 +105,11 @@ function App() {
         <Route path="/workouts" element={
           <ProtectedRoute>
             <Workouts />
+          </ProtectedRoute>
+        } />
+        <Route path="/import/hevy" element={
+          <ProtectedRoute>
+            <HevyImport />
           </ProtectedRoute>
         } />
         <Route path="/templates" element={
