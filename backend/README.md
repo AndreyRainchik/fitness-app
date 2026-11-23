@@ -144,6 +144,17 @@ Endpoints (`/api/cardio`): `GET/POST /thresholds`, `DELETE /thresholds/:id`; `GE
 effort of a mile or more in the range, and 5k / 10k / half / marathon predictions by Daniels' formula);
 `GET /:id/analysis` (chart series, GPS route, time in zones and best efforts for one session).
 
+### Training load (`services/trainingLoad.js`, `GET /api/cardio/load?weeks=`)
+One load number per session in TRIMP units (Banister: minutes weighted by heart rate reserve,
+with the male/female coefficients from the profile's sex), from the best data the session has:
+the HR histogram, else average HR × duration, else average working-set RPE × minutes (scaled to
+TRIMP by the median ratio over sessions that have both, once there are three; 0.12 before that),
+else an RPE-5 estimate from the duration (3 minutes per working set when there's none). Needs heart
+rate settings; resting HR defaults to 60 when not set. Fitness and fatigue are 42- and 7-day
+exponentially weighted averages of daily load from the first session on; form is yesterday's
+fitness − fatigue. Calculated on request; nothing stored. Shown on the Dashboard (Insights >
+Fitness & form) and in Analytics > Training load.
+
 Route maps use OpenStreetMap tiles (`tile.openstreetmap.org`, with attribution), loaded by the
 browser; the service worker keeps up to 400 tiles for 30 days.
 

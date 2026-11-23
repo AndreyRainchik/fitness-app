@@ -129,6 +129,10 @@
     --zone-3: #1baf7a;
     --zone-4: #eda100;
     --zone-5: #e34948;
+
+    /* Fitness and fatigue lines (categorical slots 1 and 2) */
+    --load-fitness: #2a78d6;
+    --load-fatigue: #eb6834;
   }
   
   .dark {
@@ -144,6 +148,8 @@
     --zone-3: #199e70;
     --zone-4: #c98500;
     --zone-5: #c93636;
+    --load-fitness: #3987e5;
+    --load-fatigue: #d95926;
     --canvas: 10 10 12;
     --surface: 22 22 26;
     --gray-50: 29 29 34;

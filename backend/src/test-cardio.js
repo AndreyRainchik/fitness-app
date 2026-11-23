@@ -17,6 +17,9 @@ import {
   bestEfforts, bestVdot, chartSeries, hrHistogram, hrZones, predictTime, routePoints, streamFromStrava,
   thresholdsOn, vdot, zoneSeconds,
 } from './services/cardioAnalysis.js';
+import {
+  DEFAULT_RPE_FACTOR, calibrateRpe, fitnessCurves, formStatus, sessionLoads, sessionMinutes, trimpFromAverage, trimpFromHistogram,
+} from './services/trainingLoad.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let failures = 0;
@@ -185,6 +188,80 @@ async function analysisUnitTests() {
     assert.equal(r.vdot.effort.workout_id, 2); // recent only; the 1k is too short to count
     assert.equal(r.predictions.find((p) => p.key === '5k').seconds, predictTime(r.vdot.value, 5000));
     assert.equal(summarizeRunning([], { since: '2026-01-01' }).vdot, null);
+  });
+}
+
+async function loadUnitTests() {
+  console.log('\nTraining load');
+  const settings = { max_hr: 190, resting_hr: 50 };
+  const close = (a, b, tolerance = 0.05) => assert.ok(Math.abs(a - b) <= tolerance, `${a} ≉ ${b}`);
+
+  await test('TRIMP: Banister weighting, by sex, from average or histogram', () => {
+    // An hour at half the heart rate reserve (120 bpm)
+    close(trimpFromAverage(120, 60, settings, 'M'), 60 * 0.5 * 0.64 * Math.exp(0.96));
+    close(trimpFromAverage(120, 60, settings, 'F'), 60 * 0.5 * 0.86 * Math.exp(0.835));
+    close(trimpFromHistogram([[120, 1800], [120, 1800]], settings, 'M'), trimpFromAverage(120, 60, settings, 'M'));
+    // Without resting HR, 60 is assumed; below resting counts nothing
+    close(trimpFromAverage(125, 60, { max_hr: 190 }, 'M'), trimpFromAverage(125, 60, { max_hr: 190, resting_hr: 60 }, 'M'));
+    assert.equal(trimpFromAverage(40, 60, settings, 'M'), 0);
+  });
+
+  await test('session minutes: cardio, workout, heart rate data, then sets', () => {
+    assert.equal(sessionMinutes({ duration_s: 1800, duration_minutes: 99 }), 30);
+    assert.equal(sessionMinutes({ duration_minutes: 70 }), 70);
+    assert.equal(sessionMinutes({ histogram: [[120, 600], [130, 600]] }), 20);
+    assert.equal(sessionMinutes({ working_sets: 15 }), 45);
+  });
+
+  await test('session RPE factor is learnt once there are three sessions with both', () => {
+    const both = (ratio) => ({ date: '2026-11-01', kind: 'strength', duration_minutes: 60, avg_hr: 120, avg_rpe: 7, _ratio: ratio });
+    const thresholds = [{ effective_date: '2026-01-01', ...settings }];
+    assert.deepEqual(calibrateRpe([both(), both()], thresholds, 'M'), { factor: DEFAULT_RPE_FACTOR, sessions: 0 });
+    const learnt = calibrateRpe([both(), both(), both()], thresholds, 'M');
+    assert.equal(learnt.sessions, 3);
+    close(learnt.factor, trimpFromAverage(120, 60, settings, 'M') / (7 * 60), 0.001);
+  });
+
+  await test('each session uses its best data', () => {
+    const thresholds = [{ effective_date: '2026-01-01', ...settings }];
+    const loads = sessionLoads([
+      { date: '2026-11-01', kind: 'cardio', duration_s: 1800, avg_hr: 150, histogram: [[150, 1800]] },
+      { date: '2026-11-02', kind: 'cardio', duration_s: 1800, avg_hr: 150 },
+      { date: '2026-11-03', kind: 'strength', duration_minutes: 60, avg_rpe: 8 },
+      { date: '2026-11-04', kind: 'strength', working_sets: 20 },
+    ], thresholds, 'M');
+    assert.deepEqual(loads.map((l) => l.source), ['hr_detail', 'hr_average', 'rpe', 'estimate']);
+    close(loads[0].load, loads[1].load);
+    close(loads[2].load, 8 * 60 * DEFAULT_RPE_FACTOR);
+    close(loads[3].load, 5 * 60 * DEFAULT_RPE_FACTOR);
+    // No heart rate settings: heart rate can't be used
+    assert.equal(sessionLoads([{ date: '2026-11-02', kind: 'cardio', duration_s: 1800, avg_hr: 150 }], [], 'M')[0].source, 'estimate');
+  });
+
+  await test('fitness, fatigue and form', () => {
+    // 100 a day for a year: both settle at 100, form at 0
+    const steady = [];
+    for (let d = 0; d < 365; d++) steady.push({ date: new Date(Date.UTC(2025, 10, 22) + d * 86400000).toISOString().slice(0, 10), kind: 'cardio', load: 100, source: 'hr_detail' });
+    const settled = fitnessCurves(steady, { today: '2026-11-21', weeks: 4 });
+    assert.equal(settled.daily.length, 28); // Oct 25 to Nov 21
+    close(settled.today.fitness, 100, 0.2);
+    close(settled.today.fatigue, 100, 0.1);
+    close(settled.today.form, 0, 0.2);
+    assert.equal(settled.today.ratio, 1);
+
+    // One hard day from nothing: fatigue jumps more than fitness, form drops the day after
+    const spike = fitnessCurves([{ date: '2026-11-20', kind: 'strength', load: 100, source: 'rpe' }], { today: '2026-11-21', weeks: 4 });
+    const [day1, day2] = spike.daily.slice(-2);
+    close(day1.fitness, 100 / 42);
+    close(day1.fatigue, 100 / 7);
+    assert.equal(day1.form, 0); // the hard day itself starts fresh
+    close(day2.form, 100 / 42 - 100 / 7, 0.1);
+    assert.deepEqual(spike.weekly.at(-1), { weekStart: '2026-11-15', strength: 100, cardio: 0 });
+    assert.deepEqual(spike.sources, { hr_detail: 0, hr_average: 0, rpe: 1, estimate: 0 });
+  });
+
+  await test('form bands', () => {
+    assert.deepEqual([12, 5, -10, -11, -30, -31].map(formStatus), ['fresh', 'neutral', 'neutral', 'productive', 'productive', 'overreaching']);
   });
 }
 
@@ -371,6 +448,7 @@ async function apiTests() {
 
 await unitTests();
 await analysisUnitTests();
+await loadUnitTests();
 await apiTests();
 console.log(failures ? `\n${failures} test(s) failed` : '\nAll cardio tests passed');
 process.exit(failures ? 1 : 0);

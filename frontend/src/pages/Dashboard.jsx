@@ -18,6 +18,7 @@ import WilksProgressChart from '../components/Dashboard/WilksProgressChart';
 import WeeklyVolumeChart from '../components/Dashboard/WeeklyVolumeChart';
 import ActivityHeatmap from '../components/Dashboard/ActivityHeatmap';
 import MuscleGroupHeatmap from '../components/Analytics/MuscleGroupHeatmap';
+import { FitnessFormWidget } from '../components/Analytics/FitnessForm';
 
 function DashboardSkeleton() {
   return (
@@ -399,10 +400,13 @@ function Dashboard() {
                 tabs={[
                   { id: 'strength', label: 'Strength trend' },
                   { id: 'muscles', label: 'Muscles this week' },
+                  { id: 'load', label: 'Fitness & form' },
                 ]}
               />
             </div>
-            {insightTab === 'strength' ? <WilksProgressChart weeks={12} /> : <MuscleGroupHeatmap />}
+            {insightTab === 'strength' && <WilksProgressChart weeks={12} />}
+            {insightTab === 'muscles' && <MuscleGroupHeatmap />}
+            {insightTab === 'load' && <FitnessFormWidget weeks={12} />}
           </section>
         </div>
       )}
