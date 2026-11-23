@@ -565,6 +565,23 @@ async function apiTests() {
       assert.equal(fs.existsSync(file), false);
     });
 
+    await test('lifting without a duration takes Strava\'s elapsed time', async () => {
+      const noDuration = await call('POST', '/workouts', { date: dateOf(at(2, 18)), name: 'Pull', sets: [{ exercise_id: 2, set_number: 1, reps: 5, weight: 135 }] });
+      const withDuration = await call('POST', '/workouts', { date: dateOf(at(3, 18)), name: 'Push', duration_minutes: 45, sets: [{ exercise_id: 2, set_number: 1, reps: 5, weight: 155 }] });
+      assert.equal(noDuration.body.workout.duration_minutes, null);
+      fake.state.activities.push(
+        activity(1013, 'WeightTraining', at(2, 18), { elapsed_time: 3890, moving_time: 900 }),
+        activity(1014, 'WeightTraining', at(3, 18), { elapsed_time: 3000, moving_time: 700 }),
+      );
+      await call('POST', '/strava/sync');
+      const pull = (await call('GET', `/workouts/${noDuration.body.workout.id}`)).body.workout;
+      const push = (await call('GET', `/workouts/${withDuration.body.workout.id}`)).body.workout;
+      assert.equal(pull.strava.activity_id, '1013');
+      assert.equal(pull.duration_minutes, 65); // 3890 s elapsed, not the 15 min "moving"
+      assert.equal(push.strava.activity_id, '1014');
+      assert.equal(push.duration_minutes, 45); // its own duration is kept
+    });
+
     await test('webhook: verification handshake', async () => {
       const ok = await fetch(`${app.base}/api/strava/webhook?hub.mode=subscribe&hub.verify_token=verify-me&hub.challenge=abc123`);
       assert.deepEqual(await ok.json(), { 'hub.challenge': 'abc123' });

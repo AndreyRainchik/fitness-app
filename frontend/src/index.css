@@ -121,12 +121,14 @@
     --activity-boulder: #e87ba4;
     --activity-other: #008300;
 
-    /* Heart rate zones 1-5: one hue, light to dark (validated as an ordinal ramp) */
-    --zone-1: #86b6ef;
-    --zone-2: #5598e7;
-    --zone-3: #2a78d6;
-    --zone-4: #1c5cab;
-    --zone-5: #104281;
+    /* Heart rate zones 1-5 in the usual watch colours: grey, blue, green,
+       yellow, red. Checked for colour-blind separation between neighbours;
+       zone 1 is grey on purpose. Always shown with Z1-Z5 labels. */
+    --zone-1: #8f8f8a;
+    --zone-2: #2a78d6;
+    --zone-3: #1baf7a;
+    --zone-4: #eda100;
+    --zone-5: #e34948;
   }
   
   .dark {
@@ -137,11 +139,11 @@
     --activity-row: #c98500;
     --activity-boulder: #d55181;
     --activity-other: #0ca30c;
-    --zone-1: #184f95;
-    --zone-2: #256abf;
-    --zone-3: #3987e5;
-    --zone-4: #6da7ec;
-    --zone-5: #9ec5f4;
+    --zone-1: #8a8a85;
+    --zone-2: #3987e5;
+    --zone-3: #199e70;
+    --zone-4: #c98500;
+    --zone-5: #c93636;
     --canvas: 10 10 12;
     --surface: 22 22 26;
     --gray-50: 29 29 34;
