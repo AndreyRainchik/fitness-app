@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ClipboardList, Pencil, Trash2, Trophy } from 'lucide-react';
 import { workoutsAPI, templatesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -26,6 +26,9 @@ import { distanceUnit, sessionTitle, sportInfo } from '../utils/cardio';
 function WorkoutDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  // Back to the history list as the user left it (search and filter), if they came from there
+  const from = useLocation().state?.from;
+  const backTo = typeof from === 'string' && /^\/workouts(\?|$)/.test(from) ? from : '/workouts';
   const { user } = useAuth();
   const units = user?.units || 'lbs';
   const confirm = useConfirm();
@@ -77,7 +80,7 @@ function WorkoutDetail() {
     try {
       await workoutsAPI.delete(id);
       toast({ tone: 'success', message: 'Workout deleted' });
-      navigate('/workouts');
+      navigate(backTo);
     } catch (err) {
       toast({ tone: 'error', message: `Couldn't delete workout: ${err.message}` });
     }
@@ -149,7 +152,7 @@ function WorkoutDetail() {
             tone="error"
             title="Couldn't load this workout"
             description={error}
-            action={<Button variant="secondary" to="/workouts">← Back to Workouts</Button>}
+            action={<Button variant="secondary" to={backTo}>← Back to Workouts</Button>}
           />
         </div>
       </Layout>
@@ -162,7 +165,7 @@ function WorkoutDetail() {
       <Layout>
         <div className="max-w-3xl mx-auto">
           <PageHeader
-            backTo="/workouts"
+            backTo={backTo}
             backLabel="History"
             eyebrow={(
               <span className="inline-flex items-center gap-1.5">
@@ -198,7 +201,7 @@ function WorkoutDetail() {
     <Layout>
       <div className="max-w-3xl mx-auto">
         <PageHeader
-          backTo="/workouts"
+          backTo={backTo}
           backLabel="History"
           title={workout.name || 'Untitled workout'}
           subtitle={(
