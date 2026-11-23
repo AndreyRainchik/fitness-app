@@ -1,4 +1,4 @@
-import { all, get, transaction } from '../config/database.js';
+import { all, get, run, transaction } from '../config/database.js';
 import { Cardio, Workout } from '../models/index.js';
 import { saveMetrics } from '../models/Cardio.js';
 import { StravaActivities, StravaConnection } from '../models/Strava.js';
@@ -147,6 +147,7 @@ function applyActivity(userId, activity, { detailed, force = false }) {
     if (target) {
       saveMetrics(target, base);
       StravaActivities.record(userId, { ...base, outcome: 'strength_linked', workout_id: target });
+      fillStrengthDurations(userId);
       return linkedStrength ? 'updated' : 'linked';
     }
     StravaActivities.record(userId, { ...base, outcome: 'strength_unmatched' });
@@ -268,8 +269,25 @@ function removeActivity(userId, activityId) {
 }
 
 /**
+ * Lifting workouts with no duration take it from their Strava activity
+ * (elapsed time: a lifting session's "moving time" is mostly rest). A
+ * duration already there, from Hevy or typed in, is kept.
+ */
+function fillStrengthDurations(userId) {
+  const linked = `SELECT CAST(ROUND(sa.elapsed_s / 60.0) AS INTEGER) FROM strava_activities sa
+    WHERE sa.workout_id = workouts.id AND sa.outcome = 'strength_linked' AND sa.elapsed_s >= 60 LIMIT 1`;
+  run(
+    `UPDATE workouts SET duration_minutes = (${linked})
+     WHERE user_id = ? AND kind = 'strength' AND (duration_minutes IS NULL OR duration_minutes <= 0)
+       AND (${linked}) IS NOT NULL`,
+    [userId]
+  );
+}
+
+/**
  * Match Strava lifting sessions that had no workout here yet (e.g. the Hevy
- * import came later). Returns how many were linked. Database only.
+ * import came later), and fill in missing durations. Returns how many were
+ * linked. Database only.
  */
 export function linkUnmatchedStrength(userId) {
   let linked = 0;
@@ -282,6 +300,7 @@ export function linkUnmatchedStrength(userId) {
       StravaActivities.record(userId, { ...row, outcome: 'strength_linked', workout_id: target.id });
       linked += 1;
     }
+    fillStrengthDurations(userId);
   });
   return linked;
 }
