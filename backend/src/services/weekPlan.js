@@ -233,7 +233,7 @@ function sessionSummary(s, programUnits) {
  *
  * Returns { week_start, week_end, configured, days: [...], summary, program }
  */
-export function buildWeek({ weekStart, today, days, overrides = new Map(), program = null, liftOrder = [], sessions = [] }) {
+export function buildWeek({ weekStart, today, days, overrides = new Map(), program = null, liftOrder = [], sessions = [], plannedRuns = [] }) {
   const start = parseDay(weekStartFor(weekStart));
   const dates = Array.from({ length: 7 }, (_, i) => formatDay(start + i * DAY_MS));
   const weekEnd = dates[6];
@@ -295,7 +295,22 @@ export function buildWeek({ weekStart, today, days, overrides = new Map(), progr
         workout_ids: done.map((s) => s.id),
       });
     }
-    if (cardioOn(slot)) {
+    // Runs from a run plan, on whatever day they're planned; done when a run is logged that day
+    const runsToday = plannedRuns.filter((r) => r.date === date);
+    const runsDone = cardioOnDay(date).filter((s) => s.sport === 'run');
+    runsToday.forEach((r, i) => {
+      const done = runsDone.length > i ? [runsDone[i]] : [];
+      planned.push({
+        kind: 'run',
+        status: r.status === 'skipped' ? 'skipped' : (done.length ? 'done' : (r.optional && date < today ? 'skipped' : statusFor(date, false))),
+        title: r.title,
+        detail: null,
+        lifts: [],
+        workout_ids: done.map((s) => s.id),
+        run: r,
+      });
+    });
+    if (cardioOn(slot) && !runsToday.length) {
       const done = cardioOnDay(date);
       planned.push({
         kind: 'cardio',
@@ -353,8 +368,11 @@ function programInfo(program, progress) {
 export function summarize(dayRows) {
   const sessions = dayRows.flatMap((d) => d.sessions);
   const planned = dayRows.flatMap((d) => d.planned);
-  const count = (kind) => planned.filter((p) => p.kind === kind).length;
-  const doneDays = (kind) => planned.filter((p) => p.kind === kind && p.status === 'done').length;
+  // Planned runs count as cardio; optional runs (a race-week shakeout) don't count towards the plan
+  const kindOf = (p) => (p.kind === 'run' ? 'cardio' : p.kind);
+  const counted = planned.filter((p) => !p.run?.optional);
+  const count = (kind) => counted.filter((p) => kindOf(p) === kind).length;
+  const doneDays = (kind) => counted.filter((p) => kindOf(p) === kind && p.status === 'done').length;
   const total = (list, field) => list.reduce((sum, s) => sum + (s[field] || 0), 0);
   const strength = sessions.filter((s) => s.kind === 'strength');
   const cardio = sessions.filter((s) => s.kind === 'cardio');
@@ -367,7 +385,49 @@ export function summarize(dayRows) {
       duration_s: total(cardio, 'duration_s'),
       distance_m: total(cardio, 'distance_m'),
       run_distance_m: total(cardio.filter((s) => s.sport === 'run'), 'distance_m'),
+      // Distance of the week's planned runs, when there's a run plan
+      planned_run_m: counted.filter((p) => p.kind === 'run').reduce((sum, p) => sum + (p.run.distance_m || 0), 0),
     },
     missed: planned.filter((p) => p.status === 'missed').length,
   };
+}
+
+const HEAVY_LEGS = /squat|deadlift/i;
+
+/**
+ * Lifting days from `from` to `until`, with what's expected on each: the
+ * schedule's lifting days filled from the program's lift queue, as the week
+ * view does. For the run planner, so hard runs stay away from heavy legs.
+ *
+ * Returns { days: [{ date, lifts: [name], heavy_legs, program_week }], deloadWeekStarts: Set }.
+ * Without a program every lifting day counts as heavy legs (we can't know).
+ */
+export function projectLiftDays({ from, until, days, overrides = new Map(), program = null, liftOrder = [], sessions = [], today }) {
+  const schedule = days ?? DEFAULT_DAYS;
+  const hasProgram = program && program.lifts?.length;
+  const result = [];
+  const deloadWeekStarts = new Set();
+  let queue = null;
+  if (hasProgram) {
+    const progress = programProgress(program, sessions, { today, liftOrder });
+    const liftDays = schedule.filter(liftsOn).length;
+    const perDay = program.type === '531' ? liftsPerDay(program.lifts.length, liftDays) : 1;
+    queue = programQueue(program, { pendingIds: progress.pendingIds, perDay, liftOrder });
+  }
+  for (let ms = parseDay(from); ms <= parseDay(until); ms += DAY_MS) {
+    const date = formatDay(ms);
+    if (!liftsOn(slotFor(date, schedule, overrides))) continue;
+    if (!queue) {
+      result.push({ date, lifts: [], heavy_legs: true, program_week: null });
+      continue;
+    }
+    const next = queue.next();
+    if (next.done) break;
+    const lifts = next.value.lifts.map((l) => l.name);
+    // 5/3/1 keys are '531:<cycle>:<week>:<exercise>'
+    const week = program.type === '531' ? Number(String(next.value.lifts[0]?.key ?? '').split(':')[2]) || null : null;
+    if (week === 4) deloadWeekStarts.add(weekStartFor(date));
+    result.push({ date, lifts, heavy_legs: lifts.some((name) => HEAVY_LEGS.test(name)), program_week: week });
+  }
+  return { days: result, deloadWeekStarts };
 }

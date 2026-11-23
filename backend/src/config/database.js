@@ -498,6 +498,56 @@ function ensurePlanSchema() {
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
+  // Run plans (race or maintenance) and their runs. steps_json: see services/runSessions.js
+  db.run(`
+    CREATE TABLE IF NOT EXISTS run_plans (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      kind TEXT NOT NULL CHECK(kind IN ('race', 'maintain')),
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'done', 'cancelled')),
+      race_key TEXT,
+      race_name TEXT,
+      race_date DATE,
+      goal_s INTEGER,
+      vdot REAL NOT NULL,
+      vdot_source TEXT,
+      runs_per_week INTEGER NOT NULL,
+      long_run_weekday INTEGER NOT NULL,
+      unit TEXT NOT NULL DEFAULT 'km',
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      settings_json TEXT,
+      warnings_json TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      ended_at DATETIME,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS planned_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      plan_id INTEGER NOT NULL,
+      date DATE NOT NULL,
+      week_index INTEGER NOT NULL,
+      phase TEXT NOT NULL,
+      cutback INTEGER NOT NULL DEFAULT 0,
+      role TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      family TEXT NOT NULL,
+      level INTEGER NOT NULL DEFAULT 0,
+      title TEXT NOT NULL,
+      key_session INTEGER NOT NULL DEFAULT 0,
+      optional INTEGER NOT NULL DEFAULT 0,
+      steps_json TEXT NOT NULL,
+      distance_m REAL NOT NULL,
+      status TEXT NOT NULL DEFAULT 'planned' CHECK(status IN ('planned', 'done', 'skipped')),
+      workout_id INTEGER,
+      FOREIGN KEY (plan_id) REFERENCES run_plans(id) ON DELETE CASCADE
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_run_plans_user ON run_plans(user_id, status)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_planned_runs_plan_date ON planned_runs(plan_id, date)');
+
   try {
     db.run('ALTER TABLE programs ADD COLUMN week_started_on DATE');
   } catch (e) {

@@ -2,6 +2,8 @@ import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { Program, User } from '../models/index.js';
 import Schedule from '../models/Schedule.js';
+import RunPlan from '../models/RunPlan.js';
+import { RACE_DISTANCES, paceZones } from '../services/runPaces.js';
 import { AthleteThresholds, loadSessions } from '../models/Analysis.js';
 import { fitnessCurves, formStatus, sessionLoads } from '../services/trainingLoad.js';
 import { DAY_MS, formatDay, parseDay } from '../services/cardioStats.js';
@@ -53,6 +55,30 @@ function weekLoad(userId, weekStart, today) {
 }
 
 /**
+ * The run plan behind the week's planned runs, with pace zones to show their
+ * steps: { id, kind, race, unit, zones, phase, week_index, cutback } or null.
+ */
+function runPlanInfo(plannedRuns) {
+  if (!plannedRuns.length) return null;
+  const planId = plannedRuns[plannedRuns.length - 1].plan_id;
+  const plan = RunPlan.plansById([planId]).get(planId);
+  if (!plan) return null;
+  const goalPace = plan.race?.goal_s ? plan.race.goal_s / (RACE_DISTANCES[plan.race.key].meters / 1000) : null;
+  const first = plannedRuns.find((r) => r.plan_id === planId);
+  return {
+    id: plan.id,
+    kind: plan.kind,
+    status: plan.status,
+    race: plan.race && { ...plan.race, label: RACE_DISTANCES[plan.race.key]?.label },
+    unit: plan.unit,
+    zones: paceZones(plan.vdot, { goalPace }),
+    phase: first.phase,
+    week_index: first.week_index,
+    cutback: first.cutback,
+  };
+}
+
+/**
  * GET /api/week?start=YYYY-MM-DD&localDate=YYYY-MM-DD
  * The week containing `start` (default: this week): each day's slot, what's
  * planned on it (program lifts on lifting days, cardio on cardio days) and
@@ -71,6 +97,7 @@ router.get('/', (req, res) => {
     const sessions = Schedule.sessions(req.user.id, from, weekEnd);
     const overrides = Schedule.overrides(req.user.id, minDate(weekStart, today), weekEnd);
 
+    const plannedRuns = RunPlan.runsBetween(req.user.id, weekStart, weekEnd);
     const week = buildWeek({
       weekStart,
       today,
@@ -79,9 +106,10 @@ router.get('/', (req, res) => {
       program,
       liftOrder: schedule.lift_order,
       sessions,
+      plannedRuns,
     });
 
-    res.json({ ...week, load: weekLoad(req.user.id, weekStart, today) });
+    res.json({ ...week, load: weekLoad(req.user.id, weekStart, today), run_plan: runPlanInfo(plannedRuns) });
   } catch (error) {
     console.error('Week view error:', error);
     res.status(500).json({ error: 'Failed to load the week' });
