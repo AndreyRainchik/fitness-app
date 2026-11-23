@@ -17,6 +17,8 @@ const Analytics = lazy(() => import('./pages/Analytics'));
 const Programs = lazy(() => import('./pages/Programs'));
 const CurrentWeek = lazy(() => import('./pages/CurrentWeek'));
 const Week = lazy(() => import('./pages/Week'));
+const RunPlan = lazy(() => import('./pages/RunPlan'));
+const RunPlanSetup = lazy(() => import('./pages/RunPlanSetup'));
 const NewWorkout = lazy(() => import('./pages/NewWorkout'));
 const EditWorkout = lazy(() => import('./pages/EditWorkout'));
 const WorkoutDetail = lazy(() => import('./pages/WorkoutDetail'));
@@ -159,6 +161,16 @@ function App() {
         <Route path="/week" element={
           <ProtectedRoute>
             <Week />
+          </ProtectedRoute>
+        } />
+        <Route path="/plan/new" element={
+          <ProtectedRoute>
+            <RunPlanSetup />
+          </ProtectedRoute>
+        } />
+        <Route path="/plan" element={
+          <ProtectedRoute>
+            <RunPlan />
           </ProtectedRoute>
         } />
         <Route path="/current-week" element={

@@ -862,6 +862,18 @@ export const weekAPI = {
   resetDay: (date) => apiCall(`/week/days/${date}`, { method: 'DELETE' }),
 };
 
+export const runPlansAPI = {
+  /** Current fitness, recent running, schedule and the active plan, for the setup page */
+  setup: () => apiCall(`/run-plans/setup?${new URLSearchParams({ localDate: getLocalDateString() })}`),
+  /** Generate a plan without saving it */
+  preview: (body) => apiCall('/run-plans/preview', { method: 'POST', body: JSON.stringify({ ...body, localDate: getLocalDateString() }) }),
+  /** Generate and save a plan (replaces the active one) */
+  create: (body) => apiCall('/run-plans', { method: 'POST', body: JSON.stringify({ ...body, localDate: getLocalDateString() }) }),
+  /** { plan, zones, zone_info, weeks } or { plan: null } */
+  active: () => apiCall('/run-plans/active'),
+  stop: () => apiCall(`/run-plans/active?${new URLSearchParams({ localDate: getLocalDateString() })}`, { method: 'DELETE' }),
+};
+
 export default {
   hevy: hevyAPI,
   auth: authAPI,
@@ -875,4 +887,5 @@ export default {
   programs: programsAPI,
   platePresets: platePresetsAPI,
   week: weekAPI,
+  runPlans: runPlansAPI,
 };

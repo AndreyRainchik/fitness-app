@@ -577,7 +577,10 @@ export function generatePlan(input) {
       const level = history.levels.get(variantId) ?? 0;
       const built = buildRun(variant, { level, ctx: { ...ctxBase, distance_m: longDistance }, zones, raceKey, weekly_m: target, unit })
         ?? buildRun(sessionById('long_easy'), { ctx: { ...ctxBase, distance_m: longDistance }, zones, raceKey, weekly_m: target, unit });
-      const used = built.steps.some((s) => s.kind === 'run' && s.zone !== 'easy') ? variant : sessionById('long_easy');
+      // If the variant didn't fit and fell back to an easy long run, call it that
+      const zonesIn = (step) => (step.kind === 'repeat' ? step.reps.flatMap((r) => r.parts.map((p) => p.zone)) : [step.zone]);
+      const hasFaster = built.steps.some((step) => zonesIn(step).some((z) => z && z !== 'easy'));
+      const used = hasFaster ? variant : sessionById('long_easy');
       runs.push(runEntry(used, built, 'long'));
       bump(history, used, index);
     }

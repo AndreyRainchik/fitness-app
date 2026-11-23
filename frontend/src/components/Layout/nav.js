@@ -1,9 +1,10 @@
-import { CalendarCheck, CalendarDays, CalendarRange, ChartColumn, ClipboardList, History, House, User } from 'lucide-react';
+import { CalendarCheck, CalendarDays, CalendarRange, ChartColumn, ClipboardList, History, House, Route, User } from 'lucide-react';
 
 /** Primary destinations, in sidebar order. `mobile` ones get a bottom-bar slot. */
 export const NAV_ITEMS = [
   { to: '/dashboard', label: 'Home', icon: House, mobile: true },
   { to: '/week', label: 'My Week', icon: CalendarDays, mobile: true },
+  { to: '/plan', label: 'Run Plan', icon: Route },
   { to: '/workouts', label: 'History', icon: History, mobile: true, match: ['/workouts', '/workout/'] },
   { to: '/templates', label: 'Templates', icon: ClipboardList },
   { to: '/current-week', label: 'Program Week', icon: CalendarCheck },

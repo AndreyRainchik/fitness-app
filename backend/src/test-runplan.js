@@ -245,6 +245,15 @@ async function unitTests() {
     assert.deepEqual(tts, [3, 11]);
   });
 
+  await test('a long run is only called a plain long run when it is all easy', () => {
+    for (const r of allRuns.filter((x) => x.session_id === 'long_easy')) {
+      for (const step of r.steps) {
+        const zones = step.kind === 'repeat' ? step.reps.flatMap((x) => x.parts.map((p) => p.zone)) : [step.zone];
+        assert.ok(zones.every((z) => z === 'easy'), `week ${r.week.index}: ${JSON.stringify(step)}`);
+      }
+    }
+  });
+
   await test('hills can be turned off', () => {
     const flat = plan({ settings: { hills: false } });
     assert.ok(!flat.weeks.some((w) => w.runs.some((r) => r.family === 'hills')));

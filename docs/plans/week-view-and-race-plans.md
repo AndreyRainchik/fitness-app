@@ -1,6 +1,6 @@
 # Week view and race training plans
 
-**Status:** Phase 1 built (2026-11-23); Phase 2 next · **Decided:** 2026-11-23
+**Status:** Phase 1 built; Phase 2 step 1 (plans on My Week) built 2026-11-23; step 2 (following) next · **Decided:** 2026-11-23
 
 ## What we're building
 
@@ -195,7 +195,7 @@ Pure functions in `backend/src/services/runPlan.js`:
 All deterministic and unit-tested: weekly growth ≤10%, no hard run before heavy legs, taper shape, paces against Daniels' tables, rep detection on synthetic streams.
 
 ### Build order
-1. **Plans and the week:** wizard, generator, paces, structured runs shown on My Week in place of the generic "Cardio" (race and maintenance).
+1. ✅ **Plans and the week:** wizard, generator, paces, structured runs shown on My Week in place of the generic "Cardio" (race and maintenance).
 2. **Following:** matching runs, rep-by-rep results, "How did it feel?".
 3. **Adapting:** the rules in the table, the "Plan changes" note and one-tap suggestions.
 4. **Race and after:** race week, recovery weeks, handover to maintenance.

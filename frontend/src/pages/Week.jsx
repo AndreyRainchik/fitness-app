@@ -6,17 +6,20 @@ import {
 import Layout from '../components/Layout/Layout';
 import { Alert, Badge, Button, Card, EmptyState, PageHeader, Skeleton, StatTile, useToast } from '../components/ui';
 import ScheduleEditor from '../components/Week/ScheduleEditor';
+import RunSteps from '../components/Run/RunSteps';
 import { SLOTS, addDays, slotInfo } from '../components/Week/slots';
 import { useAuth } from '../context/AuthContext';
 import { weekAPI } from '../services/api';
 import { cardioSummaryLine, distanceUnit, formatDistance, formatDuration, sessionTitle, sportInfo } from '../utils/cardio';
 import { formatDate } from '../utils/format';
+import { PHASE_LABELS, formatPlanDistance, mainSetSummary } from '../utils/runPlan';
 
 const STATUS = {
   done: { icon: CheckCircle2, className: 'text-success-600', label: 'Done' },
   today: { icon: CircleDot, className: 'text-primary-600', label: 'Today' },
   upcoming: { icon: Circle, className: 'text-gray-300', label: 'Planned' },
   missed: { icon: AlertCircle, className: 'text-warning-600', label: 'Missed' },
+  skipped: { icon: Circle, className: 'text-gray-300', label: 'Skipped' },
 };
 
 const FORM_LABELS = {
@@ -31,6 +34,45 @@ const shortName = (name) => String(name).replace(/^Barbell /, '');
 function weekRange(start, end) {
   const sameMonth = start.slice(0, 7) === end.slice(0, 7);
   return `${formatDate(start)} – ${sameMonth ? formatDate(end, { day: 'numeric' }) : formatDate(end)}`;
+}
+
+/** A planned run from the run plan: title, distance and main set; tap for the steps and paces. */
+function PlannedRun({ item, runPlan }) {
+  const [open, setOpen] = useState(item.status === 'today');
+  const status = STATUS[item.status] ?? STATUS.upcoming;
+  const StatusIcon = status.icon;
+  const run = item.run;
+  const unit = runPlan?.unit ?? 'mi';
+  const summary = mainSetSummary(run.steps, unit);
+  return (
+    <div className="flex items-start gap-3">
+      <StatusIcon className={`mt-0.5 h-5 w-5 flex-shrink-0 ${status.className}`} aria-label={status.label} />
+      <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex w-full flex-wrap items-center gap-x-2 gap-y-1 text-left"
+        >
+          <Footprints className="h-4 w-4 text-gray-400" aria-hidden="true" />
+          <span className={`font-semibold ${item.status === 'missed' ? 'text-gray-500' : 'text-gray-900'}`}>{run.title}</span>
+          <span className="tabular text-sm text-gray-500">{formatPlanDistance(run.distance_m, unit)}</span>
+          {run.key && <Badge tone="warning">Key</Badge>}
+          {item.status === 'missed' && <Badge tone="warning">Missed</Badge>}
+          <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+        </button>
+        {summary && !open && <p className="text-sm text-gray-600">{summary}</p>}
+        {open && runPlan && (
+          <div className="mt-2">
+            <RunSteps run={run} zones={runPlan.zones} unit={unit} />
+          </div>
+        )}
+      </div>
+      {item.status === 'today' && (
+        <Button size="sm" variant="secondary" to="/cardio/new">Log</Button>
+      )}
+    </div>
+  );
 }
 
 /** One planned item: a program lifting session, a lifting day, or a cardio day. */
@@ -97,7 +139,7 @@ function SessionRow({ session, units }) {
   );
 }
 
-function DayCard({ day, units, configured, onChangeSlot, changing }) {
+function DayCard({ day, units, configured, onChangeSlot, changing, runPlan }) {
   const slot = slotInfo(day.slot);
   const SlotIcon = slot.icon;
   // Sessions already shown as the planned item's "done" still get a row, so they can be opened
@@ -138,7 +180,9 @@ function DayCard({ day, units, configured, onChangeSlot, changing }) {
 
       {!empty && (
         <div className="mt-3 space-y-3">
-          {day.planned.map((item) => <PlannedItem key={item.kind} item={item} units={units} />)}
+          {day.planned.map((item, i) => (item.kind === 'run'
+            ? <PlannedRun key={`run-${item.run.id}`} item={item} runPlan={runPlan} />
+            : <PlannedItem key={`${item.kind}-${i}`} item={item} units={units} />))}
           {day.sessions.length > 0 && (
             <div className={day.planned.length ? 'border-t border-gray-100 pt-2' : ''}>
               {day.sessions.map((s) => <SessionRow key={s.id} session={s} units={units} />)}
@@ -170,7 +214,8 @@ function Summary({ week, units }) {
         icon={Footprints}
         tone="success"
         value={week.configured ? `${cardio.done} of ${cardio.planned}` : cardio.sessions}
-        hint={[cardio.run_distance_m ? `${formatDistance(cardio.run_distance_m, unit, 1)} run` : null, cardio.duration_s ? formatDuration(cardio.duration_s) : null].filter(Boolean).join(' · ') || plural(cardio.sessions, 'session')}
+        hint={[cardio.planned_run_m ? `${formatDistance(cardio.run_distance_m, unit, 1) ?? `0 ${unit}`} of ${formatDistance(cardio.planned_run_m, unit, 1)} run`
+          : cardio.run_distance_m ? `${formatDistance(cardio.run_distance_m, unit, 1)} run` : null, cardio.duration_s ? formatDuration(cardio.duration_s) : null].filter(Boolean).join(' · ') || plural(cardio.sessions, 'session')}
       />
       {load && (
         <div className="col-span-2 lg:col-span-1">
@@ -207,6 +252,34 @@ function ProgramBar({ program }) {
       <Button size="sm" variant={program.ready_to_advance ? 'primary' : 'secondary'} to="/current-week">
         {program.ready_to_advance ? 'Complete week' : 'Program week'}
       </Button>
+    </Card>
+  );
+}
+
+function RunPlanBar({ runPlan }) {
+  if (!runPlan) {
+    return (
+      <Card padding="p-4" className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="font-semibold text-gray-900">Training for a race?</p>
+          <p className="text-sm text-gray-500">Get a run plan that fits around your lifting.</p>
+        </div>
+        <Button size="sm" variant="secondary" to="/plan/new">Create a run plan</Button>
+      </Card>
+    );
+  }
+  const name = runPlan.race ? (runPlan.race.name || `${runPlan.race.label} plan`) : 'Maintenance plan';
+  return (
+    <Card padding="p-4" className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="font-semibold text-gray-900">{name}</p>
+        <p className="text-sm text-gray-500">
+          Week {runPlan.week_index + 1} · {PHASE_LABELS[runPlan.phase] ?? runPlan.phase}
+          {runPlan.cutback ? ' · easier week' : ''}
+          {runPlan.race ? ` · race ${formatDate(runPlan.race.date)}` : ''}
+        </p>
+      </div>
+      <Button size="sm" variant="secondary" to="/plan">Run plan</Button>
     </Card>
   );
 }
@@ -300,6 +373,7 @@ function Week() {
             )}
             <Summary week={week} units={units} />
             {week.configured && <ProgramBar program={week.program} />}
+            <RunPlanBar runPlan={week.run_plan} />
             <div className="space-y-3">
               {week.days.map((day) => (
                 <DayCard
@@ -308,6 +382,7 @@ function Week() {
                   units={units}
                   configured={week.configured}
                   onChangeSlot={changeSlot}
+                  runPlan={week.run_plan}
                   changing={changing}
                 />
               ))}
