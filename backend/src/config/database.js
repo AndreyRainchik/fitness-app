@@ -10,6 +10,11 @@ const __dirname = path.dirname(__filename);
 let db = null;
 let SQL = null;
 
+/** Where the database file lives (DATABASE_PATH, else backend/fitness.db). */
+export function databasePath() {
+  return process.env.DATABASE_PATH || path.join(__dirname, '../../', 'fitness.db');
+}
+
 /**
  * Initialize the SQLite database
  */
@@ -18,10 +23,7 @@ export async function initDatabase() {
     // Initialize sql.js
     SQL = await initSqlJs();
     
-    var dbPath = path.join(__dirname, '../../', 'fitness.db');
-    if(process.env.DATABASE_PATH) {
-      dbPath = process.env.DATABASE_PATH
-    } 
+    const dbPath = databasePath();
 
     // Check if database file exists
     if (fs.existsSync(dbPath)) {
@@ -40,6 +42,7 @@ export async function initDatabase() {
       ensureHevySchema();
       ensureCardioSchema();
       ensureStravaSchema();
+      ensureAnalysisSchema();
       saveDatabase();
     } else {
       console.log('🆕 Creating new database...');
@@ -48,6 +51,7 @@ export async function initDatabase() {
       ensureHevySchema();
       ensureCardioSchema();
       ensureStravaSchema();
+      ensureAnalysisSchema();
       seedExercises();
       saveDatabase();
     }
@@ -421,6 +425,53 @@ function ensureStravaSchema() {
 }
 
 /**
+ * Tables for analysis of second-by-second data (heart rate zones, best
+ * efforts) and the athlete's heart rate settings. Safe to run on every start.
+ */
+function ensureAnalysisSchema() {
+  // One row per session whose detailed data was looked for:
+  //   status 'ok'    data stored (services/streamStore.js) and analysed
+  //   status 'none'  the source has no detailed data for it
+  // hr_histogram: JSON [[bpm, seconds], ...], so time in zones can be worked
+  // out for any zone settings without reading the data again
+  db.run(`
+    CREATE TABLE IF NOT EXISTS session_analysis (
+      workout_id INTEGER PRIMARY KEY,
+      status TEXT NOT NULL CHECK(status IN ('ok', 'none')),
+      hr_histogram TEXT,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Fastest time over standard distances within a run (effort_key: '400m', '1k', '1mi', '5k', ...)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS best_efforts (
+      workout_id INTEGER NOT NULL,
+      effort_key TEXT NOT NULL,
+      seconds REAL NOT NULL,
+      PRIMARY KEY (workout_id, effort_key),
+      FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_best_efforts_key ON best_efforts(effort_key)');
+
+  // Heart rate settings, dated: a session uses the latest one in effect on its date
+  db.run(`
+    CREATE TABLE IF NOT EXISTS athlete_thresholds (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      effective_date DATE NOT NULL,
+      max_hr INTEGER NOT NULL,
+      resting_hr INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, effective_date),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+}
+
+/**
  * Seed the database with common exercises
  */
 function seedExercises() {
@@ -505,10 +556,7 @@ export function saveDatabase() {
   }
   
   try {
-    var dbPath = path.join(__dirname, '../../', 'fitness.db');
-    if(process.env.DATABASE_PATH) {
-      dbPath = process.env.DATABASE_PATH
-    } 
+    const dbPath = databasePath();
     const data = db.export();
     fs.writeFileSync(dbPath, data);
   } catch (error) {

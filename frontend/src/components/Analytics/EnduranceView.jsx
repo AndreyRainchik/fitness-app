@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Activity, Clock, HeartPulse, Plus } from 'lucide-react';
 import { cardioAPI } from '../../services/api';
+import { RunningCard, ZonesCard } from './ZonesAndRunning';
 import { Button, Card, CardHeader, EmptyState, Skeleton, StatTile } from '../ui';
 import { chartColors, formatDate, plural } from '../../utils/format';
 import {
@@ -140,6 +141,8 @@ function SportTable({ sports, unit }) {
  */
 function EnduranceView({ weeks, unit }) {
   const [data, setData] = useState(null);
+  const [zones, setZones] = useState(null);
+  const [running, setRunning] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -148,6 +151,9 @@ function EnduranceView({ weeks, unit }) {
     cardioAPI.getSummary(weeks)
       .then((result) => { if (!cancelled) setData(result); })
       .catch((err) => { if (!cancelled) setError(err.message || 'Failed to load endurance data'); });
+    // Extras: the page still works without them
+    cardioAPI.getZones(weeks).then((result) => { if (!cancelled) setZones(result); }).catch(() => {});
+    cardioAPI.getRunning(weeks).then((result) => { if (!cancelled) setRunning(result); }).catch(() => {});
     return () => { cancelled = true; };
   }, [weeks]);
 
@@ -218,6 +224,9 @@ function EnduranceView({ weeks, unit }) {
         />
         <SportTable sports={data.sports} unit={unit} />
       </Card>
+
+      <ZonesCard data={zones} />
+      <RunningCard data={running} unit={unit} weeks={data.weeks} />
     </div>
   );
 }

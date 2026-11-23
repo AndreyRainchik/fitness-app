@@ -120,6 +120,13 @@
     --activity-row: #eda100;
     --activity-boulder: #e87ba4;
     --activity-other: #008300;
+
+    /* Heart rate zones 1-5: one hue, light to dark (validated as an ordinal ramp) */
+    --zone-1: #86b6ef;
+    --zone-2: #5598e7;
+    --zone-3: #2a78d6;
+    --zone-4: #1c5cab;
+    --zone-5: #104281;
   }
   
   .dark {
@@ -130,6 +137,11 @@
     --activity-row: #c98500;
     --activity-boulder: #d55181;
     --activity-other: #0ca30c;
+    --zone-1: #184f95;
+    --zone-2: #256abf;
+    --zone-3: #3987e5;
+    --zone-4: #6da7ec;
+    --zone-5: #9ec5f4;
     --canvas: 10 10 12;
     --surface: 22 22 26;
     --gray-50: 29 29 34;
@@ -380,4 +392,16 @@
   textarea {
     font-size: 16px !important;
   }
+}
+
+/* Route maps: OpenStreetMap tiles dimmed and inverted to sit on the dark theme */
+.dark .route-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9);
+}
+.route-map .leaflet-container {
+  background: rgb(var(--gray-100));
+  font: inherit;
+}
+.route-map .leaflet-control-attribution {
+  font-size: 10px;
 }

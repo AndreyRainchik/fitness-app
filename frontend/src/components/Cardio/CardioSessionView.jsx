@@ -1,20 +1,35 @@
-import React from 'react';
-import { Card } from '../ui';
-import { RouteOutline, SplitsTable } from './RouteAndSplits';
+import React, { useMemo } from 'react';
+import { Card, Skeleton } from '../ui';
+import RouteMap from './RouteMap';
+import SessionCharts from './SessionCharts';
+import ZoneBreakdown from './ZoneBreakdown';
+import BestEffortsCard from './BestEffortsCard';
+import SplitsTable from './SplitsTable';
 import { ViewOnStrava } from '../Strava/StravaConnectionCard';
 import {
-  elevationUnit, formatClock, formatDistance, formatPaceOrSpeed, metersToElevation, paceLabel, sportInfo,
+  decodePolyline, elevationUnit, formatClock, formatDistance, formatPaceOrSpeed, metersToElevation, paceLabel, sportInfo,
 } from '../../utils/cardio';
 import { formatNumber } from '../../utils/format';
+import useSessionAnalysis from '../../utils/useSessionAnalysis';
 
 const CADENCE_UNIT = { run: 'spm', ride: 'rpm', row: 'spm' };
 
-/** Stat tiles and notes for one cardio session (workout with `cardio` and `metrics`). */
+/**
+ * One cardio session: stat tiles, then (from its second-by-second data) the
+ * route map, charts, heart rate zones and best efforts, then splits and notes.
+ */
 function CardioSessionView({ workout, unit }) {
   const c = workout.cardio || {};
   const m = workout.metrics || {};
   const info = sportInfo(c.sport);
   const pace = formatPaceOrSpeed(c.sport, c.distance_m, c.duration_s, unit);
+  const { analysis, loading } = useSessionAnalysis(workout.id, Boolean(workout.strava));
+
+  // The full GPS track when it's been fetched, else Strava's simplified outline
+  const route = useMemo(
+    () => analysis?.route ?? (c.summary_polyline ? decodePolyline(c.summary_polyline) : null),
+    [analysis?.route, c.summary_polyline]
+  );
 
   const tiles = [
     { label: 'Moving time', value: formatClock(c.duration_s) },
@@ -42,7 +57,21 @@ function CardioSessionView({ workout, unit }) {
       </div>
 
       <div className="space-y-4">
-        {c.summary_polyline && <RouteOutline polyline={c.summary_polyline} />}
+        {route && <RouteMap points={route} />}
+        {loading && (
+          <Card>
+            <p className="mb-3 text-sm text-gray-500">Loading heart rate and pace from Strava…</p>
+            <Skeleton className="h-40 rounded-xl" />
+          </Card>
+        )}
+        {analysis?.series?.length > 0 && (
+          <SessionCharts series={analysis.series} sport={c.sport} environment={c.environment} unit={unit} />
+        )}
+        {analysis && <ZoneBreakdown zones={analysis.zones} hasHr={analysis.has_hr} />}
+        {analysis && <BestEffortsCard efforts={analysis.best_efforts} unit={unit} />}
+        {analysis?.status === 'rate_limited' && (
+          <p className="text-sm text-gray-500">Strava&apos;s request limit was reached; charts for this session will appear in a while.</p>
+        )}
         <SplitsTable splitsJson={c.splits_json} sport={c.sport} unit={unit} />
       </div>
 

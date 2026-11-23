@@ -6,6 +6,9 @@ import { StravaApiError, StravaClient, refreshTokens } from './stravaClient.js';
 import {
   cardioFields, classifyActivity, findCardioDuplicate, ledgerFields, matchStrengthWorkout,
 } from './stravaImport.js';
+import { SessionAnalysis } from '../models/Analysis.js';
+import { bestEfforts, hrHistogram, streamFromStrava } from './cardioAnalysis.js';
+import { readStream, removeStream, saveStream } from './streamStore.js';
 
 /**
  * Brings Strava activities into the app.
@@ -14,6 +17,8 @@ import {
  *                               another stretch of older history
  *   handleWebhookEvent(event)   one activity created / updated / deleted on Strava
  *   linkUnmatchedStrength(id)   retry matching Strava lifting sessions to workouts
+ *   ensureAnalysis(user, id)    fetch and analyse a session's second-by-second
+ *                               data now, if it hasn't been
  *
  * Work for one user runs one piece at a time (a webhook event waits for a
  * running sync), so the same activity is never imported twice.
@@ -27,6 +32,8 @@ const FIRST_SYNC_DAYS = 30;
 const DETAIL_LIMIT = Number(process.env.STRAVA_DETAIL_LIMIT) || 25;
 // Pages of older history (200 activities each) walked per sync
 const BACKFILL_PAGES = Number(process.env.STRAVA_BACKFILL_PAGES) || 10;
+// Older sessions whose second-by-second data is fetched per sync (one request each)
+const STREAM_LIMIT = Number(process.env.STRAVA_STREAM_LIMIT) || 20;
 
 const queues = new Map();
 
@@ -105,7 +112,10 @@ function applyActivity(userId, activity, { detailed, force = false }) {
 
     if (kind.kind === 'cardio') {
       // Changed from a lifting session on Strava: take its HR off the workout
-      if (linkedStrength) saveMetrics(linkedStrength, {});
+      if (linkedStrength) {
+        saveMetrics(linkedStrength, {});
+        dropAnalysis(linkedStrength);
+      }
       const fields = cardioFields(activity, kind);
       let workoutId;
       let outcome;
@@ -144,6 +154,104 @@ function applyActivity(userId, activity, { detailed, force = false }) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Second-by-second data
+// ---------------------------------------------------------------------------
+
+const CARDIO_STREAM_KEYS = ['time', 'distance', 'heartrate', 'velocity_smooth', 'altitude', 'cadence', 'latlng'];
+const STRENGTH_STREAM_KEYS = ['time', 'heartrate'];
+
+function dropAnalysis(workoutId) {
+  SessionAnalysis.remove(workoutId);
+  removeStream(workoutId);
+}
+
+/**
+ * Analyse a stored or fresh stream for a workout: HR histogram for any
+ * session, best efforts for outdoor runs (treadmill distance is the watch's
+ * estimate, so it doesn't set records).
+ */
+function analyse(workoutId, stream) {
+  const session = get(
+    `SELECT w.kind, cs.sport, cs.environment FROM workouts w LEFT JOIN cardio_sessions cs ON cs.workout_id = w.id WHERE w.id = ?`,
+    [workoutId]
+  );
+  if (!session) return;
+  const runOutdoors = session.kind === 'cardio' && session.sport === 'run' && session.environment === 'outdoor';
+  SessionAnalysis.save(workoutId, { histogram: hrHistogram(stream), efforts: runOutdoors ? bestEfforts(stream) : {} });
+}
+
+/** Fetch, store and analyse the streams of the activity linked to a workout. */
+async function fetchAnalysis(client, workoutId, activityId) {
+  const kind = get('SELECT kind FROM workouts WHERE id = ?', [workoutId])?.kind;
+  if (!kind) return;
+  let stream = null;
+  try {
+    stream = streamFromStrava(await client.getStreams(activityId, kind === 'cardio' ? CARDIO_STREAM_KEYS : STRENGTH_STREAM_KEYS));
+  } catch (error) {
+    if (!(error instanceof StravaApiError && error.status === 404)) throw error;
+  }
+  if (!stream) {
+    SessionAnalysis.markNone(workoutId);
+    return;
+  }
+  saveStream(workoutId, stream);
+  analyse(workoutId, stream);
+}
+
+/** After an activity was applied: analyse its workout if that hasn't been done. */
+async function analyseActivity(userId, client, activityId) {
+  const row = StravaActivities.find(userId, activityId);
+  if (!row?.workout_id || !['cardio', 'strength_linked'].includes(row.outcome)) return;
+  if (SessionAnalysis.find(row.workout_id)) {
+    // Already fetched: re-analyse in case the sport or indoor/outdoor changed
+    const stream = readStream(row.workout_id);
+    if (stream) analyse(row.workout_id, stream);
+    return;
+  }
+  await fetchAnalysis(client, row.workout_id, row.activity_id);
+}
+
+/** Workouts linked to Strava without analysis yet, outdoor runs first, newest first. */
+function sessionsNeedingAnalysis(userId, limit) {
+  return all(
+    `SELECT sa.activity_id, sa.workout_id
+     FROM strava_activities sa
+     JOIN workouts w ON w.id = sa.workout_id
+     LEFT JOIN cardio_sessions cs ON cs.workout_id = w.id
+     LEFT JOIN session_analysis an ON an.workout_id = w.id
+     WHERE sa.user_id = ? AND sa.outcome IN ('cardio', 'strength_linked') AND an.workout_id IS NULL
+     ORDER BY (cs.sport = 'run' AND cs.environment = 'outdoor') DESC, w.date DESC
+     LIMIT ?`,
+    [userId, limit]
+  );
+}
+
+/**
+ * Make sure a workout's second-by-second data has been looked for, fetching
+ * it now when it's linked to Strava. Resolves 'ok' | 'none' | 'unavailable'
+ * (not from Strava, or Strava not connected) | 'rate_limited'.
+ */
+export function ensureAnalysis(userId, workoutId) {
+  const existing = SessionAnalysis.find(workoutId);
+  if (existing) return Promise.resolve(existing.status);
+  const link = StravaActivities.forWorkout(workoutId);
+  if (!link || !StravaConnection.find(userId)) return Promise.resolve('unavailable');
+
+  return exclusive(userId, async () => {
+    if (!SessionAnalysis.find(workoutId)) {
+      try {
+        await fetchAnalysis(await clientFor(userId), workoutId, link.activity_id);
+      } catch (error) {
+        if (error instanceof StravaApiError && error.rateLimited) return 'rate_limited';
+        if (error instanceof StravaApiError || error instanceof StravaNotConnectedError) return 'unavailable';
+        throw error;
+      }
+    }
+    return SessionAnalysis.find(workoutId)?.status ?? 'unavailable';
+  });
+}
+
 /** An activity was deleted on Strava: remove what it brought here. */
 function removeActivity(userId, activityId) {
   transaction(() => {
@@ -153,6 +261,7 @@ function removeActivity(userId, activityId) {
       Workout.delete(existing.workout_id);
     } else if (existing.outcome === 'strength_linked' && existing.workout_id) {
       saveMetrics(existing.workout_id, {});
+      dropAnalysis(existing.workout_id);
     }
     StravaActivities.remove(userId, activityId);
   });
@@ -184,7 +293,7 @@ export function linkUnmatchedStrength(userId) {
 const epochOf = (activity) => Math.floor(Date.parse(activity.start_date) / 1000);
 
 async function runSync(userId) {
-  const result = { imported: 0, linked: 0, updated: 0, unmatched: 0, rate_limited: false, error: null };
+  const result = { imported: 0, linked: 0, updated: 0, unmatched: 0, analysed: 0, rate_limited: false, error: null };
   const count = (outcome) => { if (result[outcome] !== undefined) result[outcome] += 1; };
 
   try {
@@ -207,6 +316,8 @@ async function runSync(userId) {
           details += 1;
         }
         count(applyActivity(userId, activity, { detailed: activity !== summary }));
+        // New activities get their second-by-second data straight away
+        if (activity !== summary) await analyseActivity(userId, client, summary.id);
       }
       if (activities.length < 200) break;
     }
@@ -221,6 +332,12 @@ async function runSync(userId) {
       if (activities.length) before = Math.min(...activities.map(epochOf));
       done = activities.length < 200 ? 1 : 0;
       StravaConnection.updateProgress(userId, { backfill_before: before, backfill_done: done });
+    }
+
+    // 3. Second-by-second data for older sessions, a few per sync
+    for (const { activity_id: activityId, workout_id: workoutId } of sessionsNeedingAnalysis(userId, STREAM_LIMIT)) {
+      await fetchAnalysis(client, workoutId, activityId);
+      result.analysed += 1;
     }
   } catch (error) {
     if (error instanceof StravaApiError && error.rateLimited) {
@@ -237,7 +354,7 @@ async function runSync(userId) {
 }
 
 /**
- * Sync one user. Resolves { imported, linked, updated, unmatched,
+ * Sync one user. Resolves { imported, linked, updated, unmatched, analysed,
  * rate_limited, error }; Strava errors are reported in `error`, not thrown.
  */
 export function syncStrava(userId) {
@@ -283,6 +400,7 @@ export async function handleWebhookEvent(event) {
         throw error;
       }
       applyActivity(userId, activity, { detailed: true, force: event.aspect_type === 'update' });
+      await analyseActivity(userId, client, event.object_id);
     });
   } catch (error) {
     console.error('Strava webhook error:', error.message);
