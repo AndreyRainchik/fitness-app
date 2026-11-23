@@ -5,7 +5,7 @@
 ## What we're building
 
 1. **One week view** that shows lifting and cardio together: what's planned for each day and what was done.
-2. **Race plans generated in the app** for 5K, 10K, half marathon and marathon, placed around a fixed lifting schedule. This replaces Runna for planning.
+2. **Run plans generated in the app**, placed around a fixed lifting schedule: race plans for 5K, 10K, half marathon and marathon, and a maintenance plan between races. They adapt to what you actually run. This replaces Runna.
 
 ## Decisions so far
 
@@ -15,6 +15,10 @@
 | Workouts on the watch | Viewing in the app is fine | No Garmin/Apple export. Workouts appear in the app; Strava sync marks them done |
 | Race distances | 5K, 10K, half, marathon | Four plan templates; ultra/trail is out of scope |
 | Lifting during a plan | Plan runs around lifting | The lifting program stays the same; hard runs avoid the day before heavy legs; lifting volume is reduced in race week |
+| How Runna was used | Set plans **and** its adjustments | Adapting the plan is core, not an extra (see "Adapting the plan") |
+| Structured intervals | Yes | Interval runs have warm-up / reps / recoveries / cool-down, and reps are checked one by one |
+| Between races | A maintenance mode | Rolling plan with no race date; a race plan hands over to it when it ends |
+| Pace or heart rate | Pace | Targets are pace ranges; heart rate only as a secondary easy-run cap |
 
 ---
 
@@ -66,7 +70,7 @@ Program lifts are **computed** from the schedule and program state, not stored, 
 
 ---
 
-## Phase 2: Race plan generator
+## Phase 2: Run plans (race and maintenance)
 
 ### Inputs (a "New race plan" wizard)
 - Race: distance, date, name; optional goal time
@@ -104,6 +108,26 @@ We work out the E/M/T/I/R paces from the VDOT formula we already have, rather th
 
 A **goal time** sets the race pace and is checked against current VDOT: "your 5K VDOT predicts 1:38; 1:30 is ambitious." Training paces still come from current fitness.
 
+### Structured workouts
+Each run is a list of steps, so intervals are fully specified:
+
+```
+Intervals: 6 × 800 m
+  Warm-up      1.5 mi easy (9:10–9:50 /mi)
+  6 ×  800 m   at 3:24–3:28 (6:51–6:59 /mi)
+       recover 2:00 jog
+  Cool-down    1 mi easy
+```
+
+- Step kinds: warm-up, work, recovery (jog or stand, by time or distance), cool-down, plus strides (e.g. 6 × 20 s).
+- Rep sets follow a progression across the build/peak phases, e.g. for a 10K: 5 × 1 km → 6 × 1 km → 4 × 1.6 km → 3 × 2 km at I pace; cruise intervals 3 × 1.6 km → 4 × 1.6 km → 2 × 3.2 km at T pace; half/marathon race-pace blocks inside long runs.
+- Total and work distance are worked out, so weekly distance stays accurate.
+
+### Pace targets
+- Every step shows a **pace range** in the user's unit (/mi or /km), e.g. tempo 7:27–7:33 /mi. Reps show the target **split** for the rep distance as well (800 m in 3:24–3:28), since that's what you read off a watch.
+- Easy and long runs get a wide range and the note that slower is fine; an optional heart-rate cap (top of zone 2) is shown in small print, since easy days are where pace misleads (heat, hills, fatigue).
+- Treadmill runs also show speed (mph or km/h).
+
 ### Placement around lifting
 - At most **2 hard runs** (tempo, intervals, race pace) per week, 3 for 5K/10K at 5+ runs a week
 - **No hard run the day before a heavy-legs day**, and preferably not the day after
@@ -113,30 +137,71 @@ A **goal time** sets the race pace and is checked against current VDOT: "your 5K
 - Race week: the planner suggests skipping or lightening the last heavy-legs session (planner only; the program isn't changed)
 
 ### Following the plan
-- A run synced from Strava is matched to the planned run on that day (closest distance; ±1 day if nothing was planned on the day)
-- After each run, **compliance** is shown: distance done vs planned, and for structured runs, average pace in the work reps vs target (from Strava streams and splits)
-- **Missed run:** the week isn't rebuilt by default. If a key session (long run or hard run) is missed, offer to move it to another free day this week
-- **Plan check:** if 2 or more weeks fall under 70% of planned volume, offer to rebuild from today with the current volume
+- A run synced from Strava (or logged) is matched to the planned run that day: the closest distance wins; if nothing was planned that day, a planned run from the day before or after.
+- **After each run:** distance done vs planned, and for structured runs a **rep-by-rep table**: each work rep's time and pace against its target, marked on target / fast / slow (±2%). Reps are found in the second-by-second data by looking for the planned number of fastest non-overlapping stretches of the rep distance, in order, so no lap button is needed. Where there's no stream (treadmill without a footpod, manual log), only distance and average pace are checked.
+- An optional **"How did it feel?"** (1–5, easy to very hard) after a run, which feeds the adjustments below.
+
+### Adapting the plan
+Two kinds of change. Small, safe ones happen by themselves and are listed in a "Plan changes" note on the week. Bigger ones are a suggestion with one tap to accept, showing what changes.
+
+| What happened | What the plan does | How |
+|---|---|---|
+| Missed an easy run | Drops it | Automatic |
+| Missed a key run (long, tempo, intervals, race pace) | Moves it to a free day later this week if the lifting rules allow, else drops it and keeps the week's other key run | Suggested |
+| Lifting day moved (via a date change) | Re-places this week's runs so the rules still hold | Automatic |
+| New best effort raises fitness | New paces for upcoming runs ("tempo 7:30 → 7:24") | Suggested |
+| Reps on target and felt ≤ 3, two key runs in a row | Paces up one step (about +0.5 VDOT) | Suggested |
+| Reps more than 3% slow, or felt 5, two key runs in a row | Paces down one step | Suggested |
+| A week under 70% of planned distance | Next week repeats it instead of adding distance | Automatic |
+| Two such weeks, or 10+ days without running | Rebuilds the rest of the plan from current distance; warns if the goal time is now out of reach | Suggested |
+| Training load 1.5× the usual (lifting included) | Turns the next hard run into an easy one | Suggested |
+| Race date or runs per week changed | Rebuilds from today | On request |
+
+Nothing in the past is rewritten: changes apply from today on, and each one is recorded with its reason.
+
+### Maintenance mode
+For the weeks between races. No race date; it rolls on in 4-week blocks.
+- **Distance:** holds a weekly target (default: the last 4 weeks' average, or 70% of the race plan's peak when it follows one), with an easier fourth week.
+- **One quality run a week** rotating through tempo, intervals and hills or strides, plus a long run of about 25–30% of the week; the rest easy.
+- Paces follow fitness the same way, so a maintenance block keeps them current for the next race.
+- **Handover:** after a race, 1–2 recovery weeks of easy running, then maintenance. Starting a race plan from maintenance uses the maintenance distance as its starting point.
 
 ### Data model
 ```sql
-race_plans (id, user_id, race_name, distance_m, race_date, goal_s NULL,
-            vdot_at_start, runs_per_week, long_run_weekday, status, created_at)
--- runs are planned_sessions rows with source = 'race_plan'; details_json holds
--- { type, distance_m, segments: [{ reps, distance_m | duration_s, pace_zone, rest_s }] }
+run_plans (id, user_id, kind ('race'|'maintenance'), status ('active'|'done'|'cancelled'),
+           race_name NULL, distance_m NULL, race_date NULL, goal_s NULL,
+           vdot, weekly_target_m, runs_per_week, long_run_weekday,
+           created_at, ended_at NULL)
+planned_runs (id, plan_id, date, type ('easy'|'long'|'tempo'|'intervals'|'reps'|'race_pace'|'race'),
+              title, steps_json, distance_m, key (0/1),
+              status ('planned'|'done'|'skipped'|'moved'), workout_id NULL, feel NULL,
+              compliance_json NULL)      -- rep results once matched
+plan_changes (id, plan_id, created_at, kind, reason, status ('applied'|'suggested'|'accepted'|'dismissed'), diff_json)
 ```
+`steps_json`: `[{ kind: 'warmup'|'work'|'recovery'|'cooldown'|'strides', reps?, distance_m? | duration_s?, zone: 'E'|'M'|'T'|'I'|'R'|'race' }]`. Paces are not stored per run: they're worked out from the plan's current VDOT when shown, so a pace change is one number.
 
 ### Generator
-A pure function in `backend/src/services/racePlan.js`:
-`generatePlan({ race, vdot, baseline, runsPerWeek, schedule, heavyLegDays, startDate }) → weeks[]`.
-It's deterministic and easy to unit-test (weekly growth ≤10%, no hard run before heavy legs, taper shape, paces against VDOT).
+Pure functions in `backend/src/services/runPlan.js`:
+- `generatePlan({ kind, race, vdot, baseline, runsPerWeek, schedule, liftQueue, startDate }) → weeks[]`
+- `placeWeek(runs, days, heavyLegDates)` → the week's runs on dates, plus any rule it couldn't keep and why
+- `paces(vdot)` → E/M/T/I/R pace ranges
+- `matchReps(stream, steps)` → per-rep results
+- `adjust(plan, history, today)` → changes to apply or suggest
+
+All deterministic and unit-tested: weekly growth ≤10%, no hard run before heavy legs, taper shape, paces against Daniels' tables, rep detection on synthetic streams.
+
+### Build order
+1. **Plans and the week:** wizard, generator, paces, structured runs shown on My Week in place of the generic "Cardio" (race and maintenance).
+2. **Following:** matching runs, rep-by-rep results, "How did it feel?".
+3. **Adapting:** the rules in the table, the "Plan changes" note and one-tap suggestions.
+4. **Race and after:** race week, recovery weeks, handover to maintenance.
 
 ---
 
 ## Phase 3 (later)
 - Strength/run balance on the week view: warn when the week's load is 1.5× the usual (form data already exists)
 - Race-day page: pacing plan by mile/km, goal and predicted time
-- Post-race review: result vs prediction, VDOT update, recovery weeks offered
+- Post-race review: result vs prediction, VDOT update
 - Optional: download a `.FIT` workout file per run for Garmin
 
 ## Out of scope for now
