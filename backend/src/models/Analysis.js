@@ -54,6 +54,30 @@ export class SessionAnalysis {
   }
 }
 
+/**
+ * Every session of the user's with what training load needs: [{ workout_id,
+ * date, kind, duration_s, duration_minutes, avg_hr, histogram, avg_rpe,
+ * working_sets }] oldest first. avg_rpe is the average RPE of the working
+ * sets that have one.
+ */
+export function loadSessions(userId) {
+  return all(
+    `SELECT w.id as workout_id, w.date, w.kind, w.duration_minutes, cs.duration_s, sm.avg_hr, sa.hr_histogram,
+            st.avg_rpe, st.working_sets
+     FROM workouts w
+     LEFT JOIN cardio_sessions cs ON cs.workout_id = w.id
+     LEFT JOIN session_metrics sm ON sm.workout_id = w.id
+     LEFT JOIN session_analysis sa ON sa.workout_id = w.id
+     LEFT JOIN (
+       SELECT workout_id, AVG(rpe) as avg_rpe, COUNT(*) as working_sets
+       FROM sets WHERE is_warmup = 0 GROUP BY workout_id
+     ) st ON st.workout_id = w.id
+     WHERE w.user_id = ?
+     ORDER BY w.date ASC`,
+    [userId]
+  ).map(({ hr_histogram: raw, ...row }) => ({ ...row, histogram: raw ? JSON.parse(raw) : null }));
+}
+
 export class BestEfforts {
   static forWorkout(workoutId) {
     return all('SELECT effort_key, seconds FROM best_efforts WHERE workout_id = ?', [workoutId]);

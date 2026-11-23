@@ -389,6 +389,9 @@ export const cardioAPI = {
   /** Weekly minutes in each heart rate zone. */
   getZones: (weeks = 12) => apiCall(`/cardio/zones?${new URLSearchParams({ weeks, localDate: getLocalDateString() })}`),
 
+  /** Training load and fitness / fatigue / form curves for the last `weeks` weeks. */
+  getLoad: (weeks = 12) => apiCall(`/cardio/load?${new URLSearchParams({ weeks, localDate: getLocalDateString() })}`),
+
   /** Running records, VDOT and race predictions. */
   getRunning: (weeks = 12) => apiCall(`/cardio/running?${new URLSearchParams({ weeks, localDate: getLocalDateString() })}`),
 

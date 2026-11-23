@@ -1,12 +1,13 @@
 import express from 'express';
 import { body, query, validationResult } from 'express-validator';
 import { authenticateToken } from '../middleware/auth.js';
-import { Cardio, Workout } from '../models/index.js';
+import { Cardio, User, Workout } from '../models/index.js';
 import { CARDIO_SPORTS, ENVIRONMENTS, DISTANCE_SPORTS } from '../models/Cardio.js';
 import {
   DAY_MS, formatDay, parseDay, summarizeRunning, summarizeTraining, summarizeZones, weekStartOf,
 } from '../services/cardioStats.js';
-import { AthleteThresholds, BestEfforts, SessionAnalysis } from '../models/Analysis.js';
+import { AthleteThresholds, BestEfforts, SessionAnalysis, loadSessions } from '../models/Analysis.js';
+import { calibrateRpe, fitnessCurves, sessionLoads } from '../services/trainingLoad.js';
 import {
   EFFORT_DISTANCES, chartSeries, hrZones, routePoints, thresholdsOn, zoneSeconds,
 } from '../services/cardioAnalysis.js';
@@ -213,6 +214,37 @@ router.get('/running', (req, res) => {
   } catch (error) {
     console.error('Running summary error:', error);
     res.status(500).json({ error: 'Failed to get running records' });
+  }
+});
+
+/**
+ * GET /api/cardio/load?weeks=&localDate=
+ * Training load per session (heart rate first, then RPE, then duration) and
+ * the fitness / fatigue / form curves, calculated from the whole history and
+ * returned for the last `weeks` weeks. See services/trainingLoad.js.
+ *
+ * { needs_thresholds, assumed_resting_hr, daily, weekly, today, sources,
+ *   calibration: { factor, sessions } }
+ */
+router.get('/load', (req, res) => {
+  try {
+    const { today, weeks } = range(req);
+    const thresholds = AthleteThresholds.list(req.user.id);
+    if (!thresholds.length) return res.json({ weeks, needs_thresholds: true });
+
+    const sex = User.findById(req.user.id)?.sex ?? null;
+    const sessions = loadSessions(req.user.id);
+    const curves = fitnessCurves(sessionLoads(sessions, thresholds, sex), { today, weeks });
+    res.json({
+      weeks,
+      needs_thresholds: false,
+      assumed_resting_hr: thresholds.some((t) => !t.resting_hr),
+      calibration: calibrateRpe(sessions, thresholds, sex),
+      ...curves,
+    });
+  } catch (error) {
+    console.error('Training load error:', error);
+    res.status(500).json({ error: 'Failed to get training load' });
   }
 });
 

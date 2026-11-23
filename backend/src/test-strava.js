@@ -542,6 +542,23 @@ async function apiTests() {
       assert.ok(Math.abs(minutes * 60 - r.body.totals.reduce((a, b) => a + b, 0)) < 300);
     });
 
+    await test('training load: every session counts, heart rate first', async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const r = await call('GET', `/cardio/load?weeks=4&localDate=${today}`);
+      assert.equal(r.status, 200, JSON.stringify(r.body));
+      assert.equal(r.body.needs_thresholds, false);
+      assert.equal(r.body.assumed_resting_hr, false);
+      // Three full weeks, then this week up to today
+      assert.equal(r.body.daily.length, 21 + new Date(`${today}T00:00:00Z`).getUTCDay() + 1);
+      assert.equal(r.body.daily.at(-1).date, today);
+      assert.ok(r.body.today.fitness > 0 && r.body.today.fatigue > r.body.today.fitness);
+      assert.ok(['fresh', 'neutral', 'productive', 'overreaching'].includes(r.body.today.status));
+      assert.ok(r.body.sources.hr_detail >= 6);
+      assert.ok(r.body.weekly.some((w) => w.strength > 0) && r.body.weekly.some((w) => w.cardio > 0));
+      const noSettings = await callOther('GET', '/cardio/load');
+      assert.equal(noSettings.body.needs_thresholds, true);
+    });
+
     await test('running: records, VDOT and predictions', async () => {
       const r = await call('GET', '/cardio/running?weeks=12');
       assert.equal(r.status, 200);
