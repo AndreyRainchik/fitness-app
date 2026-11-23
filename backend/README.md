@@ -61,7 +61,8 @@ backend/
 - `HEVY_API_BASE_URL` (optional): Override `https://api.hevyapp.com` (tests only)
 - `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`: from strava.com/settings/api. Without them the Strava card says Strava isn't set up.
 - `STRAVA_WEBHOOK_VERIFY_TOKEN`: any random string; Strava sends it back when the webhook is registered
-- `STRAVA_DETAIL_LIMIT` (default 25), `STRAVA_BACKFILL_PAGES` (default 10): per-sync request budget (see below)
+- `STRAVA_DETAIL_LIMIT` (default 25), `STRAVA_BACKFILL_PAGES` (default 10), `STRAVA_STREAM_LIMIT` (default 20): per-sync request budget (see below)
+- `STREAMS_DIR` (optional): where second-by-second session data is kept. Default: a `streams` folder next to the database file (so on Cloud Run it sits on the same storage mount)
 - `STRAVA_API_BASE_URL`, `STRAVA_OAUTH_BASE_URL` (optional): overrides (tests only)
 
 ### Current Endpoints:
@@ -124,6 +125,27 @@ after deploying run `npm run strava:subscribe -- https://<domain>/api/strava/web
   logged by hand that matches a Strava activity is linked instead of duplicated.
 - `strava_activities` records every activity seen and what happened to it. A session deleted here is
   marked `dismissed` and not imported again. Disconnecting keeps imported sessions.
+
+### Second-by-second analysis (`services/cardioAnalysis.js`, `services/streamStore.js`)
+For sessions from Strava (cardio, and lifting sessions matched to a workout) the app fetches
+Strava's streams (time, distance, heart rate, speed, altitude, cadence, GPS): straight away for new
+activities, and up to `STRAVA_STREAM_LIMIT` older sessions per sync (outdoor runs first), or when a
+session page is opened. Streams are stored as gzipped JSON files outside the database
+(`<database folder>/streams/<workout id>.json.gz`); the database keeps what's computed from them:
+- `session_analysis`: a heart rate histogram (seconds per bpm), so time in zones can be worked out
+  for any heart rate settings without reading the files again (`status 'none'` = no data on Strava)
+- `best_efforts`: fastest 400 m, 1 km, mile, 5k, 10k, half and marathon within outdoor runs
+  (treadmill distance is the watch's estimate, so it doesn't set records)
+- `athlete_thresholds`: max and optional resting HR, dated. Each session uses the settings in effect
+  on its date. Five zones at 50/60/70/80/90% of max HR, or of heart rate reserve with resting HR.
+
+Endpoints (`/api/cardio`): `GET/POST /thresholds`, `DELETE /thresholds/:id`; `GET /zones?weeks=`
+(weekly minutes per zone, strength and cardio); `GET /running?weeks=` (records, VDOT from the best
+effort of a mile or more in the range, and 5k / 10k / half / marathon predictions by Daniels' formula);
+`GET /:id/analysis` (chart series, GPS route, time in zones and best efforts for one session).
+
+Route maps use OpenStreetMap tiles (`tile.openstreetmap.org`, with attribution), loaded by the
+browser; the service worker keeps up to 400 tiles for 30 days.
 
 ## To Run:
 ```bash

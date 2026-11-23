@@ -1,6 +1,8 @@
 import { get, all, run, insert, transaction } from '../config/database.js';
 import Cardio, { CARDIO_LIST_COLUMNS, CARDIO_LIST_JOINS } from './Cardio.js';
 import { StravaActivities } from './Strava.js';
+import { SessionAnalysis } from './Analysis.js';
+import { removeStream } from '../services/streamStore.js';
 
 const SET_COLUMNS = '(workout_id, exercise_id, set_number, reps, weight, rpe, is_warmup, notes)';
 
@@ -257,8 +259,10 @@ class Workout {
     transaction(() => {
       Cardio.deleteDetails(id);
       StravaActivities.workoutDeleted(id);
+      SessionAnalysis.remove(id);
       run('DELETE FROM workouts WHERE id = ?', [id]);
     });
+    removeStream(id);
     return { success: true };
   }
   

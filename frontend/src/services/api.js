@@ -375,6 +375,23 @@ export const cardioAPI = {
     return await apiCall(`/cardio/${id}`, { method: 'PUT', body: JSON.stringify(session) });
   },
 
+  /**
+   * Charts, route, time in zones and best efforts for one session (any kind).
+   * May take a moment the first time: the data is fetched from Strava.
+   */
+  getAnalysis: (id) => apiCall(`/cardio/${id}/analysis`),
+
+  /** Heart rate settings: { thresholds, zones, suggestion } */
+  getThresholds: () => apiCall('/cardio/thresholds'),
+  saveThresholds: (settings) => apiCall('/cardio/thresholds', { method: 'POST', body: JSON.stringify(settings) }),
+  deleteThresholds: (id) => apiCall(`/cardio/thresholds/${id}`, { method: 'DELETE' }),
+
+  /** Weekly minutes in each heart rate zone. */
+  getZones: (weeks = 12) => apiCall(`/cardio/zones?${new URLSearchParams({ weeks, localDate: getLocalDateString() })}`),
+
+  /** Running records, VDOT and race predictions. */
+  getRunning: (weeks = 12) => apiCall(`/cardio/running?${new URLSearchParams({ weeks, localDate: getLocalDateString() })}`),
+
   /** Weekly minutes by activity type, this week's totals and per-sport totals. */
   getSummary: async (weeks = 12) => {
     const params = new URLSearchParams({ weeks, localDate: getLocalDateString() });

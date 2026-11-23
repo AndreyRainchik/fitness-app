@@ -19,6 +19,8 @@ import { formatNumber } from '../utils/format';
 import { ExerciseSetsCard, WorkoutStats } from '../components/Workout/ExerciseSetsCard';
 import CardioSessionView from '../components/Cardio/CardioSessionView';
 import { ViewOnStrava } from '../components/Strava/StravaConnectionCard';
+import ZoneBreakdown from '../components/Cardio/ZoneBreakdown';
+import useSessionAnalysis from '../utils/useSessionAnalysis';
 import { distanceUnit, sessionTitle, sportInfo } from '../utils/cardio';
 
 function WorkoutDetail() {
@@ -36,6 +38,8 @@ function WorkoutDetail() {
   const [templateName, setTemplateName] = useState('');
   const [templateDescription, setTemplateDescription] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
+  // Heart rate zones for a lifting session recorded on the watch (cardio pages load their own)
+  const { analysis } = useSessionAnalysis(id, Boolean(workout?.strava) && workout?.kind !== 'cardio');
 
   useEffect(() => {
     let cancelled = false;
@@ -268,6 +272,12 @@ function WorkoutDetail() {
               {workout.strava && <ViewOnStrava activityId={workout.strava.activity_id} />}
             </div>
           </Card>
+        )}
+
+        {analysis?.has_hr && (
+          <div className="mb-6">
+            <ZoneBreakdown zones={analysis.zones} hasHr />
+          </div>
         )}
 
         <div className="space-y-4">

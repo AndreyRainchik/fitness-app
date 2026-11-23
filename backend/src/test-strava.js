@@ -139,6 +139,37 @@ function initialActivities() {
   ];
 }
 
+/**
+ * Second-by-second data like Strava's: 1 Hz, steady pace with one faster
+ * kilometre in the middle, heart rate climbing from 120 to 170. Climbing has
+ * none (404), like an activity recorded without sensors.
+ */
+function streamsFor(a, keys) {
+  if (a.sport_type === 'RockClimbing') return null;
+  const n = Math.max(2, a.moving_time || a.elapsed_time);
+  const time = Array.from({ length: n }, (_, i) => i);
+  const base = a.distance > 0 ? a.distance / n : 0;
+  const distance = [];
+  let d = 0;
+  for (let i = 0; i < n; i++) {
+    distance.push(Math.round(d * 10) / 10);
+    // From 40% of the way, run 25% faster for 1 km
+    const fast = base > 0 && d >= a.distance * 0.4 && d < a.distance * 0.4 + 1000;
+    d += fast ? base * 1.25 : base;
+  }
+  const all = {
+    time, distance,
+    heartrate: time.map((t) => Math.round(120 + (50 * t) / n)),
+    velocity_smooth: time.map(() => base),
+    altitude: time.map((t) => 10 + Math.sin(t / 60) * 5),
+    cadence: time.map(() => 86),
+    latlng: a.start_latlng?.length === 2 ? time.map((t) => [a.start_latlng[0] + t * 1e-5, a.start_latlng[1]]) : null,
+  };
+  const out = {};
+  for (const key of keys) if (all[key]) out[key] = { data: all[key], series_type: 'time', original_size: n, resolution: 'high' };
+  return out;
+}
+
 const DETAILS = {
   description: 'From the watch',
   calories: 500,
@@ -152,6 +183,7 @@ function startFakeStrava() {
     requests: [],
     tokenGrants: [],
     issuedTokens: [], // access tokens, in the order issued
+    streamRequests: [], // activity ids whose streams were asked for
     expireNextToken: false,
     rateLimitAfter: null, // 429 every API request after this many more
   };
@@ -200,6 +232,14 @@ function startFakeStrava() {
         .filter((a) => epoch(a) > after && epoch(a) < before)
         .sort((a, b) => (url.searchParams.has('after') ? epoch(a) - epoch(b) : epoch(b) - epoch(a)));
       return send(200, list.slice((page - 1) * perPage, page * perPage));
+    }
+    const streamsMatch = url.pathname.match(/^\/api\/v3\/activities\/(\d+)\/streams$/);
+    if (streamsMatch) {
+      state.streamRequests.push(Number(streamsMatch[1]));
+      const a = state.activities.find((x) => x.id === Number(streamsMatch[1]));
+      const streams = a && streamsFor(a, (url.searchParams.get('keys') || '').split(','));
+      if (!streams) return send(404, { message: 'Record Not Found' });
+      return send(200, streams);
     }
     const match = url.pathname.match(/^\/api\/v3\/activities\/(\d+)$/);
     if (match) {
@@ -376,7 +416,8 @@ async function apiTests() {
       const before = (await workouts()).length;
       const r = await call('POST', '/strava/sync');
       assert.equal(r.status, 200, JSON.stringify(r.body));
-      assert.deepEqual(r.body.result, { imported: 0, linked: 0, updated: 0, unmatched: 0, rate_limited: false, error: null });
+      // The lifting session linked in the last test gets its heart rate data now
+      assert.deepEqual(r.body.result, { imported: 0, linked: 0, updated: 0, unmatched: 0, analysed: 1, rate_limited: false, error: null });
       assert.equal((await workouts()).length, before);
     });
 
@@ -418,6 +459,110 @@ async function apiTests() {
       assert.equal((await byStrava()).some((w) => w.strava?.activity_id === '1009'), false);
       const again = await call('POST', '/strava/sync');
       assert.equal(again.body.result.imported, 1);
+    });
+
+    const idOf = async (activityId) => (await byStrava()).find((w) => w.strava?.activity_id === String(activityId))?.id;
+
+    await test('analysis: an outdoor run gets charts, route and best efforts', async () => {
+      const requests = fake.state.streamRequests.length;
+      const r = await call('GET', `/cardio/${await idOf(1001)}/analysis`);
+      assert.equal(r.status, 200, JSON.stringify(r.body));
+      assert.equal(r.body.status, 'ok');
+      assert.equal(fake.state.streamRequests.length, requests); // fetched during the sync, not now
+      assert.ok(r.body.series.length > 100 && r.body.series.length <= 500);
+      assert.ok(r.body.series.every((p) => p.t >= 0 && p.hr > 0 && p.d >= 0));
+      assert.ok(r.body.route.length > 100);
+      assert.equal(r.body.has_hr, true);
+      assert.equal(r.body.zones, null); // no heart rate settings yet
+      const efforts = Object.fromEntries(r.body.best_efforts.map((e) => [e.key, e]));
+      assert.deepEqual(Object.keys(efforts), ['400m', '1k', '1mi', '5k']);
+      // The fast kilometre is 25% quicker than the run's average pace
+      const pace = 1800 / 8046.7;
+      assert.ok(Math.abs(efforts['1k'].seconds - (1000 * pace) / 1.25) < 2, `1k: ${efforts['1k'].seconds}`);
+      // The older, faster 10 km run holds the records
+      assert.equal(efforts['5k'].record, false);
+      const old = await call('GET', `/cardio/${await idOf(9001)}/analysis`);
+      assert.equal(old.body.best_efforts.find((e) => e.key === '5k').record, true);
+      assert.deepEqual(old.body.best_efforts.map((e) => e.key), ['400m', '1k', '1mi', '5k', '10k']);
+    });
+
+    await test('analysis: no records indoors; activities without data say so', async () => {
+      const treadmill = await call('GET', `/cardio/${await idOf(1002)}/analysis`);
+      assert.equal(treadmill.body.status, 'ok');
+      assert.deepEqual(treadmill.body.best_efforts, []);
+      assert.equal(treadmill.body.route, null);
+      const ride = await call('GET', `/cardio/${await idOf(1003)}/analysis`);
+      assert.deepEqual(ride.body.best_efforts, []);
+
+      fake.state.activities.push(activity(1011, 'RockClimbing', at(0, 5), { moving_time: 0, elapsed_time: 3600 }));
+      await call('POST', '/strava/sync');
+      const climb = await call('GET', `/cardio/${await idOf(1011)}/analysis`);
+      assert.equal(climb.body.status, 'none');
+      assert.deepEqual(climb.body.series, []);
+      // Logged by hand, nothing to fetch
+      const manual = await call('POST', '/cardio', { date: dateOf(at(0, 5)), sport: 'row', duration_s: 600 });
+      assert.equal((await call('GET', `/cardio/${manual.body.workout.id}/analysis`)).body.status, 'unavailable');
+
+      const before = fake.state.streamRequests.length;
+      const lifted = await call('GET', `/cardio/${lift.body.workout.id}/analysis`);
+      assert.equal(lifted.body.status, 'ok');
+      assert.equal(lifted.body.has_hr, true);
+      assert.equal(fake.state.streamRequests.length, before);
+      assert.equal((await callOther('GET', `/cardio/${lift.body.workout.id}/analysis`)).status, 404);
+    });
+
+    await test('heart rate settings: suggestion, checks, zones', async () => {
+      const empty = await call('GET', '/cardio/thresholds');
+      assert.deepEqual(empty.body.thresholds, []);
+      assert.equal(empty.body.zones, null);
+      assert.equal(empty.body.suggestion.max_hr, 165);
+      assert.equal((await call('POST', '/cardio/thresholds', { effective_date: '2020-01-01', max_hr: 300 })).status, 400);
+      assert.equal((await call('POST', '/cardio/thresholds', { effective_date: '2020-01-01', max_hr: 180, resting_hr: 170 })).status, 400);
+      const saved = await call('POST', '/cardio/thresholds', { effective_date: '2020-01-01', max_hr: 190 });
+      assert.equal(saved.status, 201, JSON.stringify(saved.body));
+      assert.equal(saved.body.zones[4].min, 171);
+      // Same date again replaces it
+      const replaced = await call('POST', '/cardio/thresholds', { effective_date: '2020-01-01', max_hr: 180, resting_hr: 50 });
+      assert.equal(replaced.body.thresholds.length, 1);
+      assert.equal(replaced.body.zones[0].min, 115); // 50 + 0.5 × 130
+    });
+
+    await test('zones: weekly time, strength and cardio, using the dated settings', async () => {
+      const run = await call('GET', `/cardio/${await idOf(1001)}/analysis`);
+      const total = run.body.zones.seconds.reduce((a, b) => a + b, 0);
+      assert.ok(Math.abs(total - 1799) <= 1, `total ${total}`);
+      const r = await call('GET', '/cardio/zones?weeks=4');
+      assert.equal(r.status, 200);
+      assert.equal(r.body.has_thresholds, true);
+      assert.equal(r.body.weekly.length, 4);
+      assert.ok(r.body.sessions_counted >= 6);
+      assert.ok(r.body.by_kind.strength.some((s) => s > 0));
+      assert.ok(r.body.by_kind.cardio.reduce((a, b) => a + b, 0) > r.body.by_kind.strength.reduce((a, b) => a + b, 0));
+      const minutes = r.body.weekly.reduce((sum, w) => sum + w.z1 + w.z2 + w.z3 + w.z4 + w.z5, 0);
+      assert.ok(Math.abs(minutes * 60 - r.body.totals.reduce((a, b) => a + b, 0)) < 300);
+    });
+
+    await test('running: records, VDOT and predictions', async () => {
+      const r = await call('GET', '/cardio/running?weeks=12');
+      assert.equal(r.status, 200);
+      const fiveK = r.body.records.find((x) => x.key === '5k');
+      assert.ok(fiveK.best && fiveK.recent);
+      assert.equal(r.body.records.find((x) => x.key === 'marathon').best, null);
+      assert.ok(r.body.vdot.value > 20 && r.body.vdot.value < 80);
+      assert.deepEqual(r.body.predictions.map((p) => p.key), ['5k', '10k', 'half', 'marathon']);
+      assert.ok(r.body.predictions[0].seconds < r.body.predictions[3].seconds);
+      // The old run (400 days ago) counts for all-time, not the last 12 weeks
+      const tenK = r.body.records.find((x) => x.key === '10k');
+      assert.ok(tenK.best);
+      assert.equal(tenK.recent, null);
+    });
+
+    await test('deleting a session removes its stored data', async () => {
+      const id = await idOf(1005);
+      const file = path.join(tmp, 'streams', `${id}.json.gz`);
+      assert.ok(fs.existsSync(file));
+      await call('DELETE', `/workouts/${id}`);
+      assert.equal(fs.existsSync(file), false);
     });
 
     await test('webhook: verification handshake', async () => {

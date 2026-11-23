@@ -8,6 +8,7 @@ import SecuritySettings from '../components/Profile/SecuritySettings';
 import PlateInventory from '../components/PlateCalculator/PlateInventory.jsx';
 import HevyConnectionCard from '../components/Hevy/HevyConnectionCard';
 import StravaConnectionCard from '../components/Strava/StravaConnectionCard';
+import HeartRateSettings from '../components/Profile/HeartRateSettings';
 import HevyWeightSyncCard from '../components/Hevy/HevyWeightSyncCard';
 import { hevyAPI, stravaAPI } from '../services/api';
 import Layout from '../components/Layout/Layout';
@@ -17,6 +18,7 @@ const TABS = [
   { id: 'info', label: 'Profile Info' },
   { id: 'bodyweight', label: 'Bodyweight' },
   { id: 'security', label: 'Security' },
+  { id: 'heart-rate', label: 'Heart Rate' },
   { id: 'plates', label: 'Plates' },
   { id: 'integrations', label: 'Integrations' },
 ];
@@ -176,6 +178,7 @@ function Profile() {
 
         {activeTab === 'plates' && <PlateInventory />}
 
+        {activeTab === 'heart-rate' && <HeartRateSettings />}
         {activeTab === 'integrations' && <IntegrationsTab />}
       </>
     );

@@ -134,6 +134,11 @@ export class StravaClient {
   getActivity(id) {
     return this.request(`/activities/${encodeURIComponent(id)}`);
   }
+
+  /** Second-by-second data, keyed by type: { time: { data: [...] }, heartrate: {...}, ... }. */
+  getStreams(id, keys) {
+    return this.request(`/activities/${encodeURIComponent(id)}/streams`, { keys: keys.join(','), key_by_type: true });
+  }
 }
 
 // ---------------------------------------------------------------------------

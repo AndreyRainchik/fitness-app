@@ -12,7 +12,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { activityType, sessionSeconds, summarizeTraining } from './services/cardioStats.js';
+import { activityType, sessionSeconds, summarizeRunning, summarizeTraining, summarizeZones } from './services/cardioStats.js';
+import {
+  bestEfforts, bestVdot, chartSeries, hrHistogram, hrZones, predictTime, routePoints, streamFromStrava,
+  thresholdsOn, vdot, zoneSeconds,
+} from './services/cardioAnalysis.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let failures = 0;
@@ -83,6 +87,104 @@ async function unitTests() {
     assert.equal(runs.avg_hr, Math.round((150 * 1800 + 140 * 3600) / 5400));
     assert.deepEqual(summary.sports.map((s) => s.sport), ['run', 'boulder']);
     assert.deepEqual(summary.totals, { sessions: 6, cardio_sessions: 4, duration_s: 3600 + 6600 + 5400 + 4500, cardio_duration_s: 6600 + 5400 });
+  });
+}
+
+async function analysisUnitTests() {
+  console.log('\nSecond-by-second analysis');
+
+  await test('VDOT and predictions match Daniels\' tables', () => {
+    assert.equal(vdot(5000, 19 * 60 + 57).toFixed(0), '50');
+    // VDOT 50 in the tables: 10k 41:21, half 1:31:35, marathon 3:10:49
+    assert.ok(Math.abs(predictTime(50, 10000) - (41 * 60 + 21)) <= 15);
+    assert.ok(Math.abs(predictTime(50, 21097.5) - (91 * 60 + 35)) <= 20);
+    assert.ok(Math.abs(predictTime(50, 42195) - (190 * 60 + 49)) <= 30);
+  });
+
+  await test('VDOT ignores efforts under a mile', () => {
+    const best = bestVdot([{ effort_key: '400m', seconds: 60 }, { effort_key: '5k', seconds: 1500 }, { effort_key: '1mi', seconds: 420 }]);
+    assert.equal(best.effort.effort_key, '1mi');
+    assert.equal(bestVdot([{ effort_key: '1k', seconds: 150 }]), null);
+  });
+
+  await test('best efforts find the fastest stretch, interpolated', () => {
+    // 3 m/s for 300 s, then 5 m/s for 300 s
+    const time = Array.from({ length: 601 }, (_, i) => i);
+    const distance = time.map((t) => (t < 300 ? t * 3 : 900 + (t - 300) * 5));
+    assert.deepEqual(bestEfforts({ time, distance }), { '400m': 80, '1k': 200, '1mi': 336.4 });
+    assert.deepEqual(bestEfforts({ time, distance: null }), {});
+  });
+
+  await test('heart rate histogram caps pauses and drops bad samples', () => {
+    const histogram = hrHistogram({ time: [0, 1, 2, 3, 100, 101], heartrate: [120, 120, 121, 0, 150, 150] });
+    // 0->1 and 1->2 count; the 0 bpm sample is dropped; the 97 s pause counts as 5 s
+    assert.deepEqual(histogram, [[120, 1], [121, 1], [150, 6]]);
+    assert.equal(hrHistogram({ time: [0, 1] }), null);
+  });
+
+  await test('zones from max HR, or heart rate reserve', () => {
+    assert.deepEqual(hrZones({ max_hr: 200 }).map((z) => [z.min, z.max]), [[100, 119], [120, 139], [140, 159], [160, 179], [180, 200]]);
+    assert.deepEqual(hrZones({ max_hr: 190, resting_hr: 50 }).map((z) => z.min), [120, 134, 148, 162, 176]);
+    const zones = hrZones({ max_hr: 200 });
+    assert.deepEqual(zoneSeconds([[90, 10], [130, 20], [179, 5], [180, 1], [210, 2]], zones), [10, 20, 0, 5, 3]);
+  });
+
+  await test('settings in effect on a date', () => {
+    const list = [{ effective_date: '2026-06-01', max_hr: 185 }, { effective_date: '2026-01-01', max_hr: 190 }];
+    assert.equal(thresholdsOn(list, '2026-03-01').max_hr, 190);
+    assert.equal(thresholdsOn(list, '2026-06-01').max_hr, 185);
+    assert.equal(thresholdsOn(list, '2025-01-01').max_hr, 190); // before any: the earliest
+    assert.equal(thresholdsOn([], '2026-01-01'), null);
+  });
+
+  await test('Strava streams, chart series and route', () => {
+    const n = 2000;
+    const raw = {
+      time: { data: Array.from({ length: n }, (_, i) => i) },
+      distance: { data: Array.from({ length: n }, (_, i) => i * 3) },
+      heartrate: { data: Array.from({ length: n }, () => 140) },
+      velocity_smooth: { data: Array.from({ length: n }, () => 3) },
+      latlng: { data: Array.from({ length: n }, (_, i) => [40 + i * 1e-5, -74]) },
+      watts: { data: [1, 2] }, // wrong length: dropped
+    };
+    const stream = streamFromStrava(raw);
+    assert.deepEqual(Object.keys(stream).sort(), ['distance', 'heartrate', 'latlng', 'time', 'velocity']);
+    const series = chartSeries(stream, 500);
+    assert.equal(series.length, 500);
+    assert.deepEqual(series[0], { t: 3, d: 9, hr: 140, v: 3 });
+    assert.ok(routePoints(stream, 100).length <= 101);
+    assert.equal(streamFromStrava({ time: { data: [0] } }), null);
+  });
+
+  await test('weekly zone time uses each session\'s settings', () => {
+    const thresholds = [{ effective_date: '2026-11-10', max_hr: 200 }, { effective_date: '2026-01-01', max_hr: 150 }];
+    const sessions = [
+      { date: '2026-11-03', kind: 'cardio', histogram: [[140, 600]] }, // max 150: zone 5
+      { date: '2026-11-16', kind: 'cardio', histogram: [[140, 600]] }, // max 200: zone 3
+      { date: '2026-11-17', kind: 'strength', histogram: [[110, 1200]] },
+      { date: '2026-11-18', kind: 'cardio', avg_hr: 130, histogram: null },
+    ];
+    const z = summarizeZones(sessions, thresholds, { today: '2026-11-21', weeks: 4 });
+    assert.deepEqual(z.weekly[1], { weekStart: '2026-11-01', z1: 0, z2: 0, z3: 0, z4: 0, z5: 10 });
+    assert.deepEqual(z.weekly[3], { weekStart: '2026-11-15', z1: 20, z2: 0, z3: 10, z4: 0, z5: 0 });
+    assert.deepEqual(z.by_kind.strength, [1200, 0, 0, 0, 0]);
+    assert.equal(z.sessions_counted, 3);
+    assert.equal(z.sessions_without_detail, 1);
+  });
+
+  await test('running records and predictions over a range', () => {
+    const efforts = [
+      { workout_id: 1, effort_key: '5k', seconds: 1200, date: '2026-01-10' },
+      { workout_id: 2, effort_key: '5k', seconds: 1260, date: '2026-11-10' },
+      { workout_id: 2, effort_key: '1k', seconds: 230, date: '2026-11-10' },
+    ];
+    const r = summarizeRunning(efforts, { since: '2026-09-01' });
+    const fiveK = r.records.find((x) => x.key === '5k');
+    assert.equal(fiveK.best.seconds, 1200);
+    assert.equal(fiveK.recent.seconds, 1260);
+    assert.equal(r.vdot.effort.workout_id, 2); // recent only; the 1k is too short to count
+    assert.equal(r.predictions.find((p) => p.key === '5k').seconds, predictTime(r.vdot.value, 5000));
+    assert.equal(summarizeRunning([], { since: '2026-01-01' }).vdot, null);
   });
 }
 
@@ -268,6 +370,7 @@ async function apiTests() {
 }
 
 await unitTests();
+await analysisUnitTests();
 await apiTests();
 console.log(failures ? `\n${failures} test(s) failed` : '\nAll cardio tests passed');
 process.exit(failures ? 1 : 0);
