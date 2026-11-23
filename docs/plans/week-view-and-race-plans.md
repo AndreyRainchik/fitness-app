@@ -95,6 +95,9 @@ If the race is closer than the default length, the base phase is cut first. Too 
 - Taper: −20–30% per week, with intensity kept
 
 ### Session types and paces (Daniels' zones from VDOT)
+
+> The full session library, pace zones and selection rules are in [`run-sessions.md`](run-sessions.md); the table below is the short version.
+
 | Type | Pace | Used for |
 |---|---|---|
 | Easy / recovery | E pace | Most runs |
