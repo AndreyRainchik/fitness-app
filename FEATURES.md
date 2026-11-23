@@ -123,4 +123,8 @@ Record ideas we pick, defer or drop here, with a one-line reason.
 
 | Date | Idea | Decision | Notes |
 |---|---|---|---|
-| | | | |
+| 2026-11-23 | Weekly plan / calendar for lifting + cardio | ✅ Picked (Phase 1) | Several lifts and runs each week; fixed lifting weekdays. Design: `docs/plans/week-view-and-race-plans.md` |
+| 2026-11-23 | Race training plans generated in the app (replace Runna) | ✅ Picked (Phase 2) | 5K, 10K, half, marathon; paces from VDOT; runs placed around lifting |
+| 2026-11-23 | Interference guard | ✅ Folded into Phase 2 | No hard run the day before heavy legs |
+| 2026-11-23 | Push structured workouts to a watch | ⏸ Deferred | Viewing in the app is enough; Strava sync marks runs done |
+| 2026-11-23 | Ultra / trail plans | ⏸ Deferred | Not a current race distance |
