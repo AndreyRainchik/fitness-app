@@ -19,7 +19,7 @@
 | Structured intervals | Yes | Interval runs have warm-up / reps / recoveries / cool-down, and reps are checked one by one |
 | Between races | A maintenance mode | Rolling plan with no race date; a race plan hands over to it when it ends |
 | Pace or heart rate | Pace | Targets are pace ranges; heart rate only as a secondary easy-run cap |
-| Deterministic or AI-generated plans | Deterministic engine; optional AI coach later | The rules engine builds and adapts every plan. An optional bring-your-own-key AI coach (Phase 4) can only propose changes through the engine, which checks them against the same rules |
+| Deterministic or AI-generated plans | **Deterministic** (decided); optional AI coach later | The rules engine builds and adapts every plan. An optional bring-your-own-key AI coach (Phase 4) can only propose changes through the engine, which checks them against the same rules |
 
 ---
 
@@ -214,6 +214,7 @@ The plan never depends on it: without a key, everything above works the same.
 - **Talk to the plan:** "I'm away 12–15 March", "my calf is tight", "can I swap Thursday's session, I'm tired". The model answers through a fixed set of tools that map to the engine's own operations (move a run, swap a session for another from the library, mark days unavailable, change the race date, ease the next N days). Tool inputs use strict schemas.
 - The engine validates every proposed change against the same rules (ramp, caps, lifting placement). Changes that pass are shown as suggestions with one tap to accept. The model never writes paces or distances itself.
 - **Weekly review in words:** a short coach-style summary of the week from the engine's numbers (what went well, what to focus on).
+- **Session evaluations, for every session, not just runs:** after a run, a lifting workout, a ride or a climbing session, a short evaluation from the session's data and its plan. For example rep splits against targets, AMRAP reps against the 5/3/1 target, RPE drift across sets, heart rate against effort, and how the session fits the week's load. Read-only commentary; any change it suggests goes through the engine like the rest.
 
 ## Out of scope for now
 - Pushing workouts to a watch

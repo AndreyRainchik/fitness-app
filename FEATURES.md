@@ -134,3 +134,5 @@ Record ideas we pick, defer or drop here, with a one-line reason.
 | 2026-11-23 | Interference guard | ✅ Folded into Phase 2 | No hard run the day before heavy legs |
 | 2026-11-23 | Push structured workouts to a watch | ⏸ Deferred | Viewing in the app is enough; Strava sync marks runs done |
 | 2026-11-23 | Ultra / trail plans | ⏸ Deferred | Not a current race distance |
+| 2026-11-23 | Run plans: deterministic engine vs AI-generated | ✅ Deterministic | Rules must always hold, adapt on every sync, testable, no key needed |
+| 2026-11-23 | AI coach with the user's own API key: chat with the plan, evaluate every session (lifting and cardio) | 🔮 Future | Phase 4 in the design doc; proposes changes only through the engine |
