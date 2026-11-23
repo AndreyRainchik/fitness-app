@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Activity, ChevronRight, Clock, Download, Dumbbell, HeartPulse, Plus, Search, Trash2, X } from 'lucide-react';
 import { workoutsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -25,8 +25,22 @@ function Workouts() {
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState('all'); // 'all' | 'strength' | a cardio sport
+  // Search and activity filter live in the URL (?q=…&type=…) so they survive
+  // opening a workout and coming back, while plain /workouts links start fresh.
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = searchParams.get('q') || '';
+  const requestedFilter = searchParams.get('type') || 'all'; // 'all' | 'strength' | a cardio sport
+  const setParam = (key, value, empty) => {
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params);
+      if (!value || value === empty) next.delete(key);
+      else next.set(key, value);
+      return next;
+    }, { replace: true });
+  };
+  const setQuery = (value) => setParam('q', value, '');
+  const setFilter = (value) => setParam('type', value, 'all');
 
   useEffect(() => {
     (async () => {
@@ -51,6 +65,9 @@ function Workouts() {
     }
     return chips.length > 2 ? chips : [];
   }, [workouts]);
+
+  // Ignore a filter from the URL that has no chip (e.g. that sport's sessions were deleted)
+  const filter = filters.some((f) => f.id === requestedFilter) ? requestedFilter : 'all';
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -196,6 +213,7 @@ function Workouts() {
                         <li key={workout.id} className="group relative">
                           <Link
                             to={`/workout/${workout.id}`}
+                            state={{ from: `${location.pathname}${location.search}` }}
                             className="flex items-center gap-3 rounded-xl p-2.5 transition-colors hover:bg-gray-50 active:bg-gray-100 sm:gap-4 sm:p-3 sm:pr-14"
                           >
                             <span className="flex h-12 w-12 flex-shrink-0 flex-col items-center justify-center rounded-xl bg-gray-100 leading-none">
