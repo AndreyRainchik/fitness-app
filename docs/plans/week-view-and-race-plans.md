@@ -19,6 +19,7 @@
 | Structured intervals | Yes | Interval runs have warm-up / reps / recoveries / cool-down, and reps are checked one by one |
 | Between races | A maintenance mode | Rolling plan with no race date; a race plan hands over to it when it ends |
 | Pace or heart rate | Pace | Targets are pace ranges; heart rate only as a secondary easy-run cap |
+| Deterministic or AI-generated plans | Deterministic engine; optional AI coach later | The rules engine builds and adapts every plan. An optional bring-your-own-key AI coach (Phase 4) can only propose changes through the engine, which checks them against the same rules |
 
 ---
 
@@ -206,6 +207,13 @@ All deterministic and unit-tested: weekly growth ≤10%, no hard run before heav
 - Race-day page: pacing plan by mile/km, goal and predicted time
 - Post-race review: result vs prediction, VDOT update
 - Optional: download a `.FIT` workout file per run for Garmin
+
+## Phase 4 (optional): AI coach, bring your own key
+The plan never depends on it: without a key, everything above works the same.
+- The user adds an API key for an AI provider in Profile > Integrations, stored encrypted like the Hevy key, with a clear note on what data is sent (runs, paces, the plan, their notes).
+- **Talk to the plan:** "I'm away 12–15 March", "my calf is tight", "can I swap Thursday's session, I'm tired". The model answers through a fixed set of tools that map to the engine's own operations (move a run, swap a session for another from the library, mark days unavailable, change the race date, ease the next N days). Tool inputs use strict schemas.
+- The engine validates every proposed change against the same rules (ramp, caps, lifting placement). Changes that pass are shown as suggestions with one tap to accept. The model never writes paces or distances itself.
+- **Weekly review in words:** a short coach-style summary of the week from the engine's numbers (what went well, what to focus on).
 
 ## Out of scope for now
 - Pushing workouts to a watch

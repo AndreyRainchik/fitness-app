@@ -105,7 +105,7 @@ Each family lists its purpose, where it fits, a typical structure and how it pro
 **Hill repeats**: strength-endurance. Base and early build. 8 × 60 s, then 6 × 90 s, at 5K effort, jog down.
 **Long hills**: 4–5 × 3 min at 10K–HM effort. Half/marathon base.
 
-Hills only go in a plan if the athlete has hills (see open questions). The fallback is a treadmill at 4–6% incline, or the session is swapped for repetitions.
+Hills are on by default (the athlete has hills nearby). A setting can turn them off for someone who doesn't; then they become a treadmill at 4–6% incline, or are swapped for repetitions.
 
 ### Race-specific
 
@@ -190,7 +190,13 @@ One quality session a week on a 4-week rotation: threshold (tempo/cruise/over-un
 
 ---
 
-## 6. Worked example: half marathon, 12 weeks, 4 runs a week
+## 6. Athlete settings (decided 2026-11-23)
+
+- **Hills:** available, so hill sessions are used.
+- **Intervals:** on the road. Rep targets are distance-based splits found in the GPS stream; no track lap times.
+- **Time trials:** welcome. A tune-up every 4–8 weeks (race plans) or 8 weeks (maintenance).
+
+## 7. Worked example: half marathon, 12 weeks, 4 runs a week
 
 Athlete: VDOT 45, about 22 mi/week now, lifting Mon/Wed/Fri (squat, bench, deadlift; OHP on Sat), runs Tue/Thu/Sat/Sun. Cutback weeks 4 and 8 line up with the 5/3/1 deload.
 
@@ -215,7 +221,7 @@ Lifting check: no Tuesday session falls the day before a heavy-legs day here, si
 
 ---
 
-## 7. How this is stored
+## 8. How this is stored
 
 Session families are data, not code: `backend/src/services/runSessions.js` exports templates such as
 
