@@ -127,8 +127,8 @@ export function RunningCard({ data, unit, weeks }) {
   const records = (data?.records || []).filter((r) => r.best);
   if (!records.length) return null;
   return (
-    <div className="grid gap-6 lg:grid-cols-5">
-      <Card className="lg:col-span-3">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+      <Card className="min-w-0 lg:col-span-3">
         <CardHeader title="Running records" subtitle="Fastest stretches within outdoor runs" icon={Trophy} />
         <div className="-mx-2 overflow-x-auto">
           <table className="w-full whitespace-nowrap text-left text-sm">
@@ -162,7 +162,7 @@ export function RunningCard({ data, unit, weeks }) {
         </div>
       </Card>
 
-      <Card className="lg:col-span-2">
+      <Card className="min-w-0 lg:col-span-2">
         <CardHeader
           title="Race predictions"
           subtitle={data.vdot
