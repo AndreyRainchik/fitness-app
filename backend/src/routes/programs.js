@@ -252,7 +252,8 @@ router.post('/:id/advance-week', authenticateToken, async (req, res) => {
       });
     }
 
-    const updatedProgram = Program.advanceWeek(req.params.id, adjustmentOverrides);
+    const localDate = /^\d{4}-\d{2}-\d{2}$/.test(req.body.localDate || '') ? req.body.localDate : undefined;
+    const updatedProgram = Program.advanceWeek(req.params.id, adjustmentOverrides, localDate);
     res.json(updatedProgram);
   } catch (error) {
     console.error('Error advancing week:', error);

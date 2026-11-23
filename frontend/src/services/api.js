@@ -639,7 +639,7 @@ export const programsAPI = {
   advanceWeek: async (id, adjustmentOverrides = {}) => {
     return await apiCall(`/programs/${id}/advance-week`, {
       method: 'POST',
-      body: JSON.stringify({ adjustment_overrides: adjustmentOverrides }),
+      body: JSON.stringify({ adjustment_overrides: adjustmentOverrides, localDate: getLocalDateString() }),
     });
   },
 
@@ -846,6 +846,22 @@ export const hevyAPI = {
   }),
 };
 
+export const weekAPI = {
+  /** The week containing `start` (default: this week). See backend routes/week.js. */
+  get: (start) => apiCall(`/week?${new URLSearchParams({ ...(start ? { start } : {}), localDate: getLocalDateString() })}`),
+
+  /** { days: [7 slots, Sunday first] | null, lift_order, program, program_lifts } */
+  getSchedule: () => apiCall('/week/schedule'),
+  saveSchedule: (days, liftOrder = []) => apiCall('/week/schedule', {
+    method: 'PUT',
+    body: JSON.stringify({ days, lift_order: liftOrder }),
+  }),
+
+  /** Change what one date is for, or put it back to the weekly schedule */
+  setDay: (date, slot) => apiCall(`/week/days/${date}`, { method: 'PUT', body: JSON.stringify({ slot }) }),
+  resetDay: (date) => apiCall(`/week/days/${date}`, { method: 'DELETE' }),
+};
+
 export default {
   hevy: hevyAPI,
   auth: authAPI,
@@ -858,4 +874,5 @@ export default {
   templates: templatesAPI,
   programs: programsAPI,
   platePresets: platePresetsAPI,
+  week: weekAPI,
 };

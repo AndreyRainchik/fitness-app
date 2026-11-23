@@ -401,8 +401,9 @@ class Program {
    *
    * @param {number} id - Program id
    * @param {Object<string, string>} adjustmentOverrides - exercise_id -> adjustment choice
+   * @param {string} startedOn - the user's local date (YYYY-MM-DD) the new week starts
    */
-  static advanceWeek(id, adjustmentOverrides = {}) {
+  static advanceWeek(id, adjustmentOverrides = {}, startedOn = new Date().toISOString().slice(0, 10)) {
     const program = this.findById(id);
     if (!program) {
       return null;
@@ -544,6 +545,9 @@ class Program {
       });
     }
     
+    // Lets the week view tell lifts done for the new week from earlier ones
+    run('UPDATE programs SET week_started_on = ? WHERE id = ?', [startedOn, id]);
+
     return this.update(id, {
       current_week: newWeek,
       current_cycle: newCycle

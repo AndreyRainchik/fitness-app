@@ -186,6 +186,7 @@ function BottomNav({ draft, onMore }) {
           </Link>
         </div>
         {tab(mobileItems[2])}
+        {tab(mobileItems[3])}
         <button type="button" onClick={onMore} className="flex flex-1 flex-col items-center gap-1 py-2 text-[11px] font-medium text-gray-500">
           <Ellipsis className="h-[22px] w-[22px]" aria-hidden="true" />
           More

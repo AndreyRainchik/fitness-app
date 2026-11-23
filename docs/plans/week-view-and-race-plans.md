@@ -1,6 +1,6 @@
 # Week view and race training plans
 
-**Status:** proposed · **Decided:** 2026-11-23
+**Status:** Phase 1 built (2026-11-23); Phase 2 next · **Decided:** 2026-11-23
 
 ## What we're building
 
@@ -18,7 +18,16 @@
 
 ---
 
-## Phase 1: Week view and weekly schedule
+## Phase 1: Week view and weekly schedule ✅
+
+> **As built.** `/week` ("My Week"), `GET /api/week`, `services/weekPlan.js`, tests in `npm run test:week`.
+> Changes from the plan below:
+> - Slots are **Lift / Cardio / Both / Rest / Flexible** (not "Run"), since cardio covers rides, rows and climbing too.
+> - Program lifts are a **queue**, not pinned to weekdays: upcoming lifting days take the next lifts not done yet, so a missed day pushes its lift to the next lifting day. A lift counts as done when it's marked in Program Week *or* a workout since the program week began contains it. "Complete week" now records the date (`programs.week_started_on`) so lifts from the previous week don't count twice.
+> - Moving a session is done by changing **what a date is for** (e.g. Wednesday → rest, Thursday → lift), not by dragging an item. The queue follows. Stored in `schedule_overrides`.
+> - "Start" on today's lifts opens Program Week, which already builds the workout with plate-rounded weights. No second copy of that logic.
+> - Planned cardio is a generic "Cardio" item until Phase 2 fills it with race-plan runs, so no `planned_sessions` table yet.
+> - Weeks run Sunday–Saturday like the rest of the app; the schedule editor lists Monday first.
 
 ### Weekly schedule (Profile or Programs → "My week")
 - One row per weekday: **Lift**, **Run**, **Both**, **Rest**, or **Flexible**.

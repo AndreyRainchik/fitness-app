@@ -3,7 +3,7 @@
 A living list of what the app does today and what we might build next.
 `PROGRESS-SUMMARY.md` stops at v2.0 (Nov 2025); this file covers everything since.
 
-**Last reviewed:** 2026-11-23 (after #28)
+**Last reviewed:** 2026-11-23 (week view added)
 
 Legend for the backlog: **Impact** H/M/L for a hybrid strength + cardio athlete · **Effort** S (days) / M (a week or two) / L (multi-week) · ⚡ = builds mostly on data we already store.
 
@@ -22,11 +22,18 @@ Legend for the backlog: **Impact** H/M/L for a hybrid strength + cardio athlete 
 - Templates: create from a workout, edit, start a workout from one
 - Plate calculator with a plate inventory and saved presets; weights rounded to loadable plates
 
+### Week view
+- **My Week** (`/week`): each day's plan and what was done, for lifting and cardio together; Sunday–Saturday, earlier and later weeks
+- Weekly schedule (Lift / Cardio / Both / Rest / Flexible per weekday) and a 5/3/1 lift order
+- The active program's lifts fill lifting days in order; missed lifts move to the next lifting day; logged or synced sessions tick the plan off, even before they're marked in Program Week
+- Change a single date (e.g. lift today instead of tomorrow) without touching the usual schedule
+- Week summary: lifting and cardio done of planned, run distance, training load vs a usual week, form
+
 ### Programs
 - 5/3/1 Boring But Big: 4-week cycles, AMRAP tracking, BBB 5×10, deload, training-max choices at cycle end, double increment for 10+ rep AMRAPs in week 3, per-lift override
 - Starting Strength: A/B alternation, linear progression, next-session preview
 - Lift statuses (completed / failed), failed-lift handling, warm-ups added to program workouts
-- "This Week" page that starts a pre-filled workout per lift
+- "Program Week" page (was "This Week") that starts a pre-filled workout per lift
 - GZCLP and nSuns listed as "coming soon"
 
 ### Cardio
@@ -60,7 +67,6 @@ Legend for the backlog: **Impact** H/M/L for a hybrid strength + cardio athlete 
 
 | Idea | Why it matters | Impact | Effort |
 |---|---|---|---|
-| **Weekly plan / calendar** that puts program lifts *and* cardio sessions on days | Hybrid athletes juggle both; today "This Week" only knows lifting | H | M |
 | **Interference guard**: flag hard intervals or long runs within ~24h before heavy legs (and vice versa) | The main problem of concurrent training | H | S ⚡ |
 | **Daily readiness check-in** (sleep, soreness, stress, mood, 1–5) shown next to form, with a suggestion like "go lighter today" | Combines how you feel with the fitness/fatigue model | H | S |
 | **Goals with progress bars**: "405 deadlift", "sub-20 5K", "150 mi this month" | Motivation; VDOT and e1RM already give the projection | H | S ⚡ |
@@ -123,7 +129,7 @@ Record ideas we pick, defer or drop here, with a one-line reason.
 
 | Date | Idea | Decision | Notes |
 |---|---|---|---|
-| 2026-11-23 | Weekly plan / calendar for lifting + cardio | ✅ Picked (Phase 1) | Several lifts and runs each week; fixed lifting weekdays. Design: `docs/plans/week-view-and-race-plans.md` |
+| 2026-11-23 | Weekly plan / calendar for lifting + cardio | ✅ Built (Phase 1) | Several lifts and runs each week; fixed lifting weekdays. Design: `docs/plans/week-view-and-race-plans.md` |
 | 2026-11-23 | Race training plans generated in the app (replace Runna) | ✅ Picked (Phase 2) | 5K, 10K, half, marathon; paces from VDOT; runs placed around lifting |
 | 2026-11-23 | Interference guard | ✅ Folded into Phase 2 | No hard run the day before heavy legs |
 | 2026-11-23 | Push structured workouts to a watch | ⏸ Deferred | Viewing in the app is enough; Strava sync marks runs done |

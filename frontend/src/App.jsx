@@ -16,6 +16,7 @@ const Workouts = lazy(() => import('./pages/Workouts'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const Programs = lazy(() => import('./pages/Programs'));
 const CurrentWeek = lazy(() => import('./pages/CurrentWeek'));
+const Week = lazy(() => import('./pages/Week'));
 const NewWorkout = lazy(() => import('./pages/NewWorkout'));
 const EditWorkout = lazy(() => import('./pages/EditWorkout'));
 const WorkoutDetail = lazy(() => import('./pages/WorkoutDetail'));
@@ -50,6 +51,7 @@ function usePrefetchMainPages() {
       import('./pages/ActiveWorkout');
       import('./pages/WorkoutDetail');
       import('./pages/CurrentWeek');
+      import('./pages/Week');
       import('./pages/Analytics');
     };
     const idle = window.requestIdleCallback ?? ((cb) => setTimeout(cb, 1500));
@@ -152,6 +154,11 @@ function App() {
         <Route path="/programs/:programId" element={
           <ProtectedRoute>
             <CurrentWeek />
+          </ProtectedRoute>
+        } />
+        <Route path="/week" element={
+          <ProtectedRoute>
+            <Week />
           </ProtectedRoute>
         } />
         <Route path="/current-week" element={

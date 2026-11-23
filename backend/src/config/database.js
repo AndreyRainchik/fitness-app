@@ -43,6 +43,7 @@ export async function initDatabase() {
       ensureCardioSchema();
       ensureStravaSchema();
       ensureAnalysisSchema();
+      ensurePlanSchema();
       saveDatabase();
     } else {
       console.log('🆕 Creating new database...');
@@ -52,6 +53,7 @@ export async function initDatabase() {
       ensureCardioSchema();
       ensureStravaSchema();
       ensureAnalysisSchema();
+      ensurePlanSchema();
       seedExercises();
       saveDatabase();
     }
@@ -469,6 +471,38 @@ function ensureAnalysisSchema() {
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
+}
+
+/**
+ * The weekly schedule (what each weekday is for) and one-off changes to it,
+ * plus the date a program's current week began, for the week view.
+ */
+function ensurePlanSchema() {
+  // days_json: 7 slots, Sunday first, each 'lift' | 'cardio' | 'both' | 'rest' | 'flex'
+  // lift_order_json: exercise ids, the order a program's lifts fill lifting days
+  db.run(`
+    CREATE TABLE IF NOT EXISTS weekly_schedules (
+      user_id INTEGER PRIMARY KEY,
+      days_json TEXT NOT NULL,
+      lift_order_json TEXT,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS schedule_overrides (
+      user_id INTEGER NOT NULL,
+      date DATE NOT NULL,
+      slot TEXT NOT NULL CHECK(slot IN ('lift', 'cardio', 'both', 'rest', 'flex')),
+      PRIMARY KEY (user_id, date),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  try {
+    db.run('ALTER TABLE programs ADD COLUMN week_started_on DATE');
+  } catch (e) {
+    // Column already exists
+  }
 }
 
 /**

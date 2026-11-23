@@ -20,6 +20,7 @@ import programRoutes from './routes/programs.js';
 import hevyRoutes from './routes/hevy.js';
 import cardioRoutes from './routes/cardio.js';
 import stravaRoutes from './routes/strava.js';
+import weekRoutes from './routes/week.js';
 import healthRoutes from './routes/health.js';
 import platePresetRoutes from './routes/platepresets.js';
 
@@ -178,6 +179,7 @@ app.use('/api/programs', programRoutes);
 app.use('/api/hevy', hevyRoutes);
 app.use('/api/cardio', cardioRoutes);
 app.use('/api/strava', stravaRoutes);
+app.use('/api/week', weekRoutes);
 app.use('/api/plate-presets', platePresetRoutes);
 
 // ============================================================================
