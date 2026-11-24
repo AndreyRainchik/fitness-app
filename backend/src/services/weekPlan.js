@@ -333,6 +333,8 @@ export function buildWeek({ weekStart, today, days, overrides = new Map(), progr
       // offset < 0: last program week, finished early this calendar week
       const entries = offset === 0 ? session.units.map((u) => doneById.get(Number(u.exercise_id))) : [];
       const done = offset < 0 || (offset === 0 && entries.every(Boolean));
+      // Every lift of the day skipped (e.g. an injury), none of them done in a workout
+      const skipped = offset === 0 && entries.length > 0 && entries.every((e) => e?.status === 'skipped' && !e.workout_id);
       const workouts = offset < 0
         ? strengthOn(session.date)
         : entries.filter((e) => e?.workout_id).map((e) => sessions.find((x) => x.id === e.workout_id)).filter(Boolean);
@@ -343,7 +345,8 @@ export function buildWeek({ weekStart, today, days, overrides = new Map(), progr
           session.units[0]?.detail && `${session.units[0].detail}${session.position.cycle !== program.current_cycle ? ` · cycle ${session.position.cycle}` : ''}`,
           elsewhere.length ? `done ${elsewhere.map((d) => WEEKDAYS[weekdayOf(d)].slice(0, 3)).join(', ')}` : null].filter(Boolean).join(' · '),
         lifts: done ? [] : session.units,
-        done,
+        done: done && !skipped,
+        skipped,
         workout_ids: [...new Set([...workouts.map((w) => w.id), ...strengthOn(session.date).map((w) => w.id)])],
       });
     }
@@ -378,7 +381,7 @@ export function buildWeek({ weekStart, today, days, overrides = new Map(), progr
       const f = fixed.get(date);
       planned.push({
         kind: 'strength',
-        status: statusFor(date, f.done),
+        status: f.skipped ? 'skipped' : statusFor(date, f.done),
         title: f.title,
         detail: f.detail || null,
         lifts: f.lifts,
@@ -471,7 +474,7 @@ export function summarize(dayRows) {
   const planned = dayRows.flatMap((d) => d.planned);
   // Planned runs count as cardio; optional runs (a race-week shakeout) don't count towards the plan
   const kindOf = (p) => (p.kind === 'run' ? 'cardio' : p.kind);
-  const counted = planned.filter((p) => !p.run?.optional);
+  const counted = planned.filter((p) => !p.run?.optional && p.status !== 'skipped');
   const count = (kind) => counted.filter((p) => kindOf(p) === kind).length;
   const doneDays = (kind) => counted.filter((p) => kindOf(p) === kind && p.status === 'done').length;
   const total = (list, field) => list.reduce((sum, s) => sum + (s[field] || 0), 0);
@@ -518,7 +521,11 @@ export function projectLiftDays({ from, until, days, overrides = new Map(), prog
         assignedDates.add(session.date);
         if (session.position.week === 4) deloadWeekStarts.add(weekStart);
         if (session.date < from || session.date > until) continue;
-        const lifts = session.units.map((u) => u.name);
+        // Lifts skipped this program week (e.g. squats with an injured foot) don't load the legs
+        const statuses = program.statuses ?? new Map();
+        const lifts = session.units
+          .filter((u) => !(offset === 0 && statuses.get(Number(u.exercise_id)) === 'skipped'))
+          .map((u) => u.name);
         result.push({ date: session.date, lifts, heavy_legs: lifts.some((name) => HEAVY_LEGS.test(name)), program_week: session.position.week });
       }
       // A lifting day with no lift of its own (more lifting days than sessions this week)

@@ -354,6 +354,13 @@ class Program {
       return 'decrement_1x';
     }
 
+    // Skipped in a working week (1-3), e.g. for an injury: no evidence to progress on,
+    // so the training max stays where it is
+    const skippedWorkingWeek = liftStatuses.some(s => s.status === 'skipped' && s.week >= 1 && s.week <= 3);
+    if (skippedWorkingWeek) {
+      return 'keep';
+    }
+
     const week3 = liftStatuses.find(s => s.week === 3);
     const reps = week3 ? week3.amrap_reps : null;
 
@@ -528,6 +535,10 @@ class Program {
             // Deload: Decrease weight by the increment amount
             newWeight = lift.training_max - increment;
             console.log(`Deloading ${exercise.name}: ${lift.training_max} -> ${newWeight} lbs (failed)`);
+          } else if (liftStatus === 'skipped') {
+            // Skipped (e.g. injured): same weight next time
+            newWeight = lift.training_max;
+            console.log(`Keeping ${exercise.name} at ${newWeight} lbs (skipped)`);
           } else {
             // Progress normally: Increase weight
             newWeight = lift.training_max + increment;

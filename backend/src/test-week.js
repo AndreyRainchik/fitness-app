@@ -187,6 +187,22 @@ async function unitTests() {
     assert.deepEqual([...projection.deloadWeekStarts], ['2026-12-06']);
   });
 
+  await test('a skipped lift shows as skipped, not missed, and its day stops counting as heavy legs', () => {
+    // Injured foot: squat and deadlift skipped this week
+    const statuses = new Map([[1, 'skipped'], [3, 'skipped']]);
+    const week = buildWeek({ weekStart: WEEK, today: '2026-11-27', days: USER, program: program531({ statuses }), sessions: [lift(10, '2026-11-24', [2])] });
+    assert.deepEqual(day(week, '2026-11-23').planned.map((p) => [p.title, p.status]), [['Squat', 'skipped']]);
+    assert.equal(day(week, '2026-11-26').planned[0].status, 'skipped');
+    assert.equal(day(week, '2026-11-24').planned[0].status, 'done');
+    // Skipped lifts aren't planned work (bench done, OHP today) and aren't missed: only Tuesday's and Wednesday's cardio were
+    assert.equal(week.summary.strength.planned, 2);
+    assert.equal(week.summary.missed, 2);
+    const projection = projectLiftDays({ from: '2026-11-23', until: '2026-12-06', days: USER, program: program531({ statuses }), today: '2026-11-23' });
+    const heavy = projection.days.filter((d) => d.heavy_legs).map((d) => d.date);
+    // Only next week's squat and deadlift are heavy
+    assert.deepEqual(heavy, ['2026-11-30', '2026-12-03']);
+  });
+
   console.log('\nQueue (4 lifts on 3 lifting days)');
 
   await test('done, missed and rolled-forward lifts', () => {
@@ -461,6 +477,41 @@ async function apiTests() {
       assert.ok(r.body.days.every((d) => d.planned.every((p) => p.status === 'upcoming')));
       const past = await call('GET', '/week?start=2026-11-15&localDate=2026-11-25');
       assert.equal(past.body.days[1].planned[0].status, 'missed');
+    });
+
+    await test('a skipped 5/3/1 lift keeps its training max at the end of the cycle', async () => {
+      const p = await call('POST', '/programs', {
+        name: 'Injury block', type: '531',
+        lifts: [[squat, 300], [bench, 200], [deadlift, 400], [ohp, 120]].map(([exercise_id, training_max]) => ({ exercise_id, training_max })),
+      });
+      const id = p.body.id;
+      for (let week = 1; week <= 4; week++) {
+        for (const ex of [squat, deadlift]) await call('PUT', `/programs/${id}/lifts/${ex}/status`, { status: 'skipped' });
+        for (const ex of [bench, ohp]) {
+          await call('PUT', `/programs/${id}/lifts/${ex}/status`, { status: 'completed', ...(week === 3 ? { amrap_reps: 6 } : {}) });
+        }
+        assert.equal((await call('POST', `/programs/${id}/advance-week`, { localDate: '2026-11-25' })).status, 200);
+      }
+      const after = await call('GET', `/programs/${id}`);
+      const tm = Object.fromEntries(after.body.lifts.map((l) => [l.exercise_id, l.training_max]));
+      assert.deepEqual([tm[squat], tm[deadlift]], [300, 400]); // skipped: unchanged
+      assert.deepEqual([tm[bench], tm[ohp]], [205, 125]); // progressed
+      assert.equal(after.body.current_cycle, 2);
+    });
+
+    await test('a skipped Starting Strength lift keeps its weight', async () => {
+      const p = await call('POST', '/programs', {
+        name: 'SS', type: 'starting_strength',
+        lifts: [[squat, 200], [bench, 150], [deadlift, 250], [ohp, 95]].map(([exercise_id, training_max]) => ({ exercise_id, training_max })),
+      });
+      const id = p.body.id;
+      await call('PUT', `/programs/${id}/lifts/${squat}/status`, { status: 'skipped' });
+      await call('PUT', `/programs/${id}/lifts/${bench}/status`, { status: 'completed' });
+      await call('PUT', `/programs/${id}/lifts/${deadlift}/status`, { status: 'skipped' });
+      await call('POST', `/programs/${id}/advance-week`, { localDate: '2026-11-25' });
+      const after = await call('GET', `/programs/${id}`);
+      const w = Object.fromEntries(after.body.lifts.map((l) => [l.exercise_id, l.training_max]));
+      assert.deepEqual([w[squat], w[deadlift], w[bench]], [200, 250, 155]);
     });
 
     await test('training load appears once heart rate settings exist', async () => {

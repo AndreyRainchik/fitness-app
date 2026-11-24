@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { programsAPI } from '../services/api';
 import ProgramSetRow from '../components/Program/ProgramSetRow';
-import { CalendarCheck, Check, ChevronDown, Play, RotateCcw, X } from 'lucide-react';
+import { CalendarCheck, Check, ChevronDown, Play, RotateCcw, SkipForward, X } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import { useBatchPlateAdjustedWeights } from '../utils/usePlateAdjustedWeight';
 import { Alert, Badge, Button, Card, EmptyState, LoadingState, PageHeader, useConfirm } from '../components/ui';
@@ -153,9 +153,11 @@ const CurrentWeek = () => {
   //   5-10 reps             -> increment_1x
   //   1-4 reps             -> keep
   //   0 reps or a failure  -> decrement_1x
+  //   skipped in week 1-3  -> keep (e.g. an injury: nothing to progress on)
   //   no reps recorded     -> increment_1x (progress normally)
   const getDefaultAdjustment = (exerciseId) => {
     if (hasFailureInCycle(exerciseId)) return 'decrement_1x';
+    if (getSkippedWeeks(exerciseId).some((w) => w >= 1 && w <= 3)) return 'keep';
     const reps = getWeek3AmrapReps(exerciseId);
     if (reps === null) return 'increment_1x';
     if (reps >= 11) return 'increment_2x';
@@ -170,6 +172,15 @@ const CurrentWeek = () => {
       return adjustmentOverrides[exerciseId];
     }
     return getDefaultAdjustment(exerciseId);
+  };
+
+  // Weeks of this cycle in which a lift was skipped
+  const getSkippedWeeks = (exerciseId) => {
+    if (!allStatuses || !workout) return [];
+    return allStatuses.statuses
+      .filter((status) => status.exercise_id === exerciseId && status.cycle === workout.cycle && status.status === 'skipped')
+      .map((status) => status.week)
+      .sort((a, b) => a - b);
   };
 
   // NEW: Get which weeks had failures for display purposes
@@ -200,7 +211,7 @@ const CurrentWeek = () => {
     if (workout && workout.lifts) {
       const initialCollapsed = new Set();
       workout.lifts.forEach(lift => {
-        if (lift.status === 'completed' || lift.status === 'failed') {
+        if (lift.status === 'completed' || lift.status === 'failed' || lift.status === 'skipped') {
           initialCollapsed.add(lift.exercise_id);
         }
       });
@@ -287,6 +298,13 @@ const CurrentWeek = () => {
       confirmMessage = `You have ${failedLifts.length} failed lift(s): ${liftNames}\n\n` +
         'Their training max/weight will be decreased by the increment amount.';
     }
+    const skippedLifts = workout.lifts.filter(lift => lift.status === 'skipped');
+    if (skippedLifts.length > 0) {
+      confirmMessage += `\n\nSkipped: ${skippedLifts.map(lift => lift.exercise_name).join(', ')}. ` +
+        (workout.program_type === '531'
+          ? 'Their training max stays the same at the end of this cycle.'
+          : 'They stay at the same weight next session.');
+    }
 
     const confirmed = await confirm({
       title: 'Complete this week?',
@@ -343,8 +361,8 @@ const CurrentWeek = () => {
         return updated;
       });
 
-      // Auto-collapse if marking as completed or failed
-      if (status === 'completed' || status === 'failed') {
+      // Auto-collapse once a lift has a result
+      if (status === 'completed' || status === 'failed' || status === 'skipped') {
         setCollapsedLifts(prev => new Set(prev).add(exerciseId));
       }
 
@@ -547,6 +565,19 @@ const CurrentWeek = () => {
           </button>
         </div>
 
+        {!currentStatus && (
+          <button
+            type="button"
+            onClick={() => handleSetStatus(exerciseId, 'skipped')}
+            disabled={isUpdating}
+            className="flex h-10 w-full items-center justify-center gap-1.5 rounded-xl text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
+          >
+            <SkipForward className="h-4 w-4" />
+            Skip this week
+            <span className="font-normal text-gray-400">· {workout?.program_type === '531' ? 'training max' : 'weight'} stays the same</span>
+          </button>
+        )}
+
         {currentStatus && (
           <Button variant="ghost" size="sm" fullWidth icon={RotateCcw} onClick={() => handleClearStatus(exerciseId)} disabled={isUpdating}>
             {isUpdating ? 'Updating…' : 'Clear result'}
@@ -713,8 +744,9 @@ const CurrentWeek = () => {
                     const increment = isLowerBody ? 10 : 5;
                     const currentMax = lift.current_weight;
                     const isFailed = lift.status === 'failed';
-                    const newMax = isFailed ? currentMax - increment : currentMax + increment;
-                    const change = isFailed ? -increment : +increment;
+                    // Skipped (e.g. injured): same weight next session
+                    const change = lift.status === 'skipped' ? 0 : isFailed ? -increment : +increment;
+                    const newMax = currentMax + change;
                     
                     return (
                       <div key={idx} className="bg-surface/60 rounded-lg p-2.5 sm:p-3">
@@ -723,7 +755,7 @@ const CurrentWeek = () => {
                           <div className="flex items-start justify-between">
                             <span className="font-medium text-gray-900 text-sm flex-1 min-w-0">{lift.exercise_name}</span>
                             <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${isFailed ? 'bg-danger-100 text-danger-700' : 'bg-success-100 text-success-700'}`}>
-                              {change > 0 ? '+' : ''}{change} lbs
+                              {change > 0 ? '+' : ''}{change} lbs{lift.status === 'skipped' ? ' · skipped' : ''}
                             </span>
                           </div>
                           <div className="flex items-center justify-between text-sm">
@@ -837,8 +869,11 @@ const CurrentWeek = () => {
 
                         // Short explanation of where the suggestion comes from
                         let reasonText;
+                        const skippedWeeks = getSkippedWeeks(lift.exercise_id).filter((w) => w <= 3);
                         if (failedWeeks.length > 0) {
                           reasonText = `Failed in week${failedWeeks.length > 1 ? 's' : ''} ${failedWeeks.join(', ')}`;
+                        } else if (skippedWeeks.length > 0) {
+                          reasonText = `Skipped in week${skippedWeeks.length > 1 ? 's' : ''} ${skippedWeeks.join(', ')}, so it stays the same`;
                         } else if (week3Reps !== null) {
                           reasonText = `Week 3 AMRAP: ${week3Reps} rep${week3Reps === 1 ? '' : 's'}`;
                         } else {
@@ -904,6 +939,7 @@ const CurrentWeek = () => {
                         Suggested changes are based on your <strong>week 3 (1-rep week) AMRAP reps</strong>:
                         {' '}<strong>11+</strong> → increase 2x, <strong>5-10</strong> → increase 1x,
                         {' '}<strong>1-4</strong> → keep the same, <strong>0 or a failed week</strong> → decrease.
+                        {' '}A lift <strong>skipped</strong> in weeks 1-3 keeps the same training max.
                         {' '}Use the dropdown to choose a different adjustment for any lift.
                       </span>
                     </div>
@@ -977,7 +1013,9 @@ const CurrentWeek = () => {
               ? '!border-success-300'
               : lift.status === 'failed'
                 ? '!border-danger-300'
-                : '';
+                : lift.status === 'skipped'
+                  ? 'opacity-70'
+                  : '';
             return (
               <Card key={lift.exercise_id} padding="p-0" className={`overflow-hidden ${statusRing}`}>
                 {/* Header: tap to expand / collapse */}
@@ -993,12 +1031,15 @@ const CurrentWeek = () => {
                         ? 'bg-success-600 text-white'
                         : lift.status === 'failed'
                           ? 'bg-danger-600 text-white'
-                          : 'bg-primary-50 text-primary-700'
+                          : lift.status === 'skipped'
+                            ? 'bg-gray-200 text-gray-600'
+                            : 'bg-primary-50 text-primary-700'
                     }`}
                   >
                     {lift.status === 'completed' ? <Check className="h-5 w-5" strokeWidth={3} />
                       : lift.status === 'failed' ? <X className="h-5 w-5" strokeWidth={3} />
-                        : liftIndex + 1}
+                        : lift.status === 'skipped' ? <SkipForward className="h-5 w-5" />
+                          : liftIndex + 1}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold text-gray-900">{lift.exercise_name}</span>
