@@ -354,6 +354,13 @@ class Program {
       return 'decrement_1x';
     }
 
+    // Skipped in a working week (1-3), e.g. for an injury: no evidence to progress on,
+    // so the training max stays where it is
+    const skippedWorkingWeek = liftStatuses.some(s => s.status === 'skipped' && s.week >= 1 && s.week <= 3);
+    if (skippedWorkingWeek) {
+      return 'keep';
+    }
+
     const week3 = liftStatuses.find(s => s.week === 3);
     const reps = week3 ? week3.amrap_reps : null;
 
@@ -527,6 +534,10 @@ class Program {
             // Deload: Decrease weight by the increment amount
             newWeight = lift.training_max - increment;
             console.log(`Deloading ${exercise.name}: ${lift.training_max} -> ${newWeight} lbs (failed)`);
+          } else if (liftStatus === 'skipped') {
+            // Skipped (e.g. injured): same weight next time
+            newWeight = lift.training_max;
+            console.log(`Keeping ${exercise.name} at ${newWeight} lbs (skipped)`);
           } else {
             // Progress normally: Increase weight
             newWeight = lift.training_max + increment;
@@ -544,10 +555,53 @@ class Program {
       });
     }
     
-    return this.update(id, {
+    const updated = this.update(id, {
       current_week: newWeek,
       current_cycle: newCycle
     });
+    this.skipPausedLifts(id);
+    return updated;
+  }
+
+  /** Lifts paused in a program (exercise ids). */
+  static pausedLiftIds(program_id) {
+    return all('SELECT exercise_id FROM program_lifts WHERE program_id = ? AND paused = 1', [program_id]).map(r => r.exercise_id);
+  }
+
+  /**
+   * Mark paused lifts skipped for the program's current week (unless they already
+   * have a result). Called when a lift is paused and whenever a week starts.
+   * The note 'paused' tells these apart from skips the user chose.
+   */
+  static skipPausedLifts(program_id) {
+    const program = this.findById(program_id);
+    if (!program) return;
+    for (const exercise_id of this.pausedLiftIds(program_id)) {
+      const existing = this.getLiftStatus(program_id, exercise_id, program.current_week, program.current_cycle);
+      if (!existing) {
+        this.setLiftStatus(program_id, exercise_id, program.current_week, program.current_cycle, 'skipped', 'paused');
+      }
+    }
+  }
+
+  /**
+   * Pause or resume a lift. Pausing skips it this week and every week until
+   * it's resumed, keeping its training max. Resuming clears this week's
+   * automatic skip so the lift can be done this week.
+   */
+  static setLiftPaused(program_id, exercise_id, paused) {
+    run('UPDATE program_lifts SET paused = ? WHERE program_id = ? AND exercise_id = ?', [paused ? 1 : 0, program_id, exercise_id]);
+    const program = this.findById(program_id);
+    if (paused) {
+      this.skipPausedLifts(program_id);
+    } else {
+      run(
+        `DELETE FROM program_lift_status
+         WHERE program_id = ? AND exercise_id = ? AND week = ? AND cycle = ? AND status = 'skipped' AND notes = 'paused'`,
+        [program_id, exercise_id, program.current_week, program.current_cycle]
+      );
+    }
+    return this.getLift(program_id, exercise_id);
   }
   
   /**
@@ -718,6 +772,7 @@ class Program {
         workout.lifts.push({
           exercise_id: lift.exercise_id,
           exercise_name: lift.exercise_name,
+          paused: !!lift.paused,
           training_max: lift.training_max,
           warmup_sets: warmupSets,
           main_sets: mainSets,
@@ -759,6 +814,7 @@ class Program {
         workout.lifts.push({
           exercise_id: lift.exercise_id,
           exercise_name: lift.exercise_name,
+          paused: !!lift.paused,
           current_weight: lift.training_max, // Using training_max field to store current weight
           warmup_sets: warmupSets,
           sets: sets,

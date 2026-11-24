@@ -43,6 +43,7 @@ export async function initDatabase() {
       ensureCardioSchema();
       ensureStravaSchema();
       ensureAnalysisSchema();
+      ensureProgramSchema();
       saveDatabase();
     } else {
       console.log('🆕 Creating new database...');
@@ -52,6 +53,7 @@ export async function initDatabase() {
       ensureCardioSchema();
       ensureStravaSchema();
       ensureAnalysisSchema();
+      ensureProgramSchema();
       seedExercises();
       saveDatabase();
     }
@@ -469,6 +471,18 @@ function ensureAnalysisSchema() {
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
+}
+
+/**
+ * Program additions: a paused lift (e.g. an injury) is skipped automatically
+ * every week until it's resumed.
+ */
+function ensureProgramSchema() {
+  try {
+    db.run('ALTER TABLE program_lifts ADD COLUMN paused INTEGER NOT NULL DEFAULT 0');
+  } catch (e) {
+    // Column already exists
+  }
 }
 
 /**
