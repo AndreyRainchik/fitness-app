@@ -23,21 +23,25 @@ export const ZONE_LABELS = {
   effort: 'hard effort',
 };
 
-/** Tailwind classes for a zone chip: easy greys and blues up to reds for fast work. */
-export const ZONE_TONES = {
-  recovery: 'bg-gray-100 text-gray-600',
-  easy: 'bg-gray-100 text-gray-700',
-  steady: 'bg-primary-50 text-primary-700',
-  float: 'bg-primary-50 text-primary-700',
-  marathon: 'bg-teal-50 text-teal-700',
-  half: 'bg-success-50 text-success-700',
-  threshold: 'bg-warning-50 text-warning-700',
-  '10k': 'bg-orange-50 text-orange-700',
-  '5k': 'bg-orange-50 text-orange-700',
-  interval: 'bg-danger-50 text-danger-700',
-  rep: 'bg-pink-50 text-pink-700',
-  goal: 'bg-purple-50 text-purple-700',
-  effort: 'bg-danger-50 text-danger-700',
+/**
+ * Colour of each pace zone, as a CSS colour (variables in index.css, with
+ * light and dark values). Use as a background on small marks; the zone is
+ * always named in text too.
+ */
+export const ZONE_COLORS = {
+  recovery: 'var(--pace-recovery)',
+  easy: 'var(--pace-easy)',
+  steady: 'var(--pace-steady)',
+  float: 'var(--pace-steady)',
+  marathon: 'var(--pace-marathon)',
+  half: 'var(--pace-half)',
+  threshold: 'var(--pace-threshold)',
+  '10k': 'var(--pace-10k)',
+  '5k': 'var(--pace-5k)',
+  interval: 'var(--pace-interval)',
+  rep: 'var(--pace-rep)',
+  goal: 'var(--pace-goal)',
+  effort: 'var(--pace-interval)',
 };
 
 const perUnit = (secondsPerKm, unit) => (unit === 'mi' ? secondsPerKm * (MILE / 1000) : secondsPerKm);

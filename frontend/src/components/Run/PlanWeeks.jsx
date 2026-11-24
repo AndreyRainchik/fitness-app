@@ -3,7 +3,7 @@ import { ChevronDown, Star } from 'lucide-react';
 import { Badge } from '../ui';
 import { formatDate } from '../../utils/format';
 import {
-  PHASE_LABELS, ZONE_LABELS, ZONE_TONES, formatPlanDistance, mainSetSummary, paceRange,
+  PHASE_LABELS, ZONE_COLORS, ZONE_LABELS, formatPlanDistance, mainSetSummary, paceRange,
 } from '../../utils/runPlan';
 import RunSteps from './RunSteps';
 
@@ -19,7 +19,7 @@ export function PaceTable({ zones, unit, zoneInfo = [] }) {
     <ul className="divide-y divide-gray-100">
       {order.filter((z) => zones?.[z]).map((zone) => (
         <li key={zone} className="flex items-center gap-3 py-2">
-          <span className={`w-2 self-stretch rounded-full ${ZONE_TONES[zone]}`} aria-hidden="true" />
+          <span className="w-1.5 self-stretch rounded-full" style={{ backgroundColor: ZONE_COLORS[zone] }} aria-hidden="true" />
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-medium capitalize text-gray-900">{ZONE_LABELS[zone]}</span>
             {feel.get(zone) && <span className="block text-xs text-gray-500">{feel.get(zone)}</span>}

@@ -130,6 +130,22 @@
     --zone-4: #eda100;
     --zone-5: #e34948;
 
+    /* Run plan pace zones, following the heart rate zone colours from easy
+       (grey, blue) through threshold (amber) to fast (red, magenta). Solid
+       tones at 3:1 or more against the card in both themes; every zone is
+       also named in text. */
+    --pace-recovery: #868681;
+    --pace-easy: var(--zone-2);
+    --pace-steady: #1f8fd0;
+    --pace-marathon: #0f9468;
+    --pace-half: #5e9a12;
+    --pace-threshold: #c07a00;
+    --pace-10k: #eb6834;
+    --pace-5k: #e85a3c;
+    --pace-interval: var(--zone-5);
+    --pace-rep: #d6408e;
+    --pace-goal: #8a63d2;
+
     /* Fitness and fatigue lines (categorical slots 1 and 2) */
     --load-fitness: #2a78d6;
     --load-fatigue: #eb6834;
@@ -150,6 +166,15 @@
     --zone-5: #c93636;
     --load-fitness: #3987e5;
     --load-fatigue: #d95926;
+    --pace-recovery: var(--zone-1);
+    --pace-steady: #5aaef0;
+    --pace-marathon: var(--zone-3);
+    --pace-half: #93c43a;
+    --pace-threshold: var(--zone-4);
+    --pace-10k: #e06a38;
+    --pace-5k: #dd5638;
+    --pace-rep: #e0569c;
+    --pace-goal: #9b78e0;
     --canvas: 10 10 12;
     --surface: 22 22 26;
     --gray-50: 29 29 34;
