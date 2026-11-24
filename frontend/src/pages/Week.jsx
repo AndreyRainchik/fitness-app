@@ -89,7 +89,7 @@ function PlannedItem({ item, units }) {
           <span className={`font-semibold ${item.status === 'missed' ? 'text-gray-500' : 'text-gray-900'}`}>{item.title}</span>
           {item.detail && <span className="text-sm text-gray-500">{item.detail}</span>}
           {item.status === 'missed' && <Badge tone="warning">Missed</Badge>}
-          {item.status === 'skipped' && <Badge tone="neutral">Skipped</Badge>}
+          {item.status === 'skipped' && <Badge tone="neutral">{item.paused ? 'Paused' : 'Skipped'}</Badge>}
         </div>
         {item.lifts.length > 0 && item.status !== 'done' && (
           <ul className="mt-1 space-y-0.5 text-sm text-gray-600">
@@ -248,6 +248,7 @@ function ProgramBar({ program }) {
           {program.position}
           {program.ready_to_advance && ' · every lift is done: complete the week to move on'}
           {!program.ready_to_advance && program.unmarked > 0 && ` · ${plural(program.unmarked, 'lift')} logged but not marked yet`}
+          {program.paused?.length > 0 && ` · ${program.paused.join(', ')} paused`}
         </p>
       </div>
       <Button size="sm" variant={program.ready_to_advance ? 'primary' : 'secondary'} to="/current-week">

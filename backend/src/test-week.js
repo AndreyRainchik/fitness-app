@@ -203,6 +203,33 @@ async function unitTests() {
     assert.deepEqual(heavy, ['2026-11-30', '2026-12-03']);
   });
 
+  await test('paused lifts stay on their day as skipped, every week, and never count as heavy legs', () => {
+    const lifts = LIFTS.map((l) => (l.exercise_id === 1 || l.exercise_id === 3 ? { ...l, paused: 1 } : l));
+    // This week the pause has skipped them already
+    const statuses = new Map([[1, 'skipped'], [3, 'skipped']]);
+    const program = program531({ lifts, statuses });
+    const next = buildWeek({ weekStart: '2026-11-29', today: '2026-11-24', days: USER, program });
+    const monday = day(next, '2026-11-30').planned[0];
+    assert.deepEqual([monday.title, monday.status], ['Squat', 'skipped']);
+    assert.equal(monday.paused, true);
+    assert.equal(monday.detail, 'Week 3 · 5/3/1');
+    assert.equal(day(next, '2026-12-01').planned[0].status, 'upcoming');
+    assert.equal(day(next, '2026-12-03').planned[0].status, 'skipped');
+    assert.deepEqual(buildWeek({ weekStart: WEEK, today: '2026-11-24', days: USER, program }).program.paused, ['Squat', 'Deadlift']);
+    const projection = projectLiftDays({ from: '2026-11-23', until: '2027-01-31', days: USER, program, today: '2026-11-24' });
+    assert.ok(projection.days.length > 30);
+    assert.ok(projection.days.every((d) => !d.heavy_legs));
+  });
+
+  await test('paused lifts leave a rotating schedule', () => {
+    const lifts = LIFTS.map((l) => (l.exercise_id === 1 ? { ...l, paused: 1 } : l));
+    const week = buildWeek({ weekStart: WEEK, today: WEEK, days: DAYS3, program: program531({ lifts, statuses: new Map([[1, 'skipped']]) }) });
+    const titles = week.days.flatMap((d) => d.planned.filter((p) => p.kind === 'strength').map((p) => p.title));
+    assert.deepEqual(titles, ['Bench Press', 'Deadlift', 'Overhead Press']);
+    const next = buildWeek({ weekStart: '2026-11-29', today: WEEK, days: DAYS3, program: program531({ lifts, statuses: new Map([[1, 'skipped']]) }) });
+    assert.ok(!next.days.some((d) => d.planned.some((p) => p.title === 'Squat')));
+  });
+
   console.log('\nQueue (4 lifts on 3 lifting days)');
 
   await test('done, missed and rolled-forward lifts', () => {
@@ -512,6 +539,39 @@ async function apiTests() {
       const after = await call('GET', `/programs/${id}`);
       const w = Object.fromEntries(after.body.lifts.map((l) => [l.exercise_id, l.training_max]));
       assert.deepEqual([w[squat], w[deadlift], w[bench]], [200, 250, 155]);
+    });
+
+    await test('a paused lift is skipped every week until resumed, keeping its training max', async () => {
+      const p = await call('POST', '/programs', {
+        name: 'Pause block', type: '531',
+        lifts: [[squat, 300], [bench, 200], [deadlift, 400], [ohp, 120]].map(([exercise_id, training_max]) => ({ exercise_id, training_max })),
+      });
+      const id = p.body.id;
+      assert.equal((await call('PUT', `/programs/${id}/lifts/${squat}/pause`, { paused: 'yes' })).status, 400);
+      assert.equal((await callOther('PUT', `/programs/${id}/lifts/${squat}/pause`, { paused: true })).status, 403);
+      const paused = await call('PUT', `/programs/${id}/lifts/${squat}/pause`, { paused: true });
+      assert.deepEqual(paused.body, { exercise_id: squat, paused: true });
+      for (let week = 1; week <= 4; week++) {
+        const current = await call('GET', `/programs/${id}/current-week`);
+        const squatLift = current.body.lifts.find((l) => l.exercise_id === squat);
+        assert.equal(squatLift.paused, true);
+        assert.equal(squatLift.status, 'skipped', `week ${week}`);
+        for (const ex of [bench, deadlift, ohp]) await call('PUT', `/programs/${id}/lifts/${ex}/status`, { status: 'completed', ...(week === 3 ? { amrap_reps: 6 } : {}) });
+        await call('POST', `/programs/${id}/advance-week`, { localDate: '2026-11-25' });
+      }
+      let tm = Object.fromEntries((await call('GET', `/programs/${id}`)).body.lifts.map((l) => [l.exercise_id, l.training_max]));
+      assert.equal(tm[squat], 300);
+      assert.equal(tm[bench], 205);
+      // Still paused in the new cycle, until resumed; resuming clears this week's automatic skip
+      assert.equal((await call('GET', `/programs/${id}/current-week`)).body.lifts.find((l) => l.exercise_id === squat).status, 'skipped');
+      await call('PUT', `/programs/${id}/lifts/${squat}/pause`, { paused: false });
+      const resumed = (await call('GET', `/programs/${id}/current-week`)).body.lifts.find((l) => l.exercise_id === squat);
+      assert.deepEqual([resumed.paused, resumed.status], [false, null]);
+      // A skip the user chose themselves isn't cleared by resuming
+      await call('PUT', `/programs/${id}/lifts/${bench}/status`, { status: 'skipped' });
+      await call('PUT', `/programs/${id}/lifts/${bench}/pause`, { paused: true });
+      await call('PUT', `/programs/${id}/lifts/${bench}/pause`, { paused: false });
+      assert.equal((await call('GET', `/programs/${id}/current-week`)).body.lifts.find((l) => l.exercise_id === bench).status, 'skipped');
     });
 
     await test('training load appears once heart rate settings exist', async () => {

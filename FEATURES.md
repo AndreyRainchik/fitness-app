@@ -40,7 +40,8 @@ Legend for the backlog: **Impact** H/M/L for a hybrid strength + cardio athlete 
 - 5/3/1 Boring But Big: 4-week cycles, AMRAP tracking, BBB 5×10, deload, training-max choices at cycle end, double increment for 10+ rep AMRAPs in week 3, per-lift override
 - Starting Strength: A/B alternation, linear progression, next-session preview
 - Lift statuses (completed / failed / skipped), failed-lift handling, warm-ups added to program workouts
-- Skip a lift for the week (e.g. an injury): 5/3/1 training max stays the same at cycle end, Starting Strength weight stays the same; My Week shows it as skipped and the run planner stops treating that day as heavy legs
+- Pause a lift until resumed (e.g. an injured foot): skipped automatically every week with its training max kept; stays on its day in My Week marked Paused; never counts as heavy legs for run planning
+- Skip a lift for the week: 5/3/1 training max stays the same at cycle end, Starting Strength weight stays the same; My Week shows it as skipped and the run planner stops treating that day as heavy legs
 - "Program Week" page (was "This Week") that starts a pre-filled workout per lift
 - GZCLP and nSuns listed as "coming soon"
 

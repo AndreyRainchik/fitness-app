@@ -84,6 +84,7 @@ function liftUnit531(program, lift, week, cycle) {
     key: `531:${cycle}:${week}:${lift.exercise_id}`,
     exercise_id: lift.exercise_id,
     name: lift.exercise_name,
+    paused: !!lift.paused,
     detail: `Week ${week} · ${SCHEME_531[week] ?? ''}`.trim(),
     top_set: top ? { weight: top.weight, reps: top.reps, amrap: !!top.is_amrap } : null,
   };
@@ -97,9 +98,10 @@ function ssSession(program, number, cycle) {
     key: `ss:${number}`,
     title: session.title,
     detail: `Session ${number}`,
+    // Paused lifts (e.g. an injury) drop out of the session until they're resumed
     lifts: session.lifts
       .map((name) => byName.get(name))
-      .filter(Boolean)
+      .filter((lift) => lift && !lift.paused)
       .map((lift) => ({
         key: `ss:${number}:${lift.exercise_id}`,
         exercise_id: lift.exercise_id,
@@ -166,7 +168,8 @@ export function programProgress(program, sessions, { today, liftOrder = [] }) {
  */
 export function* programQueue(program, { pendingIds, perDay, liftOrder = [] }) {
   if (program.type === '531') {
-    const lifts = orderedLifts(program.lifts, liftOrder);
+    // Paused lifts (e.g. an injury) leave the rotation until they're resumed
+    const lifts = orderedLifts(program.lifts, liftOrder).filter((l) => !l.paused);
     if (!lifts.length) return;
     let position = { week: program.current_week, cycle: program.current_cycle };
     let first = true;
@@ -334,7 +337,12 @@ export function buildWeek({ weekStart, today, days, overrides = new Map(), progr
       const entries = offset === 0 ? session.units.map((u) => doneById.get(Number(u.exercise_id))) : [];
       const done = offset < 0 || (offset === 0 && entries.every(Boolean));
       // Every lift of the day skipped (e.g. an injury), none of them done in a workout
-      const skipped = offset === 0 && entries.length > 0 && entries.every((e) => e?.status === 'skipped' && !e.workout_id);
+      const skipped = (offset === 0 && entries.length > 0 && entries.every((e) => e?.status === 'skipped' && !e.workout_id))
+        // Later weeks: every lift of the day is paused
+        || (offset > 0 && session.units.every((u) => u.paused));
+      const allPaused = session.units.every((u) => u.paused);
+      // Name paused lifts only when the day has others too ("Squat paused" on a squat + bench day)
+      const pausedNames = allPaused ? [] : session.units.filter((u) => u.paused).map((u) => shortLiftName(u.name));
       const workouts = offset < 0
         ? strengthOn(session.date)
         : entries.filter((e) => e?.workout_id).map((e) => sessions.find((x) => x.id === e.workout_id)).filter(Boolean);
@@ -343,10 +351,12 @@ export function buildWeek({ weekStart, today, days, overrides = new Map(), progr
         title: session.units.map((u) => shortLiftName(u.name)).join(' + '),
         detail: [
           session.units[0]?.detail && `${session.units[0].detail}${session.position.cycle !== program.current_cycle ? ` · cycle ${session.position.cycle}` : ''}`,
-          elsewhere.length ? `done ${elsewhere.map((d) => WEEKDAYS[weekdayOf(d)].slice(0, 3)).join(', ')}` : null].filter(Boolean).join(' · '),
-        lifts: done ? [] : session.units,
+          elsewhere.length ? `done ${elsewhere.map((d) => WEEKDAYS[weekdayOf(d)].slice(0, 3)).join(', ')}` : null,
+          pausedNames.length ? `${pausedNames.join(', ')} paused` : null].filter(Boolean).join(' · '),
+        lifts: done ? [] : session.units.filter((u) => !u.paused),
         done: done && !skipped,
         skipped,
+        paused: allPaused,
         workout_ids: [...new Set([...workouts.map((w) => w.id), ...strengthOn(session.date).map((w) => w.id)])],
       });
     }
@@ -382,6 +392,7 @@ export function buildWeek({ weekStart, today, days, overrides = new Map(), progr
       planned.push({
         kind: 'strength',
         status: f.skipped ? 'skipped' : statusFor(date, f.done),
+        paused: f.paused,
         title: f.title,
         detail: f.detail || null,
         lifts: f.lifts,
@@ -464,6 +475,7 @@ function programInfo(program, progress) {
     position,
     // Every lift of the program week is done: time to complete the week in This Week
     ready_to_advance: progress.pendingIds.size === 0,
+    paused: program.lifts.filter((l) => l.paused).map((l) => shortLiftName(l.exercise_name)),
     unmarked: progress.done.filter((d) => !d.status).length,
   };
 }
@@ -524,7 +536,7 @@ export function projectLiftDays({ from, until, days, overrides = new Map(), prog
         // Lifts skipped this program week (e.g. squats with an injured foot) don't load the legs
         const statuses = program.statuses ?? new Map();
         const lifts = session.units
-          .filter((u) => !(offset === 0 && statuses.get(Number(u.exercise_id)) === 'skipped'))
+          .filter((u) => !u.paused && !(offset === 0 && statuses.get(Number(u.exercise_id)) === 'skipped'))
           .map((u) => u.name);
         result.push({ date: session.date, lifts, heavy_legs: lifts.some((name) => HEAVY_LEGS.test(name)), program_week: session.position.week });
       }

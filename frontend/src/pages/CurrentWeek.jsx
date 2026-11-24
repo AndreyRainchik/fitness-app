@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { programsAPI } from '../services/api';
 import ProgramSetRow from '../components/Program/ProgramSetRow';
-import { CalendarCheck, Check, ChevronDown, Play, RotateCcw, SkipForward, X } from 'lucide-react';
+import { CalendarCheck, Check, ChevronDown, Pause, Play, RotateCcw, SkipForward, X } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import { useBatchPlateAdjustedWeights } from '../utils/usePlateAdjustedWeight';
 import { Alert, Badge, Button, Card, EmptyState, LoadingState, PageHeader, useConfirm } from '../components/ui';
@@ -397,6 +397,40 @@ const CurrentWeek = () => {
   /**
    * Handle clearing lift status
    */
+  /** Pause a lift until resumed (skipped every week, training max kept), or resume it. */
+  const handleSetPaused = async (lift, paused) => {
+    const name = lift.exercise_name.replace(/^Barbell /, '');
+    if (paused && !(await confirm({
+      title: `Pause ${name}?`,
+      message: `${name} will be skipped every week until you resume it, and its ${workout.program_type === '531' ? 'training max' : 'working weight'} stays the same. Your other lifts carry on as normal.`,
+      confirmLabel: 'Pause',
+    }))) return;
+    try {
+      setUpdatingStatus(prev => new Set(prev).add(lift.exercise_id));
+      await programsAPI.setLiftPaused(workout.program_id, lift.exercise_id, paused);
+      // A paused lift folds away; a resumed one opens so it can be done
+      setCollapsedLifts(prev => {
+        const next = new Set(prev);
+        if (paused) next.add(lift.exercise_id);
+        else next.delete(lift.exercise_id);
+        return next;
+      });
+      if (programId) await loadCurrentWeek();
+      else await loadActiveProgram();
+      if (workout.program_type === '531') loadAllStatuses(workout.program_id);
+      setMessage({ type: 'success', text: paused ? `${name} paused` : `${name} resumed` });
+      setTimeout(() => setMessage({ type: '', text: '' }), 2000);
+    } catch (error) {
+      setMessage({ type: 'error', text: `Couldn't ${paused ? 'pause' : 'resume'} ${name}: ${error.message}` });
+    } finally {
+      setUpdatingStatus(prev => {
+        const next = new Set(prev);
+        next.delete(lift.exercise_id);
+        return next;
+      });
+    }
+  };
+
   const handleClearStatus = async (exerciseId) => {
     try {
       setUpdatingStatus(prev => new Set(prev).add(exerciseId));
@@ -486,8 +520,18 @@ const CurrentWeek = () => {
   // parent's render would give it a new identity on every render of
   // CurrentWeek, causing React to unmount/remount the subtree on every
   // keystroke — which makes the AMRAP <input> lose focus mid-typing.
-  const renderStatusControls = ({ exerciseId, currentStatus, recordedAmrapReps }) => {
+  const renderStatusControls = ({ exerciseId, currentStatus, recordedAmrapReps, lift }) => {
     const isUpdating = updatingStatus.has(exerciseId);
+    if (lift?.paused) {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">
+            Paused: skipped every week until you resume it. Its {workout?.program_type === '531' ? 'training max' : 'working weight'} stays the same.
+          </p>
+          <Button variant="secondary" fullWidth icon={Play} onClick={() => handleSetPaused(lift, false)} loading={isUpdating}>Resume</Button>
+        </div>
+      );
+    }
     // AMRAP input is only relevant for 5/3/1 weeks 1-3 (weeks with an AMRAP set)
     const isAmrapWeek = workout && workout.program_type === '531' && workout.week >= 1 && workout.week <= 3;
     const isWeek3 = workout && workout.week === 3;
@@ -566,15 +610,26 @@ const CurrentWeek = () => {
         </div>
 
         {!currentStatus && (
-          <button
-            type="button"
-            onClick={() => handleSetStatus(exerciseId, 'skipped')}
-            disabled={isUpdating}
-            className="flex h-10 w-full items-center justify-center gap-1.5 rounded-xl text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
-          >
-            <SkipForward className="h-4 w-4" />
-            Skip this week
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => handleSetStatus(exerciseId, 'skipped')}
+              disabled={isUpdating}
+              className="flex h-10 items-center justify-center gap-1.5 rounded-xl text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
+            >
+              <SkipForward className="h-4 w-4" />
+              Skip this week
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetPaused(lift, true)}
+              disabled={isUpdating}
+              className="flex h-10 items-center justify-center gap-1.5 rounded-xl text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
+            >
+              <Pause className="h-4 w-4" />
+              Pause lift
+            </button>
+          </div>
         )}
 
         {currentStatus && (
@@ -1037,11 +1092,15 @@ const CurrentWeek = () => {
                   >
                     {lift.status === 'completed' ? <Check className="h-5 w-5" strokeWidth={3} />
                       : lift.status === 'failed' ? <X className="h-5 w-5" strokeWidth={3} />
-                        : lift.status === 'skipped' ? <SkipForward className="h-5 w-5" />
+                        : lift.paused ? <Pause className="h-5 w-5" />
+                          : lift.status === 'skipped' ? <SkipForward className="h-5 w-5" />
                           : liftIndex + 1}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold text-gray-900">{lift.exercise_name}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="truncate font-semibold text-gray-900">{lift.exercise_name}</span>
+                      {lift.paused && <Badge tone="neutral" icon={Pause}>Paused</Badge>}
+                    </span>
                     <span className="tabular block truncate text-xs text-gray-500">
                       {workout.program_type === '531' && `TM ${lift.training_max} lbs`}
                       {workout.program_type === 'starting_strength' && `Working weight ${lift.current_weight} lbs`}
@@ -1153,6 +1212,7 @@ const CurrentWeek = () => {
                         exerciseId: lift.exercise_id,
                         currentStatus: lift.status,
                         recordedAmrapReps: lift.amrap_reps,
+                        lift,
                       })}
                     </div>
                   </div>

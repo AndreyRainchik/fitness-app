@@ -419,6 +419,35 @@ router.put('/:id/lifts/:exercise_id/status', authenticateToken, async (req, res)
 });
 
 /**
+ * @route   PUT /api/programs/:id/lifts/:exercise_id/pause
+ * @desc    Pause a lift (skipped every week, training max kept) or resume it
+ * @access  Private
+ * @body    { paused: boolean }
+ */
+router.put('/:id/lifts/:exercise_id/pause', authenticateToken, async (req, res) => {
+  try {
+    const program = Program.findById(req.params.id);
+    if (!program) {
+      return res.status(404).json({ error: 'Program not found' });
+    }
+    if (program.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    if (typeof req.body?.paused !== 'boolean') {
+      return res.status(400).json({ error: 'paused must be true or false' });
+    }
+    if (!Program.getLift(req.params.id, req.params.exercise_id)) {
+      return res.status(404).json({ error: 'Exercise not found in program' });
+    }
+    const lift = Program.setLiftPaused(req.params.id, req.params.exercise_id, req.body.paused);
+    res.json({ exercise_id: lift.exercise_id, paused: !!lift.paused });
+  } catch (error) {
+    console.error('Error pausing lift:', error);
+    res.status(500).json({ error: 'Failed to update the lift' });
+  }
+});
+
+/**
  * @route   DELETE /api/programs/:id/lifts/:exercise_id/status
  * @desc    Clear status for a lift in the current week
  * @access  Private
