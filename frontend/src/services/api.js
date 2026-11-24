@@ -692,6 +692,12 @@ export const programsAPI = {
    * @param {number} programId - Program ID
    * @param {number} exerciseId - Exercise ID
    */
+  /** Pause a lift (skipped every week, training max kept) or resume it */
+  setLiftPaused: (programId, exerciseId, paused) => apiCall(`/programs/${programId}/lifts/${exerciseId}/pause`, {
+    method: 'PUT',
+    body: JSON.stringify({ paused }),
+  }),
+
   clearLiftStatus: async (programId, exerciseId) => {
     return await apiCall(`/programs/${programId}/lifts/${exerciseId}/status`, {
       method: 'DELETE',
