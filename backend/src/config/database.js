@@ -43,6 +43,7 @@ export async function initDatabase() {
       ensureCardioSchema();
       ensureStravaSchema();
       ensureAnalysisSchema();
+      ensureProgramSchema();
       ensurePlanSchema();
       saveDatabase();
     } else {
@@ -53,6 +54,7 @@ export async function initDatabase() {
       ensureCardioSchema();
       ensureStravaSchema();
       ensureAnalysisSchema();
+      ensureProgramSchema();
       ensurePlanSchema();
       seedExercises();
       saveDatabase();
@@ -474,6 +476,18 @@ function ensureAnalysisSchema() {
 }
 
 /**
+ * Program additions: a paused lift (e.g. an injury) is skipped automatically
+ * every week until it's resumed.
+ */
+function ensureProgramSchema() {
+  try {
+    db.run('ALTER TABLE program_lifts ADD COLUMN paused INTEGER NOT NULL DEFAULT 0');
+  } catch (e) {
+    // Column already exists
+  }
+}
+
+/**
  * The weekly schedule (what each weekday is for) and one-off changes to it,
  * plus the date a program's current week began, for the week view.
  */
@@ -548,12 +562,6 @@ function ensurePlanSchema() {
   db.run('CREATE INDEX IF NOT EXISTS idx_run_plans_user ON run_plans(user_id, status)');
   db.run('CREATE INDEX IF NOT EXISTS idx_planned_runs_plan_date ON planned_runs(plan_id, date)');
 
-  // A paused lift (e.g. an injury) is skipped automatically every week until resumed
-  try {
-    db.run('ALTER TABLE program_lifts ADD COLUMN paused INTEGER NOT NULL DEFAULT 0');
-  } catch (e) {
-    // Column already exists
-  }
   try {
     db.run('ALTER TABLE programs ADD COLUMN week_started_on DATE');
   } catch (e) {

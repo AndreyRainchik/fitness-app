@@ -19,6 +19,7 @@
   "test:strava": "node src/test-strava.js",
   "test:week": "node src/test-week.js",
   "test:runplan": "node src/test-runplan.js",
+  "test:programs": "node src/test-programs.js",
   "strava:subscribe": "node src/strava-subscribe.js"
  },
  "keywords": [
