@@ -7,19 +7,25 @@
  *
  * How program lifts land on days
  * ------------------------------
- * The weekly schedule says which weekdays are for lifting. The active
- * program's lifts are a queue: the lifts of the current program week that
- * aren't done yet, in the user's lift order, then the next program week's, and
- * so on. Upcoming lifting days take from the front of the queue, so a missed
- * day pushes its lifts to the next lifting day rather than dropping them, the
- * way 5/3/1 and Starting Strength are run.
+ * Fixed days (5/3/1 when its lifts split evenly over the lifting days, e.g.
+ * 4 lifts on 4 days): each lift has its own weekday, in the user's lift
+ * order, Monday first. Calendar weeks follow program weeks: this week holds
+ * the current program week, next week the one after. A lift done early (or
+ * on another day) shows as done on its own day; a missed one shows as missed
+ * and doesn't move the others. A one-off day change moves that week's lifts
+ * with it.
  *
- * A lift of the current program week is done when it has a status (completed,
- * failed or skipped) or a strength workout since the week began contains it.
- * The week begins on the program's week_started_on (set when the user
- * completes a week), or, before that's been recorded, on this calendar week's
- * Sunday. Workouts on the start day itself don't count, since that's normally
- * the day the previous week was finished.
+ * Queue (everything else: 4 lifts on 3 days, Starting Strength's A/B): the
+ * lifts of the current program week that aren't done yet, then the next
+ * week's, fill upcoming lifting days in order, so a missed day pushes its
+ * lifts to the next lifting day.
+ *
+ * Either way, a lift of the current program week is done when it has a
+ * status (completed, failed or skipped) or a strength workout since the week
+ * began contains it. The week begins on the program's week_started_on (set
+ * when the user completes a week), or, before that's been recorded, on this
+ * calendar week's Sunday. Workouts on the start day itself don't count, since
+ * that's normally the day the previous week was finished.
  */
 
 import Program from '../models/Program.js';
@@ -197,6 +203,63 @@ export function* programQueue(program, { pendingIds, perDay, liftOrder = [] }) {
   }
 }
 
+// Lifting days are given out Monday first, the way people plan a week
+const MONDAY_FIRST = [1, 2, 3, 4, 5, 6, 0];
+const weekdayOf = (date) => new Date(parseDay(date)).getUTCDay();
+
+/**
+ * Lifts per day when each 5/3/1 lift can keep its own weekday: the program
+ * week's lifts split evenly over the schedule's lifting days (4 lifts on 4
+ * days, or 2 a day on 2 days). null when they can't (4 lifts on 3 days
+ * rotate instead) or for programs that alternate sessions (Starting Strength).
+ */
+export function fixedLiftsPerDay(program, schedule) {
+  if (!program || program.type !== '531' || !program.lifts?.length) return null;
+  const liftDays = schedule.filter(liftsOn).length;
+  if (!liftDays) return null;
+  const perDay = liftsPerDay(program.lifts.length, liftDays);
+  return perDay * liftDays === program.lifts.length ? perDay : null;
+}
+
+/** A 5/3/1 week `k` weeks after { week, cycle }. */
+export function shift531({ week, cycle }, k) {
+  const total = (cycle - 1) * 4 + (week - 1) + k;
+  return { cycle: Math.floor(total / 4) + 1, week: (total % 4) + 1 };
+}
+
+/**
+ * Which program week a calendar week holds, relative to the program's
+ * current week (0 = this one). Weeks follow the calendar; if the current week
+ * was started partway through this calendar week (the last one was finished
+ * early), it belongs to the next calendar week.
+ */
+export function programWeekOffset(program, weekStart, today) {
+  const thisWeek = weekStartFor(today);
+  const weeks = Math.round((parseDay(weekStartFor(weekStart)) - parseDay(thisWeek)) / (7 * DAY_MS));
+  const startedThisWeek = program.week_started_on && program.week_started_on > thisWeek && program.week_started_on <= today;
+  return weeks - (startedThisWeek ? 1 : 0);
+}
+
+/**
+ * A calendar week's lifting sessions when lifts have fixed days: the lifts
+ * in lift order, `perDay` to a day, on that week's lifting days (Monday
+ * first, after any one-off day changes). [{ date, units, position }]
+ */
+export function fixedWeekSessions(program, { weekStart, schedule, overrides = new Map(), perDay, liftOrder = [], offset }) {
+  const position = shift531({ week: program.current_week, cycle: program.current_cycle }, offset);
+  const lifts = orderedLifts(program.lifts, liftOrder);
+  const dates = Array.from({ length: 7 }, (_, i) => formatDay(parseDay(weekStartFor(weekStart)) + i * DAY_MS));
+  const liftDates = MONDAY_FIRST
+    .map((wd) => dates.find((d) => weekdayOf(d) === wd))
+    .filter((date) => liftsOn(slotFor(date, schedule, overrides)));
+  const sessions = [];
+  for (let i = 0; i * perDay < lifts.length && i < liftDates.length; i++) {
+    const units = lifts.slice(i * perDay, (i + 1) * perDay).map((l) => liftUnit531(program, l, position.week, position.cycle));
+    sessions.push({ date: liftDates[i], units, position });
+  }
+  return sessions;
+}
+
 /** "Barbell Overhead Press" -> "Overhead Press" */
 export const shortLiftName = (name) => String(name).replace(/^Barbell /, '');
 
@@ -258,9 +321,37 @@ export function buildWeek({ weekStart, today, days, overrides = new Map(), progr
     programUnits.set(entry.workout_id, [...(programUnits.get(entry.workout_id) ?? []), ...units.map((u) => ({ ...u, status: entry.status }))]);
   }
 
+  // With fixed lift days (5/3/1, lifts split evenly over lifting days), each lift
+  // shows on its own day from this week on; otherwise lifts are a queue that
+  // fills upcoming lifting days.
+  const fixedPerDay = configured && hasProgram ? fixedLiftsPerDay(program, schedule) : null;
+  const fixed = new Map();
+  if (fixedPerDay && weekEnd >= weekStartFor(today)) {
+    const offset = programWeekOffset(program, dates[0], today);
+    const doneById = new Map((progress?.done ?? []).map((d) => [Number(d.unit.exercise_id), d]));
+    for (const session of fixedWeekSessions(program, { weekStart: dates[0], schedule, overrides, perDay: fixedPerDay, liftOrder, offset })) {
+      // offset < 0: last program week, finished early this calendar week
+      const entries = offset === 0 ? session.units.map((u) => doneById.get(Number(u.exercise_id))) : [];
+      const done = offset < 0 || (offset === 0 && entries.every(Boolean));
+      const workouts = offset < 0
+        ? strengthOn(session.date)
+        : entries.filter((e) => e?.workout_id).map((e) => sessions.find((x) => x.id === e.workout_id)).filter(Boolean);
+      const elsewhere = [...new Set(workouts.map((w) => w.date).filter((d) => d !== session.date))];
+      fixed.set(session.date, {
+        title: session.units.map((u) => shortLiftName(u.name)).join(' + '),
+        detail: [
+          session.units[0]?.detail && `${session.units[0].detail}${session.position.cycle !== program.current_cycle ? ` · cycle ${session.position.cycle}` : ''}`,
+          elsewhere.length ? `done ${elsewhere.map((d) => WEEKDAYS[weekdayOf(d)].slice(0, 3)).join(', ')}` : null].filter(Boolean).join(' · '),
+        lifts: done ? [] : session.units,
+        done,
+        workout_ids: [...new Set([...workouts.map((w) => w.id), ...strengthOn(session.date).map((w) => w.id)])],
+      });
+    }
+  }
+
   // Hand out queued sessions to lifting days from today on, up to the end of this week
   const assigned = new Map();
-  if (configured && hasProgram && weekEnd >= today) {
+  if (!fixedPerDay && configured && hasProgram && weekEnd >= today) {
     const liftDays = schedule.filter(liftsOn).length;
     const perDay = program.type === '531' ? liftsPerDay(program.lifts.length, liftDays) : 1;
     const queue = programQueue(program, { pendingIds: progress.pendingIds, perDay, liftOrder });
@@ -283,7 +374,17 @@ export function buildWeek({ weekStart, today, days, overrides = new Map(), progr
   const dayRows = dates.map((date, i) => {
     const slot = configured ? slotFor(date, schedule, overrides) : 'flex';
     const planned = [];
-    if (liftsOn(slot)) {
+    if (liftsOn(slot) && fixed.has(date)) {
+      const f = fixed.get(date);
+      planned.push({
+        kind: 'strength',
+        status: statusFor(date, f.done),
+        title: f.title,
+        detail: f.detail || null,
+        lifts: f.lifts,
+        workout_ids: f.workout_ids,
+      });
+    } else if (liftsOn(slot)) {
       const done = strengthOn(date);
       const queued = done.length ? null : assigned.get(date);
       planned.push({
@@ -340,7 +441,7 @@ export function buildWeek({ weekStart, today, days, overrides = new Map(), progr
     configured,
     days: dayRows,
     summary: summarize(dayRows),
-    program: hasProgram ? programInfo(program, progress) : null,
+    program: hasProgram ? { ...programInfo(program, progress), fixed_days: !!fixedPerDay } : null,
   };
 }
 
@@ -407,6 +508,30 @@ export function projectLiftDays({ from, until, days, overrides = new Map(), prog
   const hasProgram = program && program.lifts?.length;
   const result = [];
   const deloadWeekStarts = new Set();
+  const fixedPerDay = hasProgram ? fixedLiftsPerDay(program, schedule) : null;
+  if (fixedPerDay) {
+    for (let ws = parseDay(weekStartFor(from)); ws <= parseDay(until); ws += 7 * DAY_MS) {
+      const weekStart = formatDay(ws);
+      const offset = programWeekOffset(program, weekStart, today);
+      const assignedDates = new Set();
+      for (const session of fixedWeekSessions(program, { weekStart, schedule, overrides, perDay: fixedPerDay, liftOrder, offset })) {
+        assignedDates.add(session.date);
+        if (session.position.week === 4) deloadWeekStarts.add(weekStart);
+        if (session.date < from || session.date > until) continue;
+        const lifts = session.units.map((u) => u.name);
+        result.push({ date: session.date, lifts, heavy_legs: lifts.some((name) => HEAVY_LEGS.test(name)), program_week: session.position.week });
+      }
+      // A lifting day with no lift of its own (more lifting days than sessions this week)
+      for (let d = ws; d < ws + 7 * DAY_MS; d += DAY_MS) {
+        const date = formatDay(d);
+        if (date >= from && date <= until && !assignedDates.has(date) && liftsOn(slotFor(date, schedule, overrides))) {
+          result.push({ date, lifts: [], heavy_legs: false, program_week: null });
+        }
+      }
+    }
+    result.sort((a, b) => (a.date < b.date ? -1 : 1));
+    return { days: result, deloadWeekStarts };
+  }
   let queue = null;
   if (hasProgram) {
     const progress = programProgress(program, sessions, { today, liftOrder });

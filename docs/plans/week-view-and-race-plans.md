@@ -28,7 +28,7 @@
 > **As built.** `/week` ("My Week"), `GET /api/week`, `services/weekPlan.js`, tests in `npm run test:week`.
 > Changes from the plan below:
 > - Slots are **Lift / Cardio / Both / Rest / Flexible** (not "Run"), since cardio covers rides, rows and climbing too.
-> - Program lifts are a **queue**, not pinned to weekdays: upcoming lifting days take the next lifts not done yet, so a missed day pushes its lift to the next lifting day. A lift counts as done when it's marked in Program Week *or* a workout since the program week began contains it. "Complete week" now records the date (`programs.week_started_on`) so lifts from the previous week don't count twice.
+> - **Fixed lift days** (changed 2026-11-24 after real use): when 5/3/1's lifts divide evenly over the lifting days (4 on 4, or 2 a day on 2), each lift keeps its weekday in the user's lift order, Monday first, and calendar weeks follow program weeks. A lift done early or on another day shows as done on its own day ("done Sun"); a missed one stays put and doesn't shift the others. Where they can't divide evenly (4 lifts on 3 days) or sessions alternate (Starting Strength), lifts are a **queue** that fills upcoming lifting days. A lift counts as done when it's marked in Program Week *or* a workout since the program week began contains it; "Complete week" records the date (`programs.week_started_on`), and a week finished early moves the next one to the next calendar week. The first version used the queue for everything, which let lifts drift onto the wrong days.
 > - Moving a session is done by changing **what a date is for** (e.g. Wednesday → rest, Thursday → lift), not by dragging an item. The queue follows. Stored in `schedule_overrides`.
 > - "Start" on today's lifts opens Program Week, which already builds the workout with plate-rounded weights. No second copy of that logic.
 > - Planned cardio is a generic "Cardio" item until Phase 2 fills it with race-plan runs, so no `planned_sessions` table yet.
@@ -133,6 +133,7 @@ Intervals: 6 × 800 m
 - Treadmill runs also show speed (mph or km/h).
 
 ### Placement around lifting
+- The **long run is always on the chosen long-run day**, even if the schedule marks it as a lifting or rest day (with a note); other runs are placed around it
 - At most **2 hard runs** (tempo, intervals, race pace) per week, 3 for 5K/10K at 5+ runs a week
 - **No hard run the day before a heavy-legs day**, and preferably not the day after
 - The long run never falls the day before heavy legs; same-day lifting and long run is allowed only on "Both" days

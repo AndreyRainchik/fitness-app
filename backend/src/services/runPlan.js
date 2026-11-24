@@ -343,11 +343,29 @@ function pickSession({ slot, phase, raceKey, weekIndex, history, excludeFamilies
 const RUN_SLOTS = ['cardio', 'both'];
 
 /**
- * Which weekdays (0 = Sunday) to run on: cardio/both days first, then
- * flexible, then lifting days, then rest days, choosing the set that includes
- * the long-run day and spreads runs out most. Returns { weekdays, warnings }.
+ * Which weekdays (0 = Sunday) to run on. The long-run day is always one of
+ * them, whatever the schedule says; the rest come from cardio/both days
+ * first, then flexible, then lifting days, then rest days, choosing the set
+ * that spreads runs out most. Returns { weekdays, warnings }.
  */
 export function chooseRunWeekdays(days, runsPerWeek, longRunWeekday) {
+  const others = chooseOtherWeekdays(days.map((slot, wd) => (wd === longRunWeekday ? null : slot)), runsPerWeek - 1, longRunWeekday);
+  const weekdays = [...others, longRunWeekday].sort((a, b) => a - b);
+
+  const warnings = [];
+  const NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const onLift = weekdays.filter((wd) => wd !== longRunWeekday && days[wd] === 'lift');
+  const onRest = weekdays.filter((wd) => wd !== longRunWeekday && days[wd] === 'rest');
+  if (days[longRunWeekday] === 'lift') warnings.push(`Your long run is on ${NAMES[longRunWeekday]}, a lifting day in your schedule. Keep that day's lifting light, or move the long run.`);
+  if (days[longRunWeekday] === 'rest') warnings.push(`Your long run is on ${NAMES[longRunWeekday]}, a rest day in your schedule.`);
+  if (onLift.length) warnings.push(`Not enough cardio days in your schedule, so some runs are on lifting days (${onLift.map((wd) => NAMES[wd]).join(', ')}).`);
+  if (onRest.length) warnings.push(`Some runs are on rest days (${onRest.map((wd) => NAMES[wd]).join(', ')}). Consider adding cardio days to your schedule.`);
+  return { weekdays, warnings };
+}
+
+/** `count` weekdays from the schedule's slots (null = taken), best tiers first, spread around `anchor`. */
+function chooseOtherWeekdays(days, count, anchor) {
+  if (count <= 0) return [];
   const tiers = [
     (slot) => RUN_SLOTS.includes(slot),
     (slot) => slot === 'flex',
@@ -360,34 +378,25 @@ export function chooseRunWeekdays(days, runsPerWeek, longRunWeekday) {
   // Take whole tiers while they fit, then choose the best days from the next tier
   const fixed = [];
   const lastTier = [];
-  let count = 0;
+  let taken = 0;
   for (const tier of tiers) {
     const tierDays = ordered.filter((wd) => tier(days[wd]));
-    if (count + tierDays.length <= runsPerWeek) {
+    if (taken + tierDays.length <= count) {
       fixed.push(...tierDays);
-      count += tierDays.length;
+      taken += tierDays.length;
     } else {
       lastTier.push(...tierDays);
       break;
     }
   }
-  const need = runsPerWeek - fixed.length;
+  const need = count - fixed.length;
   let best = null;
   for (const combo of combinations(lastTier, need)) {
-    const set = [...fixed, ...combo].sort((a, b) => a - b);
-    const score = (set.includes(longRunWeekday) ? 100 : 0) + spread(set);
+    const set = [...fixed, ...combo];
+    const score = spread([...set, anchor].sort((a, b) => a - b));
     if (!best || score > best.score) best = { set, score };
   }
-  const weekdays = best?.set ?? fixed.sort((a, b) => a - b);
-
-  const warnings = [];
-  const onLift = weekdays.filter((wd) => days[wd] === 'lift');
-  const onRest = weekdays.filter((wd) => days[wd] === 'rest');
-  const NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  if (onLift.length) warnings.push(`Not enough cardio days in your schedule, so some runs are on lifting days (${onLift.map((wd) => NAMES[wd]).join(', ')}).`);
-  if (onRest.length) warnings.push(`Some runs are on rest days (${onRest.map((wd) => NAMES[wd]).join(', ')}). Consider adding cardio days to your schedule.`);
-  if (!weekdays.includes(longRunWeekday)) warnings.push(`${NAMES[longRunWeekday]} isn't one of your run days, so the long run goes on another day.`);
-  return { weekdays, warnings };
+  return best?.set ?? fixed;
 }
 
 function* combinations(list, k, start = 0, prefix = []) {
@@ -421,7 +430,6 @@ export function placeRuns(runs, dates, { heavyLegDates = new Set(), liftDates = 
       const r = runs[i];
       const next = addDays(date, 1);
       const prev = addDays(date, -1);
-      if (r.role === 'long' && longDate && date !== longDate) penalty += 5;
       if (r.hard) {
         if (isHeavy(next)) {
           penalty += r.legStress === 'high' ? 10 : 6;
@@ -447,10 +455,15 @@ export function placeRuns(runs, dates, { heavyLegDates = new Set(), liftDates = 
     return { penalty, problems };
   };
 
+  // The athlete chose the long-run day: the long run stays on it and the other runs move around it
+  const longIndex = runs.findIndex((r) => r.role === 'long');
+  const pinned = longIndex >= 0 && longDate && dates.includes(longDate);
+  const free = pinned ? dates.filter((d) => d !== longDate) : dates;
   let best = null;
-  for (const perm of permutations(dates.slice(0, runs.length))) {
-    const result = score(perm);
-    if (!best || result.penalty < best.penalty) best = { dates: perm, ...result };
+  for (const perm of permutations(free.slice(0, runs.length - (pinned ? 1 : 0)))) {
+    const assignment = pinned ? [...perm.slice(0, longIndex), longDate, ...perm.slice(longIndex)] : perm;
+    const result = score(assignment);
+    if (!best || result.penalty < best.penalty) best = { dates: assignment, ...result };
   }
   return best ?? { dates: [], penalty: 0, problems: [] };
 }
@@ -537,7 +550,7 @@ export function generatePlan(input) {
   // Run days
   const { weekdays, warnings: dayWarnings } = chooseRunWeekdays(days, runsPerWeek, longRunWeekday);
   warnings.push(...dayWarnings);
-  const longWeekday = weekdays.includes(longRunWeekday) ? longRunWeekday : weekdays[weekdays.length - 1];
+  const longWeekday = longRunWeekday;
 
   const history = { lastUsed: new Map(), familyUsed: new Map(), levels: new Map() };
   const ctxBase = { mile: unit === 'mi' ? MILE : 1600, race: raceKey, hasGoal: !!goalPace, race_m: RACE_DISTANCES[raceKey]?.meters };

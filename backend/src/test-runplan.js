@@ -128,6 +128,20 @@ async function unitTests() {
     assert.match(five.warnings[0], /lifting days/);
   });
 
+  await test('the long run is always on the chosen day', () => {
+    // Saturday is the only non-lifting run day: the long run still goes there
+    const liftWeek = ['rest', 'lift', 'lift', 'lift', 'lift', 'lift', 'cardio'];
+    const p = plan({ days: liftWeek, runsPerWeek: 3, longRunWeekday: 6 });
+    const longs = p.weeks.flatMap((w) => w.runs.filter((r) => r.role === 'long'));
+    assert.ok(longs.length > 5);
+    assert.ok(longs.every((r) => weekday(r.date) === 6), longs.map((r) => r.date).join(' '));
+    // A long-run day that's a rest day in the schedule is used anyway, with a note
+    const rested = plan({ days: ['cardio', 'lift', 'cardio', 'lift', 'cardio', 'lift', 'rest'], longRunWeekday: 6 });
+    assert.ok(rested.weekdays.includes(6));
+    assert.ok(rested.weeks.flatMap((w) => w.runs.filter((r) => r.role === 'long')).every((r) => weekday(r.date) === 6));
+    assert.ok(rested.warnings.some((w) => /rest day/.test(w)));
+  });
+
   await test('placement keeps hard running off the day before heavy legs when it can', () => {
     // Dates Sun..Sat of one week; heavy legs on Monday and Friday
     const dates = ['2026-11-22', '2026-11-24', '2026-11-26', '2026-11-28'];

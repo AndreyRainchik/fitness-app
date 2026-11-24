@@ -12,7 +12,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { buildWeek, liftsPerDay, normalizeDays, orderedLifts, slotFor, weekStartFor } from './services/weekPlan.js';
+import {
+  buildWeek, fixedLiftsPerDay, liftsPerDay, normalizeDays, orderedLifts, projectLiftDays, slotFor, weekStartFor,
+} from './services/weekPlan.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let failures = 0;
@@ -31,6 +33,8 @@ async function test(name, fn) {
 const WEEK = '2026-11-22';
 //                Sun     Mon     Tue       Wed     Thu       Fri     Sat
 const DAYS = ['rest', 'lift', 'cardio', 'lift', 'cardio', 'lift', 'both'];
+// Three lifting days for four lifts: they can't have fixed days, so they rotate
+const DAYS3 = ['rest', 'lift', 'cardio', 'lift', 'cardio', 'lift', 'cardio'];
 
 const LIFTS = [
   { exercise_id: 1, exercise_name: 'Barbell Squat', training_max: 300 },
@@ -103,44 +107,59 @@ async function unitTests() {
     assert.equal(day(week, '2026-11-23').planned[0].title, 'Overhead Press');
   });
 
-  await test('done, missed and rolled-forward lifts', () => {
-    // Monday: squat done. Wednesday missed. Today is Thursday.
-    const week = buildWeek({
-      weekStart: WEEK, today: '2026-11-26', days: DAYS, program: program531(),
-      sessions: [lift(10, '2026-11-23', [1]), run(11, '2026-11-24', 8)],
-    });
-    const monday = day(week, '2026-11-23');
-    assert.equal(monday.planned[0].status, 'done');
-    assert.equal(monday.planned[0].title, 'Squat');
-    assert.deepEqual(monday.planned[0].workout_ids, [10]);
-    assert.equal(monday.sessions[0].program[0].name, 'Barbell Squat');
-    assert.equal(monday.sessions[0].program[0].status, null); // not marked in This Week yet
-    assert.equal(day(week, '2026-11-24').planned[0].status, 'done');
-    assert.equal(day(week, '2026-11-25').planned[0].status, 'missed');
-    // Bench moves to Friday, deadlift to Saturday; OHP waits for next week
-    assert.equal(day(week, '2026-11-27').planned[0].title, 'Bench Press');
-    assert.equal(day(week, '2026-11-28').planned[0].title, 'Deadlift');
-    assert.equal(day(week, '2026-11-26').planned[0].status, 'today');
-    assert.deepEqual(week.summary.strength, { planned: 4, done: 1, sessions: 1, duration_s: 3600 });
-    assert.equal(week.summary.cardio.distance_m, 8000);
-    assert.equal(week.summary.missed, 1);
-    assert.equal(week.program.unmarked, 1);
+  console.log('\nFixed lift days (4 lifts on 4 lifting days)');
+
+  // Lift Mon, Tue (+ cardio), Thu, Fri (+ cardio); cardio Wed, Sat; rest Sun
+  const USER = ['rest', 'lift', 'both', 'cardio', 'lift', 'both', 'cardio'];
+
+  await test('each lift keeps its own day; one done early shows as done on its day', () => {
+    assert.equal(fixedLiftsPerDay(program531(), USER), 1);
+    // Bench already done on Sunday; today is Monday
+    const week = buildWeek({ weekStart: WEEK, today: '2026-11-23', days: USER, program: program531(), sessions: [lift(10, WEEK, [2])] });
+    const lifting = week.days.filter((d) => d.planned.some((p) => p.kind === 'strength')).map((d) => [d.weekday, d.planned[0].title, d.planned[0].status]);
+    assert.deepEqual(lifting, [
+      ['Monday', 'Squat', 'today'], ['Tuesday', 'Bench Press', 'done'], ['Thursday', 'Deadlift', 'upcoming'], ['Friday', 'Overhead Press', 'upcoming'],
+    ]);
+    const tuesday = day(week, '2026-11-24').planned[0];
+    assert.equal(tuesday.detail, 'Week 2 · 3s · done Sun');
+    assert.deepEqual(tuesday.workout_ids, [10]);
+    assert.equal(week.program.fixed_days, true);
+    // Next week: the same days, the next program week
+    const next = buildWeek({ weekStart: '2026-11-29', today: '2026-11-23', days: USER, program: program531(), sessions: [lift(10, WEEK, [2])] });
+    assert.equal(day(next, '2026-11-30').planned[0].title, 'Squat');
+    assert.equal(day(next, '2026-11-30').planned[0].detail, 'Week 3 · 5/3/1');
+    assert.equal(day(next, '2026-12-01').planned[0].title, 'Bench Press');
   });
 
-  await test('marked lifts are done even without a workout; the queue moves to next week', () => {
-    const statuses = new Map([[1, 'completed'], [2, 'completed'], [3, 'failed']]);
+  await test('a missed lift stays on its day and doesn\'t move the others', () => {
+    // Today is Thursday; nothing lifted Monday or Tuesday
+    const week = buildWeek({ weekStart: WEEK, today: '2026-11-26', days: USER, program: program531(), sessions: [run(11, '2026-11-25', 8)] });
+    assert.deepEqual(day(week, '2026-11-23').planned.map((p) => [p.title, p.status]), [['Squat', 'missed']]);
+    assert.equal(day(week, '2026-11-24').planned[0].status, 'missed');
+    assert.deepEqual([day(week, '2026-11-26').planned[0].title, day(week, '2026-11-26').planned[0].status], ['Deadlift', 'today']);
+    assert.equal(day(week, '2026-11-27').planned[0].title, 'Overhead Press');
+    assert.equal(week.summary.missed, 3); // squat, bench and Tuesday's cardio
+  });
+
+  await test('a lift done on another day counts for its own day', () => {
+    // Squat done on Tuesday instead of Monday
+    const week = buildWeek({ weekStart: WEEK, today: '2026-11-25', days: USER, program: program531(), sessions: [lift(10, '2026-11-24', [1])] });
+    assert.deepEqual([day(week, '2026-11-23').planned[0].status, day(week, '2026-11-23').planned[0].detail], ['done', 'Week 2 · 3s · done Tue']);
+    assert.equal(day(week, '2026-11-24').planned[0].title, 'Bench Press');
+    assert.equal(day(week, '2026-11-24').planned[0].status, 'missed');
+  });
+
+  await test('marked lifts are done even without a workout', () => {
+    const statuses = new Map([[1, 'completed'], [3, 'failed']]);
     const week = buildWeek({ weekStart: WEEK, today: WEEK, days: DAYS, program: program531({ statuses }) });
-    assert.equal(day(week, '2026-11-23').planned[0].title, 'Overhead Press');
-    const wednesday = day(week, '2026-11-25').planned[0];
-    assert.equal(wednesday.title, 'Squat');
-    assert.equal(wednesday.detail, 'Week 3 · 5/3/1');
-    assert.deepEqual(wednesday.lifts[0].top_set, { weight: 285, reps: 1, amrap: true });
+    assert.equal(day(week, '2026-11-23').planned[0].status, 'done');
+    assert.equal(day(week, '2026-11-25').planned[0].status, 'upcoming');
+    assert.equal(day(week, '2026-11-27').planned[0].status, 'done');
   });
 
   await test('after the deload the next cycle has no weights yet', () => {
     const week = buildWeek({ weekStart: WEEK, today: WEEK, days: DAYS, program: program531({ current_week: 4 }) });
-    const saturday = day(week, '2026-11-28').planned[0];
-    assert.equal(saturday.detail, 'Week 4 · Deload');
+    assert.equal(day(week, '2026-11-28').planned[0].detail, 'Week 4 · Deload');
     const nextWeek = buildWeek({ weekStart: '2026-11-29', today: WEEK, days: DAYS, program: program531({ current_week: 4 }) });
     const monday = day(nextWeek, '2026-11-30').planned[0];
     assert.equal(monday.title, 'Squat');
@@ -148,20 +167,76 @@ async function unitTests() {
     assert.equal(monday.lifts[0].top_set, null);
   });
 
-  await test('a future week continues the queue from today', () => {
-    // Today is Friday with deadlift and OHP left; next week starts with them
-    const statuses = new Map([[1, 'completed'], [2, 'completed']]);
-    const next = buildWeek({ weekStart: '2026-11-29', today: '2026-11-27', days: DAYS, program: program531({ statuses }) });
-    // Friday takes deadlift, Saturday OHP, so next Monday starts week 3
-    assert.equal(day(next, '2026-11-30').planned[0].title, 'Squat');
+  await test('a week finished early: the rest of this week is done, the next week starts next week', () => {
+    // Week 2 was completed on Thursday, so the program is on week 3 from Thursday
+    const program = program531({ current_week: 3, week_started_on: '2026-11-26' });
+    const week = buildWeek({ weekStart: WEEK, today: '2026-11-27', days: USER, program, sessions: [lift(10, '2026-11-26', [3, 4])] });
+    const friday = day(week, '2026-11-27').planned[0];
+    assert.deepEqual([friday.title, friday.status], ['Overhead Press', 'done']);
+    assert.equal(friday.detail, 'Week 2 · 3s');
+    const next = buildWeek({ weekStart: '2026-11-29', today: '2026-11-27', days: USER, program });
     assert.equal(day(next, '2026-11-30').planned[0].detail, 'Week 3 · 5/3/1');
+  });
+
+  await test('the run planner sees the same fixed days', () => {
+    const projection = projectLiftDays({ from: '2026-11-23', until: '2026-12-31', days: USER, program: program531(), today: '2026-11-23' });
+    const heavy = projection.days.filter((d) => d.heavy_legs).map((d) => new Date(`${d.date}T00:00:00Z`).getUTCDay());
+    assert.ok(heavy.every((wd) => wd === 1 || wd === 4), `heavy legs on ${heavy}`);
+    assert.equal(projection.days.filter((d) => d.date <= '2026-11-29').length, 4);
+    // Program week 4 (the deload) lands two weeks after this one
+    assert.deepEqual([...projection.deloadWeekStarts], ['2026-12-06']);
+  });
+
+  console.log('\nQueue (4 lifts on 3 lifting days)');
+
+  await test('done, missed and rolled-forward lifts', () => {
+    assert.equal(fixedLiftsPerDay(program531(), DAYS3), null);
+    // Monday: squat done. Wednesday missed. Today is Thursday.
+    const week = buildWeek({
+      weekStart: WEEK, today: '2026-11-26', days: DAYS3, program: program531(),
+      sessions: [lift(10, '2026-11-23', [1]), run(11, '2026-11-24', 8)],
+    });
+    const monday = day(week, '2026-11-23');
+    assert.equal(monday.planned[0].status, 'done');
+    assert.equal(monday.planned[0].title, 'Squat');
+    assert.deepEqual(monday.planned[0].workout_ids, [10]);
+    assert.equal(monday.sessions[0].program[0].name, 'Barbell Squat');
+    assert.equal(monday.sessions[0].program[0].status, null); // not marked in Program Week yet
+    assert.equal(day(week, '2026-11-24').planned[0].status, 'done');
+    assert.equal(day(week, '2026-11-25').planned[0].status, 'missed');
+    // Bench moves to Friday
+    assert.equal(day(week, '2026-11-27').planned[0].title, 'Bench Press');
+    assert.deepEqual(week.summary.strength, { planned: 3, done: 1, sessions: 1, duration_s: 3600 });
+    assert.equal(week.summary.cardio.distance_m, 8000);
+    assert.equal(week.summary.missed, 1);
+    assert.equal(week.program.unmarked, 1);
+    assert.equal(week.program.fixed_days, false);
+  });
+
+  await test('marked lifts are done; the queue moves on to next week\'s lifts', () => {
+    const statuses = new Map([[1, 'completed'], [2, 'completed'], [3, 'failed']]);
+    const week = buildWeek({ weekStart: WEEK, today: WEEK, days: DAYS3, program: program531({ statuses }) });
+    assert.equal(day(week, '2026-11-23').planned[0].title, 'Overhead Press');
+    const wednesday = day(week, '2026-11-25').planned[0];
+    assert.equal(wednesday.title, 'Squat');
+    assert.equal(wednesday.detail, 'Week 3 · 5/3/1');
+    assert.deepEqual(wednesday.lifts[0].top_set, { weight: 285, reps: 1, amrap: true });
+  });
+
+  await test('a future week continues the queue from today', () => {
+    // Today is Friday with deadlift and OHP left: Friday takes deadlift, next Monday OHP
+    const statuses = new Map([[1, 'completed'], [2, 'completed']]);
+    const next = buildWeek({ weekStart: '2026-11-29', today: '2026-11-27', days: DAYS3, program: program531({ statuses }) });
+    assert.equal(day(next, '2026-11-30').planned[0].title, 'Overhead Press');
+    assert.equal(day(next, '2026-12-02').planned[0].title, 'Squat');
+    assert.equal(day(next, '2026-12-02').planned[0].detail, 'Week 3 · 5/3/1');
     assert.equal(day(next, '2026-11-30').planned[0].status, 'upcoming');
   });
 
   await test('lifts from before the program week began do not count', () => {
     // Week 2 began Monday (after Monday's session finished week 1); Tuesday's squat counts, Monday's bench doesn't
     const week = buildWeek({
-      weekStart: WEEK, today: '2026-11-26', days: DAYS,
+      weekStart: WEEK, today: '2026-11-26', days: DAYS3,
       program: program531({ week_started_on: '2026-11-23' }),
       sessions: [lift(10, '2026-11-23', [2]), lift(11, '2026-11-24', [1])],
     });
@@ -173,7 +248,7 @@ async function unitTests() {
 
   await test('a lifting day done today takes nothing from the queue', () => {
     const week = buildWeek({
-      weekStart: WEEK, today: '2026-11-23', days: DAYS, program: program531(),
+      weekStart: WEEK, today: '2026-11-23', days: DAYS3, program: program531(),
       sessions: [lift(10, '2026-11-23', [1])],
     });
     assert.equal(day(week, '2026-11-23').planned[0].status, 'done');
@@ -369,12 +444,15 @@ async function apiTests() {
     await test('completing a program week records when the next one began', async () => {
       const a = await call('POST', `/programs/${programId}/advance-week`, { localDate: '2026-11-25' });
       assert.equal(a.status, 200, JSON.stringify(a.body));
-      // Monday's OHP was week 1's, so week 2's OHP is still to do
+      // Week 1 was finished on Wednesday: this week's lifting days show it done,
+      // and week 2 starts next week on the same days
       const r = await call('GET', '/week?localDate=2026-11-25');
       assert.equal(r.body.program.position, 'Week 2 · Cycle 1');
       assert.equal(r.body.days[1].sessions[0].program.length, 0);
-      assert.equal(r.body.days[3].planned[0].title, 'Overhead Press');
-      assert.equal(r.body.days[3].planned[0].detail, 'Week 2 · 3s');
+      assert.deepEqual([r.body.days[3].planned[0].title, r.body.days[3].planned[0].status], ['Squat', 'done']);
+      const next = await call('GET', '/week?start=2026-11-29&localDate=2026-11-25');
+      assert.equal(next.body.days[1].planned[0].title, 'Overhead Press');
+      assert.equal(next.body.days[1].planned[0].detail, 'Week 2 · 3s');
     });
 
     await test('other weeks', async () => {

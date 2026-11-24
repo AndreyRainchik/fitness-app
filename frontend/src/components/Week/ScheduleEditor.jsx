@@ -70,6 +70,9 @@ function ScheduleEditor({ open, onClose, onSaved }) {
   const liftDays = days.filter((s) => s === 'lift' || s === 'both').length;
   const perDay = liftDays ? Math.max(1, Math.round(lifts.length / liftDays)) : 1;
   const nameOf = new Map(lifts.map((l) => [l.exercise_id, l.name]));
+  // 5/3/1 lifts keep fixed days when they divide evenly over the lifting days (as in the week view)
+  const fixedDays = liftDays > 0 && perDay * liftDays === order.length;
+  const liftWeekdays = DISPLAY_ORDER.filter((wd) => days[wd] === 'lift' || days[wd] === 'both');
 
   return (
     <Modal
@@ -130,14 +133,20 @@ function ScheduleEditor({ open, onClose, onSaved }) {
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Lift order</h3>
               <p className="mb-3 text-sm text-gray-500">
-                {program.name}&apos;s lifts fill your {liftDays || 'no'} lifting day{liftDays === 1 ? '' : 's'} in this order,
-                {' '}{perDay} per day. A missed day moves its lift to the next lifting day.
+                {fixedDays
+                  ? <>Each lift has its own day, every week. A lift done early or on another day still counts; a missed one stays on its day.</>
+                  : <>{program.name}&apos;s {order.length} lifts don&apos;t divide evenly over {liftDays || 'no'} lifting day{liftDays === 1 ? '' : 's'}, so they rotate in this order, {perDay} per day. A missed day moves its lift to the next lifting day.</>}
               </p>
               <ol className="space-y-1.5">
                 {order.map((id, i) => (
                   <li key={id} className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-1.5">
                     <span className="w-5 text-sm font-semibold text-gray-400">{i + 1}</span>
-                    <span className="flex-1 text-sm font-medium text-gray-800">{shortName(nameOf.get(id))}</span>
+                    <span className="flex-1 text-sm font-medium text-gray-800">
+                      {shortName(nameOf.get(id))}
+                      {fixedDays && liftWeekdays[Math.floor(i / perDay)] != null && (
+                        <span className="ml-2 font-normal text-gray-500">{WEEKDAYS[liftWeekdays[Math.floor(i / perDay)]]}</span>
+                      )}
+                    </span>
                     <Button variant="ghost" size="sm" iconOnly icon={ArrowUp} aria-label={`Move ${shortName(nameOf.get(id))} up`} disabled={i === 0} onClick={() => move(i, -1)} />
                     <Button variant="ghost" size="sm" iconOnly icon={ArrowDown} aria-label={`Move ${shortName(nameOf.get(id))} down`} disabled={i === order.length - 1} onClick={() => move(i, 1)} />
                   </li>
