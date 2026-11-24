@@ -574,7 +574,6 @@ const CurrentWeek = () => {
           >
             <SkipForward className="h-4 w-4" />
             Skip this week
-            <span className="font-normal text-gray-400">· {workout?.program_type === '531' ? 'training max' : 'weight'} stays the same</span>
           </button>
         )}
 
