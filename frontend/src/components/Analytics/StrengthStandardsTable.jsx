@@ -1,278 +1,109 @@
 import React from 'react';
+import { Badge, Card, CardHeader } from '../ui';
+import { formatNumber } from '../../utils/format';
+import StrengthScoreCard, { LevelProgressBar } from './StrengthScoreCard';
+import { LEVEL_TONES } from '../../utils/analytics';
+
+const LIFTS = [
+  { key: 'squat', name: 'Squat' },
+  { key: 'bench', name: 'Bench press' },
+  { key: 'deadlift', name: 'Deadlift' },
+  { key: 'ohp', name: 'Overhead press' },
+];
+
+const HEADER = 'px-4 py-3 text-left lg:px-6 text-xs font-medium uppercase tracking-wider text-gray-500';
 
 /**
- * StrengthStandardsTable
- * 
- * Displays a comprehensive table showing:
- * - All main lifts
- * - Current 1RM vs standard levels
- * - Visual progress indicators
- * - Percentile rankings
+ * Analytics > Standards: each main lift's estimated 1RM against population
+ * standards, its percentile, and progress to the next level. A table on
+ * wide screens, one card per lift on phones. Weights are in `units`.
  */
-function StrengthStandardsTable({ strengthData }) {
+function StrengthStandardsTable({ strengthData, units = 'lbs' }) {
   if (!strengthData) {
     return (
-      <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Strength Standards</h3>
-        <div className="text-center text-gray-500 py-8">
-          <p>No strength data available</p>
-        </div>
-      </div>
+      <Card>
+        <CardHeader title="Strength standards" />
+        <p className="py-8 text-center text-gray-500">No strength data available</p>
+      </Card>
     );
   }
 
-  const lifts = [
-    { key: 'squat', name: 'Squat', icon: '🏋️' },
-    { key: 'bench', name: 'Bench Press', icon: '💪' },
-    { key: 'deadlift', name: 'Deadlift', icon: '⚡' },
-    { key: 'ohp', name: 'Overhead Press', icon: '🎯' },
-  ];
-
-  // Standard levels for progression
-  const standards = ['Untrained', 'Beginner', 'Novice', 'Intermediate', 'Advanced', 'Elite'];
-
-  // Get color for standard level
-  const getStandardColor = (standard) => {
-    const colors = {
-      'Elite': 'bg-purple-600',
-      'Advanced': 'bg-danger-600',
-      'Intermediate': 'bg-orange-600',
-      'Novice': 'bg-yellow-600',
-      'Beginner': 'bg-success-600',
-      'Untrained': 'bg-gray-400',
-    };
-    return colors[standard] || 'bg-gray-400';
-  };
-
-  // Calculate level index for progress bar
-  const getLevelIndex = (standard) => {
-    return standards.indexOf(standard);
-  };
-
   return (
-    <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card overflow-hidden">
-      {/* Header */}
-      <div className="p-4 md:p-6 border-b border-gray-200">
-        <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
-          Strength Standards
-        </h3>
-        <p className="text-sm text-gray-600">
-          Your current lifts compared to population standards
-        </p>
-      </div>
+    <div className="space-y-4">
+      <Card padding="p-0" className="overflow-hidden">
+        <div className="p-4 md:border-b md:border-gray-200 md:p-6">
+          <h3 className="text-xl font-bold text-gray-900 md:text-2xl">Strength standards</h3>
+          <p className="mt-1 text-sm text-gray-600">Your best lifts in this range compared with population standards</p>
+        </div>
 
-      {/* Desktop Table View */}
-      <div className="hidden md:block overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Lift
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Current 1RM
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Standard
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Percentile
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Next Level
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Progress
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-surface divide-y divide-gray-200">
-            {lifts.map((lift) => {
-              const data = strengthData[lift.key];
-              if (!data || data.estimated1RM === 0) {
+        {/* Wide screens: table */}
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className={HEADER}>Lift</th>
+                <th className={HEADER}>Est. 1RM</th>
+                <th className={HEADER}>Standard</th>
+                <th className={`${HEADER} w-full`}>Progress to next level</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 bg-surface">
+              {LIFTS.map((lift) => {
+                const data = strengthData[lift.key];
+                if (!data || data.estimated1RM === 0) {
+                  return (
+                    <tr key={lift.key}>
+                      <td className="whitespace-nowrap px-4 py-4 lg:px-6 text-sm font-medium text-gray-900">{lift.name}</td>
+                      <td colSpan="3" className="px-4 py-4 lg:px-6 text-sm text-gray-500">No data in this range</td>
+                    </tr>
+                  );
+                }
                 return (
                   <tr key={lift.key} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <span className="text-2xl mr-3">{lift.icon}</span>
-                        <span className="text-sm font-medium text-gray-900">{lift.name}</span>
-                      </div>
+                    <td className="whitespace-nowrap px-4 py-4 lg:px-6 text-sm font-medium text-gray-900">{lift.name}</td>
+                    <td className="tabular whitespace-nowrap px-4 py-4 lg:px-6 text-sm font-bold text-gray-900">
+                      {formatNumber(data.estimated1RM, 1)} <span className="font-medium text-gray-500">{units}</span>
                     </td>
-                    <td colSpan="5" className="px-6 py-4 text-sm text-gray-500">
-                      No data available
+                    <td className="whitespace-nowrap px-4 py-4 lg:px-6">
+                      <Badge tone={LEVEL_TONES[data.standard] ?? 'neutral'}>{data.standard}</Badge>
+                      <p className="tabular mt-1 text-xs text-gray-500">{data.percentile}th percentile</p>
+                    </td>
+                    <td className="px-4 py-4 lg:px-6">
+                      <div className="min-w-[12rem]">
+                        <LevelProgressBar lift={data} units={units} />
+                      </div>
                     </td>
                   </tr>
                 );
-              }
+              })}
+            </tbody>
+          </table>
+        </div>
 
-              const levelIndex = getLevelIndex(data.standard);
-              const progressWidth = ((levelIndex + 1) / standards.length) * 100;
-
-              return (
-                <tr key={lift.key} className="hover:bg-gray-50">
-                  {/* Lift Name */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <span className="text-2xl mr-3">{lift.icon}</span>
-                      <span className="text-sm font-medium text-gray-900">{lift.name}</span>
-                    </div>
-                  </td>
-
-                  {/* Current 1RM */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-bold text-gray-900">
-                      {data.estimated1RM} lbs
-                    </div>
-                  </td>
-
-                  {/* Standard */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                      data.standard === 'Elite' ? 'bg-purple-100 text-purple-800' :
-                      data.standard === 'Advanced' ? 'bg-danger-100 text-danger-800' :
-                      data.standard === 'Intermediate' ? 'bg-orange-100 text-orange-800' :
-                      data.standard === 'Novice' ? 'bg-yellow-100 text-yellow-800' :
-                      data.standard === 'Beginner' ? 'bg-success-100 text-success-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {data.standard}
-                    </span>
-                  </td>
-
-                  {/* Percentile */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 font-medium">
-                      {data.percentile}th
-                    </div>
-                  </td>
-
-                  {/* Next Level */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {data.nextLevel ? (
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {data.nextLevel.level}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          @ {data.nextLevel.weight} lbs
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-gray-500">Max level</span>
-                    )}
-                  </td>
-
-                  {/* Progress Bar */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="w-32">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full transition-all duration-500 ${getStandardColor(data.standard)}`}
-                            style={{ width: `${progressWidth}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-gray-600 font-medium">
-                          {levelIndex + 1}/{standards.length}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Mobile Card View */}
-      <div className="md:hidden divide-y divide-gray-200">
-        {lifts.map((lift) => {
-          const data = strengthData[lift.key];
-          if (!data || data.estimated1RM === 0) {
-            return (
-              <div key={lift.key} className="p-4 bg-gray-50">
-                <div className="flex items-center mb-2">
-                  <span className="text-2xl mr-3">{lift.icon}</span>
-                  <span className="text-sm font-medium text-gray-900">{lift.name}</span>
-                </div>
-                <p className="text-sm text-gray-500">No data available</p>
-              </div>
-            );
-          }
-
-          const levelIndex = getLevelIndex(data.standard);
-          const progressWidth = ((levelIndex + 1) / standards.length) * 100;
-
-          return (
-            <div key={lift.key} className="p-4">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center">
-                  <span className="text-2xl mr-3">{lift.icon}</span>
-                  <span className="text-sm font-medium text-gray-900">{lift.name}</span>
-                </div>
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                  data.standard === 'Elite' ? 'bg-purple-100 text-purple-800' :
-                  data.standard === 'Advanced' ? 'bg-danger-100 text-danger-800' :
-                  data.standard === 'Intermediate' ? 'bg-orange-100 text-orange-800' :
-                  data.standard === 'Novice' ? 'bg-yellow-100 text-yellow-800' :
-                  data.standard === 'Beginner' ? 'bg-success-100 text-success-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {data.standard}
-                </span>
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                  <p className="text-xs text-gray-600">Current 1RM</p>
-                  <p className="text-lg font-bold text-gray-900">{data.estimated1RM} lbs</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-600">Percentile</p>
-                  <p className="text-lg font-bold text-gray-900">{data.percentile}th</p>
-                </div>
-              </div>
-
-              {/* Next Level */}
-              {data.nextLevel && (
-                <div className="mb-3">
-                  <p className="text-xs text-gray-600 mb-1">
-                    Next: {data.nextLevel.level} @ {data.nextLevel.weight} lbs
-                  </p>
-                </div>
-              )}
-
-              {/* Progress */}
-              <div className="bg-gray-200 rounded-full h-2">
-                <div
-                  className={`h-2 rounded-full transition-all duration-500 ${getStandardColor(data.standard)}`}
-                  style={{ width: `${progressWidth}%` }}
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1 text-right">
-                Level {levelIndex + 1} of {standards.length}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Footer with Total */}
-      {strengthData.total > 0 && (
-        <div className="p-4 md:p-6 bg-gray-50 border-t border-gray-200">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-gray-700">
-              Powerlifting total
-            </span>
+        {strengthData.total > 0 && (
+          <div className="hidden items-center justify-between border-t border-gray-200 bg-gray-50 p-4 md:flex md:p-6">
+            <span className="text-sm font-medium text-gray-700">Powerlifting total</span>
             <span className="tabular whitespace-nowrap text-xl font-bold text-primary-600 md:text-2xl">
-              {strengthData.total} lbs
+              {formatNumber(strengthData.total, 1)} {units}
             </span>
           </div>
-        </div>
-      )}
+        )}
+      </Card>
+
+      {/* Phones: one card per lift */}
+      <div className="grid gap-3 md:hidden">
+        {LIFTS.map((lift) => (
+          <StrengthScoreCard key={lift.key} title={lift.name} lift={strengthData[lift.key]} units={units} />
+        ))}
+        {strengthData.total > 0 && (
+          <Card padding="p-4" className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700">Powerlifting total</span>
+            <span className="tabular whitespace-nowrap text-xl font-bold text-primary-600">
+              {formatNumber(strengthData.total, 1)} {units}
+            </span>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

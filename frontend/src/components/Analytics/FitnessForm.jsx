@@ -6,16 +6,11 @@ import { AlertTriangle, BatteryMedium, Gauge, TrendingUp } from 'lucide-react';
 import { cardioAPI } from '../../services/api';
 import { Badge, Button, Card, CardHeader, EmptyState, Skeleton } from '../ui';
 import { chartColors, formatDate, formatNumber } from '../../utils/format';
+import { FORM_STATUS } from '../../utils/analytics';
 
 const FITNESS = 'var(--load-fitness)';
 const FATIGUE = 'var(--load-fatigue)';
 
-const FORM_STATUS = {
-  fresh: { label: 'Fresh', tone: 'success', text: 'Rested. A good time to race or test yourself.' },
-  neutral: { label: 'Neutral', tone: 'neutral', text: 'Training and recovery are balanced; fitness is holding.' },
-  productive: { label: 'Productive', tone: 'primary', text: 'Building fitness, with fatigue in a healthy range.' },
-  overreaching: { label: 'Overreaching', tone: 'danger', text: 'Fatigue is high. Plan a few easier days.' },
-};
 
 // Acute:chronic ratio above this, with some fitness built, is a load spike
 const SPIKE_RATIO = 1.5;

@@ -9,7 +9,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
  * - Wilks score (optional)
  * - Data points with tooltips
  */
-function LiftProgressionChart({ data, exerciseName }) {
+function LiftProgressionChart({ data, exerciseName, units = 'lbs' }) {
   if (!data || data.length === 0) {
     return (
       <div className="bg-surface rounded-2xl border border-gray-200/80 shadow-card p-4 sm:p-6">
@@ -58,7 +58,7 @@ function LiftProgressionChart({ data, exerciseName }) {
           </p>
           <div className="space-y-1">
             <p className="text-sm text-gray-700">
-              <span className="font-medium">1RM:</span> {data.estimated1RM} lbs
+              <span className="font-medium">1RM:</span> {data.estimated1RM} {units}
             </p>
             <p className="text-sm text-gray-700">
               <span className="font-medium">Best Set:</span> {data.weight} × {data.reps}
@@ -103,7 +103,7 @@ function LiftProgressionChart({ data, exerciseName }) {
           <p className="text-lg md:text-2xl font-bold text-primary-600">
             {latestValue.estimated1RM}
           </p>
-          <p className="text-xs text-gray-500">lbs</p>
+          <p className="text-xs text-gray-500">{units}</p>
         </div>
         <div className="text-center p-2 md:p-3 bg-success-50 rounded-lg">
           <p className="text-xs md:text-sm text-gray-600 mb-1">Improved</p>

@@ -11,6 +11,12 @@ import {
   calculateSymmetryScore,
   getBestWorkingSet
 } from '../utils/strengthCalculations.js';
+import {
+  MAIN_LIFTS, findPRs, liftChange, muscleGroupSets, overviewFlags, overviewWindows, runningChange,
+  summarizePRs, totals, trainingSummary,
+} from '../services/strengthOverview.js';
+import { Cardio } from '../models/index.js';
+import { BestEfforts } from '../models/Analysis.js';
 
 const router = express.Router();
 
@@ -19,6 +25,11 @@ const router = express.Router();
  */
 function convertToLbs(weight, units) {
   return units === 'kg' ? weight * 2.20462 : weight;
+}
+
+/** Pounds to the given units. */
+function fromLbs(weight, units) {
+  return units === 'kg' ? weight / 2.20462 : weight;
 }
 
 /**
@@ -52,7 +63,7 @@ function getUserBodyweight(userId) {
   const bodyweightLog = get(
     `SELECT weight, units FROM bodyweight_logs 
      WHERE user_id = ? 
-     ORDER BY date DESC LIMIT 1`,
+     ORDER BY date DESC, id DESC LIMIT 1`,
     [userId]
   );
   
@@ -73,6 +84,40 @@ function getUserBodyweight(userId) {
     weight: user.bodyweight || 0,
     units: user.units || 'lbs'
   };
+}
+
+/**
+ * The user's today (the client's localDate when it's a valid YYYY-MM-DD,
+ * else the server's UTC date) and the first day of the last `weeks` weeks.
+ * weeks is clamped to 4–52, the range the app offers.
+ */
+function dateRange(req) {
+  const localDate = req.query.localDate || '';
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(localDate) && !Number.isNaN(Date.parse(`${localDate}T00:00:00Z`));
+  const endDateStr = valid ? localDate : new Date().toISOString().slice(0, 10);
+  const weeks = Math.min(Math.max(parseInt(req.query.weeks) || 12, 4), 52);
+  const start = new Date(`${endDateStr}T00:00:00Z`);
+  start.setUTCDate(start.getUTCDate() - weeks * 7);
+  return { weeks, endDateStr, startDateStr: start.toISOString().slice(0, 10) };
+}
+
+/** Sex for the formulas: 'F', or 'M' (also when not set). */
+const formulaSex = (sex) => (sex === 'F' ? 'F' : 'M');
+
+/**
+ * Bodyweight in pounds on a date: the latest weigh-in on or before it, else
+ * the earliest weigh-in after it, else the profile bodyweight (0 if none).
+ */
+function bodyweightLbsOn(userId, date, profile) {
+  const log = get(
+    'SELECT weight, units FROM bodyweight_logs WHERE user_id = ? AND date <= ? ORDER BY date DESC, id DESC LIMIT 1',
+    [userId, date]
+  ) || get(
+    'SELECT weight, units FROM bodyweight_logs WHERE user_id = ? AND date > ? ORDER BY date ASC, id ASC LIMIT 1',
+    [userId, date]
+  );
+  if (log) return convertToLbs(log.weight, log.units);
+  return convertToLbs(profile.bodyweight || 0, profile.units);
 }
 
 /**
@@ -97,8 +142,8 @@ function getUserBodyweight(userId) {
 router.get('/lift-progression/:exerciseName', authenticateToken, (req, res) => {
   try {
     const { exerciseName } = req.params;
-    const weeks = parseInt(req.query.weeks) || 12;
     const userId = req.user.id;
+    const { weeks, startDateStr, endDateStr } = dateRange(req);
 
     // Get exercise ID
     const exerciseId = getExerciseIdByName(exerciseName);
@@ -108,36 +153,25 @@ router.get('/lift-progression/:exerciseName', authenticateToken, (req, res) => {
       });
     }
 
-    // Calculate date range. Use the client-supplied local date when available
-    // so the range reflects the user's calendar day rather than the server's UTC date.
-    const endDateStr = req.query.localDate || new Date().toISOString().split('T')[0];
-    const endDate = new Date(endDateStr + 'T12:00:00');
-    const startDate = new Date(endDate);
-    startDate.setDate(startDate.getDate() - (weeks * 7));
-    const startDateStr = startDate.toISOString().split('T')[0];
-    
-    // Get user info for Wilks and standards
-    const user = get('SELECT sex, units FROM users WHERE id = ?', [userId]);
-    const bodyweightData = getUserBodyweight(userId);
-    const bodyweightLbs = convertToLbs(bodyweightData.weight, bodyweightData.units);
-    const bodyweightKg = bodyweightData.units === 'kg' ? 
-      bodyweightData.weight : 
-      bodyweightData.weight / 2.20462;
-    
-    // Get all workouts with sets for this exercise in date range
+    // Sets are logged in the user's units; Wilks wants kg and the standards pounds
+    const user = get('SELECT sex, units, bodyweight FROM users WHERE id = ?', [userId]);
+    const units = user.units === 'kg' ? 'kg' : 'lbs';
+    const sex = formulaSex(user.sex);
+
+    // Working sets that count toward a 1RM (no failed or empty sets)
     const workoutSets = all(
       `SELECT 
         w.id as workout_id,
         w.date,
-        s.id as set_id,
         s.weight,
-        s.reps,
-        s.is_warmup
+        s.reps
        FROM workouts w
        JOIN sets s ON w.id = s.workout_id
        WHERE w.user_id = ? 
          AND s.exercise_id = ?
          AND s.is_warmup = 0
+         AND s.reps > 0
+         AND s.weight > 0
          AND w.date >= ? 
          AND w.date <= ?
        ORDER BY w.date ASC, s.id ASC`,
@@ -147,6 +181,7 @@ router.get('/lift-progression/:exerciseName', authenticateToken, (req, res) => {
     if (workoutSets.length === 0) {
       return res.json({ 
         progression: [],
+        units,
         message: `No data found for ${exerciseName} in the last ${weeks} weeks`
       });
     }
@@ -166,42 +201,38 @@ router.get('/lift-progression/:exerciseName', authenticateToken, (req, res) => {
       });
     });
     
-    // Calculate progression data for each workout
+    // One point per workout, judged against the bodyweight at the time
+    const bodyweightByDate = new Map();
     const progression = [];
-    workoutMap.forEach((workout, workoutId) => {
-      // Get best set from this workout
+    workoutMap.forEach((workout) => {
       const bestSet = getBestWorkingSet(workout.sets);
-      
-      if (bestSet) {
-        const estimated1RM = estimate1RM(bestSet.weight, bestSet.reps);
-        
-        // Calculate Wilks score
-        const estimated1RMKg = estimated1RM / 2.20462;
-        const wilksScore = calculateWilks(estimated1RMKg, bodyweightKg, user.sex || 'M');
-        
-        // Get strength standard
-        const standard = getStrengthStandard(
-          exerciseName,
-          bodyweightLbs,
-          user.sex || 'M',
-          estimated1RM
-        );
-        
-        progression.push({
-          date: workout.date,
-          estimated1RM: Math.round(estimated1RM * 10) / 10,
-          weight: bestSet.weight,
-          reps: bestSet.reps,
-          wilksScore: Math.round(wilksScore * 10) / 10,
-          standard: standard.level,
-          percentile: standard.percentile
-        });
+      if (!bestSet) return;
+
+      if (!bodyweightByDate.has(workout.date)) {
+        bodyweightByDate.set(workout.date, bodyweightLbsOn(userId, workout.date, user));
       }
+      const bodyweightLbs = bodyweightByDate.get(workout.date);
+      const estimated1RM = estimate1RM(bestSet.weight, bestSet.reps);
+      const estimated1RMLbs = convertToLbs(estimated1RM, units);
+
+      const wilksScore = calculateWilks(estimated1RMLbs / 2.20462, bodyweightLbs / 2.20462, sex);
+      const standard = getStrengthStandard(exerciseName, bodyweightLbs, sex, estimated1RMLbs);
+
+      progression.push({
+        date: workout.date,
+        estimated1RM: Math.round(estimated1RM * 10) / 10,
+        weight: bestSet.weight,
+        reps: bestSet.reps,
+        wilksScore: Math.round(wilksScore * 10) / 10,
+        standard: standard.level,
+        percentile: standard.percentile
+      });
     });
     
     res.json({ 
       progression,
       exerciseName,
+      units,
       weeks,
       dataPoints: progression.length
     });
@@ -233,23 +264,14 @@ router.get('/lift-progression/:exerciseName', authenticateToken, (req, res) => {
  */
 router.get('/strength-score', authenticateToken, (req, res) => {
   try {
-    const weeks = parseInt(req.query.weeks) || 12;
     const userId = req.user.id;
-
-    // Calculate date range. Use the client-supplied local date when available.
-    const endDateStr = req.query.localDate || new Date().toISOString().split('T')[0];
-    const endDate = new Date(endDateStr + 'T12:00:00');
-    const startDate = new Date(endDate);
-    startDate.setDate(startDate.getDate() - (weeks * 7));
-    const startDateStr = startDate.toISOString().split('T')[0];
+    const { weeks, startDateStr, endDateStr } = dateRange(req);
     
     // Get user info
     const user = get('SELECT sex, units FROM users WHERE id = ?', [userId]);
+    const units = user.units === 'kg' ? 'kg' : 'lbs';
     const bodyweightData = getUserBodyweight(userId);
     const bodyweightLbs = convertToLbs(bodyweightData.weight, bodyweightData.units);
-    const bodyweightKg = bodyweightData.units === 'kg' ? 
-      bodyweightData.weight : 
-      bodyweightData.weight / 2.20462;
     
     // Main lifts to analyze
     const mainLifts = [
@@ -315,19 +337,24 @@ router.get('/strength-score', authenticateToken, (req, res) => {
       });
       
       if (bestSet) {
+        // Sets are logged in the user's units; the standards are in pounds
         const estimated1RM = estimate1RM(bestSet.weight, bestSet.reps);
         const standard = getStrengthStandard(
           lift.name,
           bodyweightLbs,
-          user.sex || 'M',
-          estimated1RM
+          formulaSex(user.sex),
+          convertToLbs(estimated1RM, units)
         );
+        const nextLevel = standard.nextLevel && {
+          level: standard.nextLevel.level,
+          weight: Math.round(fromLbs(standard.nextLevel.weight, units) * 10) / 10,
+        };
         
         strengthScore[lift.key] = {
           estimated1RM: Math.round(estimated1RM * 10) / 10,
           standard: standard.level,
           percentile: standard.percentile,
-          nextLevel: standard.nextLevel,
+          nextLevel,
           recentPR: {
             weight: bestSet.weight,
             reps: bestSet.reps,
@@ -346,6 +373,7 @@ router.get('/strength-score', authenticateToken, (req, res) => {
     res.json({
       ...strengthScore,
       total: Math.round(total * 10) / 10,
+      units,
       weeks,
       bodyweight: {
         value: bodyweightData.weight,
@@ -386,22 +414,15 @@ router.get('/strength-score', authenticateToken, (req, res) => {
 router.get('/symmetry', authenticateToken, (req, res) => {
   try {
     const userId = req.user.id;
-    const weeks = parseInt(req.query.weeks) || 12;
+    const { weeks, startDateStr, endDateStr } = dateRange(req);
 
-    // Calculate date range. Use the client-supplied local date when available
-    // so the range reflects the user's calendar day rather than the server's UTC date.
-    const endDateStr = req.query.localDate || new Date().toISOString().split('T')[0];
-    const endDate = new Date(endDateStr + 'T12:00:00');
-    const startDate = new Date(endDate);
-    startDate.setDate(startDate.getDate() - (weeks * 7));
-    const startDateStr = startDate.toISOString().split('T')[0];
-
-    // Get user info
+    // Sets are logged in the user's units; the strength scores want pounds
     const user = get('SELECT sex, units FROM users WHERE id = ?', [userId]);
+    const units = user.units === 'kg' ? 'kg' : 'lbs';
+    const sex = formulaSex(user.sex);
     const bodyweightData = getUserBodyweight(userId);
     const bodyweightLbs = convertToLbs(bodyweightData.weight, bodyweightData.units);
 
-    // Get latest estimated 1RMs for all main lifts
     const mainLifts = [
       { name: 'Barbell Squat', key: 'squat' },
       { name: 'Barbell Bench Press', key: 'bench' },
@@ -409,36 +430,25 @@ router.get('/symmetry', authenticateToken, (req, res) => {
       { name: 'Barbell Overhead Press', key: 'ohp' }
     ];
 
+    // Best estimated 1RM of each lift in the range, in pounds
     const lifts = {};
-
     mainLifts.forEach(lift => {
       const exerciseId = getExerciseIdByName(lift.name);
-
-      if (!exerciseId) {
-        lifts[lift.key] = 0;
-        return;
-      }
-
-      // Get best set within the selected timeframe
-      const bestSet = get(
+      const sets = exerciseId ? all(
         `SELECT s.weight, s.reps
          FROM sets s
          JOIN workouts w ON s.workout_id = w.id
          WHERE w.user_id = ?
            AND s.exercise_id = ?
            AND s.is_warmup = 0
+           AND s.reps > 0
+           AND s.weight > 0
            AND w.date >= ?
-           AND w.date <= ?
-         ORDER BY s.weight DESC, s.reps DESC
-         LIMIT 1`,
+           AND w.date <= ?`,
         [userId, exerciseId, startDateStr, endDateStr]
-      );
-
-      if (bestSet) {
-        lifts[lift.key] = Math.round(estimate1RM(bestSet.weight, bestSet.reps) * 10) / 10;
-      } else {
-        lifts[lift.key] = 0;
-      }
+      ) : [];
+      const best = getBestWorkingSet(sets);
+      lifts[lift.key] = best ? Math.round(convertToLbs(best.estimated1RM, units) * 10) / 10 : 0;
     });
     
     // Calculate ratios
@@ -447,9 +457,9 @@ router.get('/symmetry', authenticateToken, (req, res) => {
     // Detect imbalances
     const imbalances = detectImbalances(ratios, lifts);
     
-    // Calculate overall symmetry score
-    //const overallScore = calculateSymmetryScore(ratios);
-    const overallScore = calculateSymmetryScore(lifts, user.sex, bodyweightLbs)
+    // Overall symmetry score: how evenly the lifts imply the same strength
+    const overallScore = calculateSymmetryScore(lifts, sex, bodyweightLbs);
+    const score = (key, name) => Math.round(singleLiftStrengthScore(sex, bodyweightLbs, lifts[key], name) * 10) / 10;
     
     res.json({
       ratios: {
@@ -459,10 +469,10 @@ router.get('/symmetry', authenticateToken, (req, res) => {
         deadliftToSquat: Math.round(ratios.deadliftToSquat * 100) / 100
       },
       lifts: {
-        squat: Math.round(singleLiftStrengthScore(user.sex, bodyweightLbs, lifts.squat, 'Barbell Squat') * 10) / 10,
-        bench: Math.round(singleLiftStrengthScore(user.sex, bodyweightLbs, lifts.bench, 'Barbell Bench Press') * 10) / 10,
-        deadlift: Math.round(singleLiftStrengthScore(user.sex, bodyweightLbs, lifts.deadlift, 'Barbell Deadlift') * 10) / 10,
-        ohp: Math.round(singleLiftStrengthScore(user.sex, bodyweightLbs, lifts.ohp, 'Barbell Overhead Press') * 10) / 10
+        squat: score('squat', 'Barbell Squat'),
+        bench: score('bench', 'Barbell Bench Press'),
+        deadlift: score('deadlift', 'Barbell Deadlift'),
+        ohp: score('ohp', 'Barbell Overhead Press')
       },
       imbalances,
       overallScore,
@@ -587,44 +597,7 @@ router.get('/dashboard-summary', authenticateToken, (req, res) => {
        ORDER BY w.date ASC, s.id ASC`,
       [userId]
     );
-    const bestBefore = new Map(); // exercise_id -> best e1RM before the current day
-    const prMap = new Map();
-    let dayBest = new Map();
-    let currentDate = null;
-    const flushDay = () => {
-      for (const [exerciseId, value] of dayBest) {
-        bestBefore.set(exerciseId, Math.max(bestBefore.get(exerciseId) ?? 0, value));
-      }
-      dayBest = new Map();
-    };
-    for (const set of allSets) {
-      if (set.date !== currentDate) {
-        flushDay();
-        currentDate = set.date;
-      }
-      const e1rm = estimate1RM(set.weight, set.reps);
-      dayBest.set(set.exercise_id, Math.max(dayBest.get(set.exercise_id) ?? 0, e1rm));
-      if (set.date < thirtyDaysAgo) continue;
-
-      const previous = bestBefore.get(set.exercise_id);
-      if (previous !== undefined && e1rm <= previous) continue;
-      const key = `${set.exercise_id}-${set.date}`;
-      const existing = prMap.get(key);
-      if (!existing || e1rm > existing.estimated1RM) {
-        prMap.set(key, {
-          exercise: set.exercise,
-          exerciseId: set.exercise_id,
-          workoutId: set.workout_id,
-          weight: set.weight,
-          reps: set.reps,
-          date: set.date,
-          estimated1RM: Math.round(e1rm * 10) / 10,
-          previousBest: previous === undefined ? null : Math.round(previous * 10) / 10,
-          firstTime: previous === undefined
-        });
-      }
-    }
-    const recentPRs = [...prMap.values()]
+    const recentPRs = findPRs(allSets, thirtyDaysAgo)
       .sort((a, b) => b.date.localeCompare(a.date) || Number(a.firstTime) - Number(b.firstTime))
       .slice(0, 6);
 
@@ -746,6 +719,107 @@ router.get('/muscle-groups-weekly', authenticateToken, (req, res) => {
   } catch (error) {
     console.error('Error fetching weekly muscle groups:', error);
     res.status(500).json({ error: 'Failed to fetch muscle group data' });
+  }
+});
+
+/**
+ * GET /api/analytics/overview
+ * Query: localDate (YYYY-MM-DD, the user's today), weeks (4–52, default 12)
+ *
+ * How the last `weeks` weeks went compared with the `weeks` weeks before:
+ * each main lift's best estimated 1RM and trend, total and DOTS, PRs,
+ * sessions, volume and time, bodyweight, running fitness, weekly sets per
+ * muscle group, and flags worth a look. Weights are in the user's units.
+ * See services/strengthOverview.js.
+ */
+router.get('/overview', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const today = /^\d{4}-\d{2}-\d{2}$/.test(req.query.localDate || '')
+      ? req.query.localDate
+      : new Date().toISOString().slice(0, 10);
+    const weeks = Math.min(Math.max(parseInt(req.query.weeks) || 12, 4), 52);
+    const windows = overviewWindows(today, weeks);
+    const { current, previous } = windows;
+
+    const user = get('SELECT sex, units, bodyweight FROM users WHERE id = ?', [userId]);
+    const units = user.units === 'kg' ? 'kg' : 'lbs';
+    const sex = user.sex === 'F' ? 'F' : 'M';
+
+    // Every working set, for PRs (which need the whole history) and the lifts
+    const sets = all(
+      `SELECT w.date, w.id as workout_id, e.name as exercise, s.exercise_id, s.weight, s.reps
+       FROM sets s
+       JOIN workouts w ON s.workout_id = w.id
+       JOIN exercises e ON s.exercise_id = e.id
+       WHERE w.user_id = ? AND s.is_warmup = 0 AND s.reps > 0 AND s.weight > 0 AND w.date <= ?
+       ORDER BY w.date ASC, s.id ASC`,
+      [userId, today]
+    );
+
+    const lifts = {};
+    for (const lift of MAIN_LIFTS) {
+      const exerciseId = getExerciseIdByName(lift.name);
+      const liftSets = exerciseId ? sets.filter((s) => s.exercise_id === exerciseId && s.date >= previous.start) : [];
+      lifts[lift.key] = { key: lift.key, name: lift.name, label: lift.label, ...liftChange(liftSets, windows, today) };
+    }
+
+    // Bodyweight at the end of each window, in the user's units
+    const bodyweightOn = (date) => {
+      const log = get(
+        'SELECT weight, units FROM bodyweight_logs WHERE user_id = ? AND date <= ? ORDER BY date DESC, id DESC LIMIT 1',
+        [userId, date]
+      );
+      if (!log) return null;
+      const lbs = convertToLbs(log.weight, log.units);
+      return Math.round(fromLbs(lbs, units) * 10) / 10;
+    };
+    const profileWeight = user.bodyweight > 0 ? user.bodyweight : null;
+    const bwCurrent = bodyweightOn(current.end) ?? profileWeight;
+    const bwPrevious = bodyweightOn(previous.end);
+    const bodyweight = {
+      current: bwCurrent,
+      previous: bwPrevious,
+      change: bwCurrent && bwPrevious ? Math.round((bwCurrent - bwPrevious) * 10) / 10 : null,
+    };
+
+    const volumeRows = all(
+      `SELECT w.id, SUM(s.weight * s.reps) as volume
+       FROM workouts w JOIN sets s ON s.workout_id = w.id
+       WHERE w.user_id = ? AND w.date >= ? AND w.date <= ? AND s.is_warmup = 0
+       GROUP BY w.id`,
+      [userId, previous.start, today]
+    );
+    const volumeByWorkout = new Map(volumeRows.map((r) => [r.id, r.volume || 0]));
+    const summary = trainingSummary(Cardio.sessionsSince(userId, previous.start), volumeByWorkout, windows, weeks);
+
+    const prs = findPRs(sets, previous.start);
+    const muscleRows = all(
+      `SELECT e.primary_muscle_group, e.secondary_muscle_groups
+       FROM sets s
+       JOIN exercises e ON s.exercise_id = e.id
+       JOIN workouts w ON s.workout_id = w.id
+       WHERE w.user_id = ? AND w.date >= ? AND w.date <= ? AND s.is_warmup = 0`,
+      [userId, current.start, current.end]
+    );
+    const muscleGroups = muscleGroupSets(muscleRows, weeks);
+
+    res.json({
+      weeks,
+      units,
+      windows,
+      summary,
+      bodyweight,
+      lifts,
+      ...totals(lifts, bodyweight, units, sex),
+      prs: { current: summarizePRs(prs, current), previous: summarizePRs(prs, previous) },
+      running: runningChange(BestEfforts.forUser(userId), windows),
+      muscleGroups,
+      flags: overviewFlags({ lifts, muscleGroups, summary, weeks }),
+    });
+  } catch (error) {
+    console.error('Overview error:', error);
+    res.status(500).json({ error: 'Failed to get the analytics overview' });
   }
 });
 
