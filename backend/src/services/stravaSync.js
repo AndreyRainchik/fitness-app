@@ -59,6 +59,21 @@ async function clientFor(userId) {
   return new StravaClient(fresh.accessToken);
 }
 
+/**
+ * True when Strava rejects this user's tokens (access revoked on strava.com).
+ * A refresh that fails with 400/401 means the refresh token was revoked too.
+ */
+async function accessRevoked(userId) {
+  try {
+    const client = await clientFor(userId);
+    await client.getAthlete();
+    return false;
+  } catch (error) {
+    if (error instanceof StravaNotConnectedError) return false;
+    return error instanceof StravaApiError && (error.status === 401 || error.status === 400);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // One activity
 // ---------------------------------------------------------------------------
@@ -391,8 +406,14 @@ export async function handleWebhookEvent(event) {
     const userId = conn.user_id;
 
     if (event.object_type === 'athlete') {
-      // The athlete revoked access on strava.com
-      if (String(event.updates?.authorized) === 'false') StravaConnection.remove(userId);
+      // The athlete revoked access on strava.com. Events aren't signed and
+      // athlete ids are public, so only disconnect once Strava itself stops
+      // accepting our tokens.
+      if (String(event.updates?.authorized) === 'false') {
+        await exclusive(userId, async () => {
+          if (await accessRevoked(userId)) StravaConnection.remove(userId);
+        });
+      }
       return;
     }
     if (event.object_type !== 'activity' || !event.object_id) return;

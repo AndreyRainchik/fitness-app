@@ -125,6 +125,11 @@ export class StravaClient {
     return send(url, { headers: { authorization: `Bearer ${this.accessToken}`, accept: 'application/json' } }, 'Reading from Strava');
   }
 
+  /** The signed-in athlete (used to check the tokens still work). */
+  getAthlete() {
+    return this.request('/athlete');
+  }
+
   /** One page of activity summaries. after/before are epoch seconds. */
   listActivities({ after, before, page = 1, perPage = STRAVA_PAGE_SIZE } = {}) {
     return this.request('/athlete/activities', { after, before, page, per_page: perPage });

@@ -2,6 +2,9 @@ import { get, all, run } from '../config/database.js';
 import bcrypt from 'bcryptjs';
 import PlateInventoryPreset from './PlateInventoryPreset.js';
 
+/** Emails are stored trimmed and lowercased, so sign-in ignores letter case. */
+export const normalizeEmail = (email) => String(email ?? '').trim().toLowerCase();
+
 /**
  * User Model
  * Handles user authentication and profile management
@@ -10,8 +13,9 @@ class User {
   /**
    * Create a new user
    */
-  static async create({ email, password, username, bodyweight = null, units = 'lbs', sex = null }) {
+  static async create({ email: rawEmail, password, username, bodyweight = null, units = 'lbs', sex = null }) {
     try {
+      const email = normalizeEmail(rawEmail);
       // Hash password
       const password_hash = await bcrypt.hash(password, 10);
       
@@ -47,7 +51,13 @@ class User {
    * Find user by email
    */
   static findByEmail(email) {
-    return get('SELECT * FROM users WHERE email = ?', [email]);
+    // Case-insensitive. Accounts made before emails were lowercased may
+    // differ only in case; prefer the one typed exactly, then the oldest.
+    const typed = String(email ?? '').trim();
+    return get(
+      'SELECT * FROM users WHERE email = ? COLLATE NOCASE ORDER BY email = ? DESC, id LIMIT 1',
+      [typed, typed]
+    );
   }
   
   /**
@@ -169,7 +179,7 @@ class User {
       }
       
       // Update email
-      run('UPDATE users SET email = ? WHERE id = ?', [newEmail, id]);
+      run('UPDATE users SET email = ? WHERE id = ?', [normalizeEmail(newEmail), id]);
       
       return this.findById(id);
     } catch (error) {

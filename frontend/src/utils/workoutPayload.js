@@ -109,6 +109,14 @@ export function setsToExerciseBlocks(sets = [], { keepIds = false } = {}) {
 }
 
 /**
+ * A set row left empty (no weight and no reps). It isn't saved. A set with
+ * only weight (a failed rep) or only reps (bodyweight) still is.
+ */
+export function isBlankSet(set) {
+  return (parseFloat(set.weight) || 0) === 0 && (parseInt(set.reps) || 0) === 0;
+}
+
+/**
  * Returns the first validation error for the editor state, or null.
  */
 export function validateWorkout({ name, exercises, nameLabel = 'Workout name' }) {
@@ -116,6 +124,7 @@ export function validateWorkout({ name, exercises, nameLabel = 'Workout name' })
   if (exercises.length === 0) return 'Please add at least one exercise';
   if (exercises.some(ex => !ex.exerciseName.trim())) return 'Please enter names for all exercises';
   if (exercises.some(ex => ex.sets.length === 0)) return 'Each exercise must have at least one set';
+  if (exercises.every(ex => ex.sets.every(isBlankSet))) return 'Enter the weight or reps for at least one set';
   return findUnmatchedExercise(exercises);
 }
 
@@ -132,17 +141,19 @@ export function findUnmatchedExercise(exercises) {
 /**
  * Flatten editor exercises into the API's sets array.
  * Existing sets (EditWorkout) keep their id so they are updated in place.
+ * Blank sets are left out (an existing one is deleted) and the rest are
+ * numbered 1, 2, 3… within their exercise.
  */
 export function buildSetsPayload(exercises) {
   return exercises.flatMap(exercise =>
-    exercise.sets.map(set => {
+    exercise.sets.filter(set => !isBlankSet(set)).map((set, index) => {
       const rpe = set.rpe === '' || set.rpe === null || set.rpe === undefined
         ? null
         : parseFloat(set.rpe);
       return {
         ...(set.existingSetId ? { id: set.existingSetId } : {}),
         exercise_id: exercise.exerciseId,
-        set_number: set.setNumber,
+        set_number: index + 1,
         weight: parseFloat(set.weight) || 0,
         reps: parseInt(set.reps) || 0,
         rpe: Number.isNaN(rpe) ? null : rpe,

@@ -186,6 +186,7 @@ function startFakeStrava() {
     streamRequests: [], // activity ids whose streams were asked for
     expireNextToken: false,
     rateLimitAfter: null, // 429 every API request after this many more
+    revoked: false, // the athlete revoked access: every token is rejected
   };
   let tokenCounter = 0;
 
@@ -201,6 +202,7 @@ function startFakeStrava() {
 
     if (url.pathname === '/oauth/token') {
       state.tokenGrants.push(form.get('grant_type'));
+      if (state.revoked && form.get('grant_type') === 'refresh_token') return send(400, { message: 'Bad Request', errors: [{ code: 'invalid' }] });
       if (form.get('client_id') !== 'test-client' || form.get('client_secret') !== 'test-secret') return send(401, { message: 'Bad client' });
       if (form.get('grant_type') === 'authorization_code' && form.get('code') !== 'good-code') return send(400, { message: 'Bad Request', errors: [{ code: 'invalid' }] });
       tokenCounter += 1;
@@ -216,12 +218,13 @@ function startFakeStrava() {
 
     const auth = req.headers.authorization || '';
     state.requests.push({ path: url.pathname, query: Object.fromEntries(url.searchParams), token: auth.replace('Bearer ', '') });
-    if (!/^Bearer access-\d+$/.test(auth)) return send(401, { message: 'Authorization Error' });
+    if (!/^Bearer access-\d+$/.test(auth) || state.revoked) return send(401, { message: 'Authorization Error' });
     if (state.rateLimitAfter !== null) {
       if (state.rateLimitAfter <= 0) return send(429, { message: 'Rate Limit Exceeded' });
       state.rateLimitAfter -= 1;
     }
 
+    if (url.pathname === '/api/v3/athlete') return send(200, ATHLETE);
     if (url.pathname === '/api/v3/athlete/activities') {
       const after = Number(url.searchParams.get('after') || 0);
       const before = Number(url.searchParams.get('before') || Infinity);
@@ -669,8 +672,17 @@ async function apiTests() {
       const auth = await call('POST', '/strava/authorize', { redirect_uri: 'http://localhost:5173/strava/callback' });
       await call('POST', '/strava/exchange', { code: 'good-code', state: new URL(auth.body.url).searchParams.get('state'), scope: 'read,activity:read_all' });
       await sleep(300);
-      await fetch(`${app.base}/api/strava/webhook`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ owner_id: ATHLETE.id, object_type: 'athlete', aspect_type: 'update', object_id: ATHLETE.id, updates: { authorized: 'false' } }) });
+      const deauth = () => fetch(`${app.base}/api/strava/webhook`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ owner_id: ATHLETE.id, object_type: 'athlete', aspect_type: 'update', object_id: ATHLETE.id, updates: { authorized: 'false' } }) });
+
+      // Events aren't signed: a forged one while Strava still accepts the tokens changes nothing
+      await deauth();
+      await sleep(300);
+      assert.equal((await call('GET', '/strava/status')).body.connected, true);
+
+      fake.state.revoked = true;
+      await deauth();
       await waitFor(async () => !(await call('GET', '/strava/status')).body.connected, 'the disconnect');
+      fake.state.revoked = false;
     });
   } finally {
     if (failures) console.log(`\nServer output:\n${app.output().slice(-3000)}`);
