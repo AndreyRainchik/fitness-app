@@ -380,9 +380,12 @@ router.post('/calculate-plates', (req, res) => {
     }
     
     const inventory = User.getPlateInventory(req.user.id);
-    const result = User.calculatePlatesNeeded(target_weight, inventory);
+    // target_weight is in the user's units; the plates are in their own
+    const userUnits = User.findById(req.user.id)?.units;
+    const target = convertWeight(Number(target_weight), userUnits, inventory.units);
+    const result = User.calculatePlatesNeeded(target, inventory);
     
-    res.json(result);
+    res.json({ ...result, units: inventory.units });
   } catch (error) {
     console.error('Calculate plates error:', error);
     if(error.message.includes('no active plate')) {

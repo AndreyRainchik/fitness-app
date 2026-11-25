@@ -5,10 +5,12 @@ import ProgramSetRow from '../components/Program/ProgramSetRow';
 import { CalendarCheck, Check, ChevronDown, Pause, Play, RotateCcw, SkipForward, X } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
 import { useBatchPlateAdjustedWeights } from '../utils/usePlateAdjustedWeight';
+import { useAuth } from '../context/AuthContext';
+import { unitLabel } from '../utils/units';
 import { Alert, Badge, Button, Card, EmptyState, LoadingState, PageHeader, useConfirm } from '../components/ui';
 
 // Per-lift training max adjustment choices shown on the week 4 preview.
-// `delta(increment)` returns the change in lbs for the given lift increment.
+// `delta(increment)` returns the change (in the user's units) for the given lift increment.
 const ADJUSTMENT_OPTIONS = [
   { value: 'increment_2x', label: 'Increase 2x', delta: (inc) => inc * 2, text: 'text-primary-600', badge: 'bg-primary-100 text-primary-700' },
   { value: 'increment_1x', label: 'Increase 1x', delta: (inc) => inc, text: 'text-success-600', badge: 'bg-success-100 text-success-700' },
@@ -30,6 +32,8 @@ const getWeek3OutcomeBadge = (reps) => {
 };
 
 const CurrentWeek = () => {
+  // Program weights are in the user's units
+  const unit = unitLabel(useAuth().user?.units);
   const confirm = useConfirm();
   const { programId } = useParams();
   const navigate = useNavigate();
@@ -110,11 +114,11 @@ const CurrentWeek = () => {
     return (
       <span
         className={`tabular text-[15px] font-semibold ${isAdjusted ? 'text-warning-700' : 'text-gray-900'}`}
-        title={isAdjusted ? `Rounded from ${programmedWeight} lbs to match your plates` : undefined}
+        title={isAdjusted ? `Rounded from ${programmedWeight} ${unit} to match your plates` : undefined}
       >
         {isAdjusted && <span className="mr-0.5" aria-label="approximately">≈</span>}
         {weight}
-        <span className="ml-0.5 text-xs font-medium text-gray-500">lbs</span>
+        <span className="ml-0.5 text-xs font-medium text-gray-500">{unit}</span>
       </span>
     );
   };
@@ -792,15 +796,13 @@ const CurrentWeek = () => {
                 
                 <div className="space-y-2">
                   {workout.lifts.map((lift, idx) => {
-                    const isLowerBody = lift.exercise_name === 'Barbell Squat' || 
-                                      lift.exercise_name === 'Barbell Deadlift' || 
-                                      lift.exercise_name === 'Power Clean';
-                    const increment = isLowerBody ? 10 : 5;
+                    // The server's step for this lift (5/10 lb or 2.5/5 kg)
+                    const increment = lift.increment;
                     const currentMax = lift.current_weight;
                     const isFailed = lift.status === 'failed';
                     // Skipped (e.g. injured): same weight next session
                     const change = lift.status === 'skipped' ? 0 : isFailed ? -increment : +increment;
-                    const newMax = currentMax + change;
+                    const newMax = Math.max(workout.bar_weight, currentMax + change);
                     
                     return (
                       <div key={idx} className="bg-surface/60 rounded-lg p-2.5 sm:p-3">
@@ -809,11 +811,11 @@ const CurrentWeek = () => {
                           <div className="flex items-start justify-between">
                             <span className="font-medium text-gray-900 text-sm flex-1 min-w-0">{lift.exercise_name}</span>
                             <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${isFailed ? 'bg-danger-100 text-danger-700' : 'bg-success-100 text-success-700'}`}>
-                              {change > 0 ? '+' : ''}{change} lbs{lift.status === 'skipped' ? ' · skipped' : ''}
+                              {change > 0 ? '+' : ''}{change} {unit}{lift.status === 'skipped' ? ' · skipped' : ''}
                             </span>
                           </div>
                           <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600">{currentMax} lbs</span>
+                            <span className="text-gray-600">{currentMax} {unit}</span>
                             <div className="flex items-center gap-1.5">
                               <svg className={`w-4 h-4 ${isFailed ? 'text-danger-500' : 'text-success-500'}`} fill="currentColor" viewBox="0 0 20 20">
                                 {isFailed ? (
@@ -823,7 +825,7 @@ const CurrentWeek = () => {
                                 )}
                               </svg>
                               <span className={`font-bold ${isFailed ? 'text-danger-600' : 'text-success-600'}`}>
-                                {newMax} lbs
+                                {newMax} {unit}
                               </span>
                             </div>
                           </div>
@@ -833,7 +835,7 @@ const CurrentWeek = () => {
                         <div className="hidden sm:flex items-center justify-between">
                           <span className="font-medium text-gray-900 text-sm flex-1">{lift.exercise_name}</span>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="text-gray-600 text-sm">{currentMax} lbs</span>
+                            <span className="text-gray-600 text-sm">{currentMax} {unit}</span>
                             <svg className={`w-4 h-4 ${isFailed ? 'text-danger-500' : 'text-success-500'}`} fill="currentColor" viewBox="0 0 20 20">
                               {isFailed ? (
                                 <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -842,10 +844,10 @@ const CurrentWeek = () => {
                               )}
                             </svg>
                             <span className={`font-bold text-sm ${isFailed ? 'text-danger-600' : 'text-success-600'}`}>
-                              {newMax} lbs
+                              {newMax} {unit}
                             </span>
                             <span className={`text-xs px-2 py-0.5 rounded-full ${isFailed ? 'bg-danger-100 text-danger-700' : 'bg-success-100 text-success-700'}`}>
-                              {change > 0 ? '+' : ''}{change} lbs
+                              {change > 0 ? '+' : ''}{change} {unit}
                             </span>
                           </div>
                         </div>
@@ -889,10 +891,8 @@ const CurrentWeek = () => {
                   <>
                     <div className="space-y-2">
                       {workout.lifts.map((lift, idx) => {
-                        const isLowerBody = lift.exercise_name === 'Barbell Squat' ||
-                                          lift.exercise_name === 'Barbell Deadlift' ||
-                                          lift.exercise_name === 'Power Clean';
-                        const increment = isLowerBody ? 10 : 5;
+                        // The server's step for this lift (5/10 lb or 2.5/5 kg)
+                        const increment = lift.increment;
                         const currentMax = lift.training_max;
 
                         const failedWeeks = getFailedWeeks(lift.exercise_id);
@@ -906,7 +906,7 @@ const CurrentWeek = () => {
 
                         const option = getAdjustmentOption(adjustment);
                         const change = option.delta(increment);
-                        const newMax = Math.max(45, currentMax + change);
+                        const newMax = Math.max(workout.bar_weight, currentMax + change);
 
                         const handleChange = (e) => {
                           const value = e.target.value;
@@ -947,10 +947,10 @@ const CurrentWeek = () => {
                                 <div className="flex items-center justify-end gap-1.5 text-sm">
                                   <span className="text-gray-600">{currentMax}</span>
                                   <span className="text-gray-400">→</span>
-                                  <span className={`font-bold ${option.text}`}>{newMax} lbs</span>
+                                  <span className={`font-bold ${option.text}`}>{newMax} {unit}</span>
                                 </div>
                                 <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${option.badge}`}>
-                                  {change > 0 ? '+' : ''}{change} lbs
+                                  {change > 0 ? '+' : ''}{change} {unit}
                                 </span>
                               </div>
                             </div>
@@ -965,7 +965,7 @@ const CurrentWeek = () => {
                                   const deltaLabel = d === 0 ? '0' : `${d > 0 ? '+' : ''}${d}`;
                                   return (
                                     <option key={opt.value} value={opt.value}>
-                                      {opt.label} ({deltaLabel} lbs){opt.value === defaultAdjustment ? ' — suggested' : ''}
+                                      {opt.label} ({deltaLabel} {unit}){opt.value === defaultAdjustment ? ' — suggested' : ''}
                                     </option>
                                   );
                                 })}
@@ -1102,8 +1102,8 @@ const CurrentWeek = () => {
                       {lift.paused && <Badge tone="neutral" icon={Pause}>Paused</Badge>}
                     </span>
                     <span className="tabular block truncate text-xs text-gray-500">
-                      {workout.program_type === '531' && `TM ${lift.training_max} lbs`}
-                      {workout.program_type === 'starting_strength' && `Working weight ${lift.current_weight} lbs`}
+                      {workout.program_type === '531' && `TM ${lift.training_max} ${unit}`}
+                      {workout.program_type === 'starting_strength' && `Working weight ${lift.current_weight} ${unit}`}
                       {topSet && ` · Top set ${getAdjustedWeightInfo(topSet.weight).weight} × ${topSet.reps}${topSet.is_amrap ? '+' : ''}`}
                     </span>
                   </span>
@@ -1196,7 +1196,7 @@ const CurrentWeek = () => {
                               label={`${lift.sets.length}×`}
                               weight={<WeightDisplay programmedWeight={lift.sets[0].weight} />}
                               reps={lift.sets[0].reps}
-                              caption={`Next session: ${lift.sets[0].weight + (lift.exercise_name === 'Barbell Squat' || lift.exercise_name === 'Barbell Deadlift' ? 10 : 5)} lbs · rest 3–5 min`}
+                              caption={`Next session: ${lift.sets[0].weight + lift.increment} ${unit} · rest 3–5 min`}
                               plateWeight={getAdjustedWeightInfo(lift.sets[0].weight).weight}
                             />
                           </ul>
@@ -1256,7 +1256,7 @@ const CurrentWeek = () => {
               <li>• <strong>Form first:</strong> Only increase weight if you can maintain good form for all reps</li>
               <li>• <strong>Warmup:</strong> Always start with empty bar and work up to working weight</li>
               <li>• <strong>Frequency:</strong> Train 3x per week (e.g., Monday, Wednesday, Friday)</li>
-              <li>• <strong>Progression:</strong> Squat/Deadlift +10 lbs · Bench/Press +5 lbs per session</li>
+              <li>• <strong>Progression:</strong> Squat/Deadlift +{unit === 'kg' ? 5 : 10} {unit} · Bench/Press +{unit === 'kg' ? 2.5 : 5} {unit} per session</li>
             </ul>
           )}
         </div>

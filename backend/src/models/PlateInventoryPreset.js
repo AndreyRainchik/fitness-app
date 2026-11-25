@@ -35,13 +35,13 @@ class PlateInventoryPreset {
   /**
    * Create a new preset
    */
-  static create({ user_id, name, plates, bar_weight = 45 }) {
+  static create({ user_id, name, plates, bar_weight = 45, units = 'lbs' }) {
     // Validate plates is an object
     const platesJson = typeof plates === 'string' ? plates : JSON.stringify(plates);
     run(
-      `INSERT INTO plate_inventory_presets (user_id, name, plates, bar_weight, is_active)
-       VALUES (?, ?, ?, ?, 0)`,
-      [user_id, name, platesJson, bar_weight]
+      `INSERT INTO plate_inventory_presets (user_id, name, plates, bar_weight, units, is_active)
+       VALUES (?, ?, ?, ?, ?, 0)`,
+      [user_id, name, platesJson, bar_weight, units === 'kg' ? 'kg' : 'lbs']
     );
     const newId = get(
         'SELECT * FROM plate_inventory_presets WHERE user_id = ? AND name = ?', [user_id, name]
@@ -56,7 +56,7 @@ class PlateInventoryPreset {
   /**
    * Update a preset
    */
-  static update(id, { name, plates, bar_weight }) {
+  static update(id, { name, plates, bar_weight, units }) {
     const updates = [];
     const params = [];
 
@@ -73,6 +73,11 @@ class PlateInventoryPreset {
     if (bar_weight !== undefined) {
       updates.push('bar_weight = ?');
       params.push(bar_weight);
+    }
+
+    if (units !== undefined) {
+      updates.push('units = ?');
+      params.push(units === 'kg' ? 'kg' : 'lbs');
     }
 
     if (updates.length === 0) {
@@ -158,7 +163,8 @@ class PlateInventoryPreset {
   static getInventoryFormat(preset) {
     return {
       plates: this.parsePlates(preset),
-      bar_weight: preset.bar_weight || 45
+      bar_weight: preset.bar_weight || 45,
+      units: preset.units || 'lbs'
     };
   }
 
@@ -211,7 +217,8 @@ class PlateInventoryPreset {
       user_id: userId,
       name: 'Default',
       plates: defaultPlates,
-      bar_weight: barWeight
+      bar_weight: barWeight,
+      units: units === 'kg' ? 'kg' : 'lbs'
     });
 
     this.setActive(preset.id);
@@ -231,7 +238,8 @@ class PlateInventoryPreset {
       user_id: original.user_id,
       name: newName,
       plates: original.plates,
-      bar_weight: original.bar_weight
+      bar_weight: original.bar_weight,
+      units: original.units
     });
   }
 }

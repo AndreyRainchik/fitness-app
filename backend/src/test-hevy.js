@@ -512,6 +512,30 @@ async function apiTests() {
       assert.equal(sets[1].reps, 6);
     });
 
+    await test('re-importing keeps edits made here unless asked to replace them', async () => {
+      const pushChoices = { 'T-BENCH': { exercise_id: preview.exercises[0].suggestion.exercise_id }, 'T-CROSS': { create: { name: 'Cable Crossover', category: 'cable', primary_muscle_group: 'Chest' } }, 'T-RUN': { skip: true } };
+      const before = (await call('GET', `/workouts/${pushWorkoutId}`)).body.workout;
+      const statusOf = async () => (await call('GET', '/hevy/workouts?mode=all')).body.workouts.find((w) => w.id === 'w-push');
+      assert.equal((await statusOf()).edited_here, false);
+
+      // Edit a set here
+      const edited = await call('PUT', `/workouts/sets/${before.sets[0].id}`, { reps: 12 });
+      assert.equal(edited.status, 200, JSON.stringify(edited.body));
+      assert.equal((await statusOf()).edited_here, true);
+
+      const kept = await call('POST', '/hevy/import', { workout_ids: ['w-push'], timezone: 'America/New_York', exercises: pushChoices });
+      assert.equal(kept.status, 200, JSON.stringify(kept.body));
+      assert.equal(kept.body.imported.length, 0);
+      assert.equal(kept.body.skipped[0].hevy_id, 'w-push');
+      assert.match(kept.body.skipped[0].reason, /changes were kept/);
+      assert.equal((await call('GET', `/workouts/${pushWorkoutId}`)).body.workout.sets[0].reps, 12, 'the edit survives');
+
+      const replaced = await call('POST', '/hevy/import', { workout_ids: ['w-push'], timezone: 'America/New_York', exercises: pushChoices, replace_edited: ['w-push'] });
+      assert.equal(replaced.body.imported[0].action, 'updated');
+      assert.equal((await call('GET', `/workouts/${pushWorkoutId}`)).body.workout.sets[0].reps, before.sets[0].reps, 'Hevy\'s version again');
+      assert.equal((await statusOf()).edited_here, false, 'a fresh import clears the flag');
+    });
+
     await test('an exercise created by an import is private to that user', async () => {
       const mine = (await call('GET', '/exercises/search?q=Cable%20Crossover')).body.exercises;
       assert.equal(mine.length, 1);

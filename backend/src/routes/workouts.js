@@ -429,6 +429,7 @@ router.put('/:id',
       } else {
         updatedWorkout = Workout.update(id, fields);
       }
+      Workout.markEdited(workout.id);
       
       res.json({
         message: 'Workout updated successfully',
@@ -529,6 +530,7 @@ router.post('/:id/sets',
         is_warmup: is_warmup || 0,
         notes: notes || null
       });
+      Workout.markEdited(workout.id);
       
       res.status(201).json({
         message: 'Set added successfully',
@@ -584,6 +586,7 @@ router.put('/sets/:set_id',
         }
       }
       const updatedSet = Set.update(set_id, { set_number, reps, weight, rpe, is_warmup, notes });
+      Workout.markEdited(set.workout_id);
       
       res.json({
         message: 'Set updated successfully',
@@ -616,6 +619,7 @@ router.delete('/sets/:set_id', (req, res) => {
     }
     
     Set.delete(set_id);
+    Workout.markEdited(set.workout_id);
     
     res.json({ message: 'Set deleted successfully' });
   } catch (error) {

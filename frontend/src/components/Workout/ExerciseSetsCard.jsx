@@ -60,7 +60,8 @@ export function ExerciseSetsCard({ group, units }) {
 /** Three compact stat boxes in one row (fits a 320px phone). */
 export function WorkoutStats({ volume, exercises, sets, units }) {
   const items = [
-    { label: 'Volume', value: formatCompact(volume), unit: units },
+    // Full number while it fits the box ("4,898 kg"); shortened past that ("112k")
+    { label: 'Volume', value: Number(volume) < 100_000 ? formatNumber(volume) : formatCompact(volume), unit: units },
     { label: 'Exercises', value: exercises },
     { label: 'Sets', value: sets },
   ];
@@ -71,7 +72,7 @@ export function WorkoutStats({ volume, exercises, sets, units }) {
           <p className="truncate text-xs font-medium text-gray-500 sm:text-sm">{s.label}</p>
           <p className="tabular mt-1 truncate text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">
             {s.value}
-            {s.unit && <span className="ml-1 text-xs font-medium text-gray-500">{s.unit}</span>}
+            {s.unit && <>{' '}<span className="text-xs font-medium text-gray-500">{s.unit}</span></>}
           </p>
         </Card>
       ))}

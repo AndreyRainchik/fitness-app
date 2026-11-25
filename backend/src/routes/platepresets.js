@@ -2,6 +2,7 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import { authenticateToken } from '../middleware/auth.js';
 import PlateInventoryPreset from '../models/PlateInventoryPreset.js';
+import User from '../models/User.js';
 
 const router = express.Router();
 
@@ -91,7 +92,8 @@ router.post('/',
   [
     body('name').trim().notEmpty().withMessage('Preset name is required'),
     body('plates').isObject().withMessage('Plates must be an object'),
-    body('bar_weight').isFloat({ min: 0 }).withMessage('Bar weight must be a positive number')
+    body('bar_weight').isFloat({ min: 0 }).withMessage('Bar weight must be a positive number'),
+    body('units').optional().isIn(['kg', 'lbs']).withMessage('Units must be kg or lbs')
   ],
   (req, res) => {
     const errors = validationResult(req);
@@ -101,12 +103,15 @@ router.post('/',
     
     try {
       const { name, plates, bar_weight } = req.body;
+      // The plates' own unit; a new set starts in the user's units
+      const units = req.body.units || User.findById(req.user.id)?.units || 'lbs';
       
       const preset = PlateInventoryPreset.create({
         user_id: req.user.id,
         name,
         plates,
-        bar_weight
+        bar_weight,
+        units
       });
       
       res.status(201).json({
@@ -137,7 +142,8 @@ router.put('/:id',
   [
     body('name').optional().trim().notEmpty().withMessage('Name cannot be empty'),
     body('plates').optional().isObject().withMessage('Plates must be an object'),
-    body('bar_weight').optional().isFloat({ min: 0 }).withMessage('Bar weight must be a positive number')
+    body('bar_weight').optional().isFloat({ min: 0 }).withMessage('Bar weight must be a positive number'),
+    body('units').optional().isIn(['kg', 'lbs']).withMessage('Units must be kg or lbs')
   ],
   (req, res) => {
     const errors = validationResult(req);
@@ -157,12 +163,13 @@ router.put('/:id',
         return res.status(403).json({ error: 'Access denied' });
       }
       
-      const { name, plates, bar_weight } = req.body;
+      const { name, plates, bar_weight, units } = req.body;
       
       const updatedPreset = PlateInventoryPreset.update(req.params.id, {
         name,
         plates,
-        bar_weight
+        bar_weight,
+        units
       });
       
       res.json({

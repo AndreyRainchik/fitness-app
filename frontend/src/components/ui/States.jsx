@@ -76,7 +76,7 @@ export function StatTile({ label, value, unit, hint, tone = 'primary', icon: Ico
       </div>
       <p className="tabular mt-2 break-words text-xl font-bold tracking-tight text-gray-900 sm:text-3xl">
         {value}
-        {unit && <span className="ml-1 text-sm font-medium text-gray-500 sm:text-base">{unit}</span>}
+        {unit && <>{' '}<span className="text-sm font-medium text-gray-500 sm:text-base">{unit}</span></>}
       </p>
       {hint && <p className="mt-1 text-xs text-gray-500 sm:text-sm">{hint}</p>}
     </Card>

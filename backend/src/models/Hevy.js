@@ -102,12 +102,12 @@ export class HevyWeightSyncs {
 
 /** Workouts that were imported from Hevy. */
 export class HevyImportedWorkouts {
-  /** Map of hevy_workout_id -> { id, hevy_updated_at } for the given Hevy ids. */
+  /** Map of hevy_workout_id -> { id, hevy_updated_at, edited_at } for the given Hevy ids. */
   static findByHevyIds(user_id, hevyIds) {
     if (hevyIds.length === 0) return new Map();
     const placeholders = hevyIds.map(() => '?').join(', ');
     const rows = all(
-      `SELECT id, hevy_workout_id, hevy_updated_at FROM workouts
+      `SELECT id, hevy_workout_id, hevy_updated_at, edited_at FROM workouts
        WHERE user_id = ? AND hevy_workout_id IN (${placeholders})
        ORDER BY id`,
       [user_id, ...hevyIds]
@@ -116,6 +116,7 @@ export class HevyImportedWorkouts {
   }
 
   static markImported(workout_id, hevy_workout_id, hevy_updated_at) {
-    run('UPDATE workouts SET hevy_workout_id = ?, hevy_updated_at = ? WHERE id = ?', [hevy_workout_id, hevy_updated_at, workout_id]);
+    // Freshly imported: no edits made here since
+    run('UPDATE workouts SET hevy_workout_id = ?, hevy_updated_at = ?, edited_at = NULL WHERE id = ?', [hevy_workout_id, hevy_updated_at, workout_id]);
   }
 }

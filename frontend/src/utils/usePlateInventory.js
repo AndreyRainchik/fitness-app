@@ -8,12 +8,12 @@ import { platePresetsAPI } from '../services/api';
  */
 export const PLATE_INVENTORY_CHANGED = 'plate-inventory-changed';
 
-let cached = null; // Promise<{ bar_weight, plates } | null>
+let cached = null; // Promise<{ bar_weight, plates, units } | null>
 
 function loadInventory() {
   if (!cached) {
     cached = platePresetsAPI.getActive()
-      .then(({ preset }) => (preset ? { bar_weight: preset.bar_weight, plates: preset.plates || {} } : null))
+      .then(({ preset }) => (preset ? { bar_weight: preset.bar_weight, plates: preset.plates || {}, units: preset.units || 'lbs' } : null))
       .catch((err) => {
         cached = null; // let the next caller retry
         throw err;
