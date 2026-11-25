@@ -130,14 +130,27 @@ the run red.
   gh secret set ENV_YAML < .env.yaml
   ```
 
-- **Rollback:** every image is also tagged with its commit SHA. Set `SHA` to the
-  commit you want, then redeploy it (env vars and volume settings carry over
-  from the current revision):
+- **Traffic:** each workflow deploy names its revision after the commit
+  (`fitness-tracker-<sha7>-r<run id>-<attempt>`), sends it 100% of traffic, and
+  fails if it isn't serving afterwards. This matters because a deploy with
+  `--no-traffic` (for example a tagged preview) pins traffic to one revision,
+  and plain `gcloud run deploy` never moves pinned traffic. To see where
+  traffic goes:
 
   ```zsh
-  SHA="paste-full-commit-sha-here"
-  gcloud run deploy fitness-tracker --image "gcr.io/metal-apricot-343704/fitness-tracker:${SHA}" --region us-central1
+  gcloud run services describe fitness-tracker --region us-central1 --format 'yaml(status.traffic)'
   ```
+
+- **Rollback:** send traffic back to an earlier revision (list them with
+  `gcloud run revisions list --service fitness-tracker --region us-central1`).
+  Set `REVISION` to the one you want:
+
+  ```zsh
+  REVISION="paste-revision-name-here"
+  gcloud run services update-traffic fitness-tracker --to-revisions "${REVISION}=100" --region us-central1
+  ```
+
+  The next merge to main moves traffic to its own revision again.
 - **Deploy timing:** during a rollout the old and new instances can briefly run at
   the same time, each with its own in-memory copy of the SQLite database, so a
   workout saved in that window could be lost. This was already true of manual
