@@ -84,6 +84,7 @@ async function apiCall(endpoint, options = {}) {
       );
       error.status = response.status;
       error.code = data.code;
+      error.data = data;
       // The server no longer accepts this token: sign out (AuthContext listens).
       // Not for sign-in itself, where 401 just means a wrong password.
       if (response.status === 401 && token && !endpoint.startsWith('/auth/login')) {
@@ -199,6 +200,17 @@ export const exercisesAPI = {
    */
   getMuscleGroups: async () => {
     return await apiCall('/exercises/muscle-groups');
+  },
+
+  /**
+   * Add a custom exercise (private to the user). 409 with { exercise } when
+   * they already have one by that name.
+   */
+  create: async (exercise) => {
+    return await apiCall('/exercises', {
+      method: 'POST',
+      body: JSON.stringify(exercise),
+    });
   },
 };
 

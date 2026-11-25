@@ -35,11 +35,14 @@ function fromLbs(weight, units) {
 /**
  * Helper function to get exercise ID by name
  */
-function getExerciseIdByName(exerciseName) {
+function getExerciseIdByName(exerciseName, userId) {
+  // Only the built-in library and this user's own exercises; their own first
+  const visible = '(user_id IS NULL OR user_id = ?)';
+
   // Try exact match first
   const exactMatch = get(
-    'SELECT id FROM exercises WHERE LOWER(name) = LOWER(?)',
-    [exerciseName]
+    `SELECT id FROM exercises WHERE LOWER(name) = LOWER(?) AND ${visible} ORDER BY user_id IS NULL, id`,
+    [exerciseName, userId]
   );
   
   if (exactMatch) {
@@ -48,8 +51,8 @@ function getExerciseIdByName(exerciseName) {
   
   // Try partial match
   const partialMatch = get(
-    'SELECT id FROM exercises WHERE LOWER(name) LIKE LOWER(?)',
-    [`%${exerciseName}%`]
+    `SELECT id FROM exercises WHERE LOWER(name) LIKE LOWER(?) AND ${visible} ORDER BY user_id IS NULL, id`,
+    [`%${exerciseName}%`, userId]
   );
   
   return partialMatch ? partialMatch.id : null;
@@ -146,7 +149,7 @@ router.get('/lift-progression/:exerciseName', authenticateToken, (req, res) => {
     const { weeks, startDateStr, endDateStr } = dateRange(req);
 
     // Get exercise ID
-    const exerciseId = getExerciseIdByName(exerciseName);
+    const exerciseId = getExerciseIdByName(exerciseName, userId);
     if (!exerciseId) {
       return res.status(404).json({
         error: `Exercise "${exerciseName}" not found`
@@ -285,7 +288,7 @@ router.get('/strength-score', authenticateToken, (req, res) => {
     
     // Analyze each main lift
     mainLifts.forEach(lift => {
-      const exerciseId = getExerciseIdByName(lift.name);
+      const exerciseId = getExerciseIdByName(lift.name, userId);
       
       if (!exerciseId) {
         strengthScore[lift.key] = {
@@ -433,7 +436,7 @@ router.get('/symmetry', authenticateToken, (req, res) => {
     // Best estimated 1RM of each lift in the range, in pounds
     const lifts = {};
     mainLifts.forEach(lift => {
-      const exerciseId = getExerciseIdByName(lift.name);
+      const exerciseId = getExerciseIdByName(lift.name, userId);
       const sets = exerciseId ? all(
         `SELECT s.weight, s.reps
          FROM sets s
@@ -759,7 +762,7 @@ router.get('/overview', authenticateToken, (req, res) => {
 
     const lifts = {};
     for (const lift of MAIN_LIFTS) {
-      const exerciseId = getExerciseIdByName(lift.name);
+      const exerciseId = getExerciseIdByName(lift.name, userId);
       const liftSets = exerciseId ? sets.filter((s) => s.exercise_id === exerciseId && s.date >= previous.start) : [];
       lifts[lift.key] = { key: lift.key, name: lift.name, label: lift.label, ...liftChange(liftSets, windows, today) };
     }

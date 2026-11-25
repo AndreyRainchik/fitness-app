@@ -45,6 +45,7 @@ export async function initDatabase() {
       ensureAnalysisSchema();
       ensureProgramSchema();
       ensureAuthSchema();
+      ensureExerciseOwnerSchema();
       enableForeignKeys();
       saveDatabase();
     } else {
@@ -57,6 +58,7 @@ export async function initDatabase() {
       ensureAnalysisSchema();
       ensureProgramSchema();
       ensureAuthSchema();
+      ensureExerciseOwnerSchema();
       seedExercises();
       enableForeignKeys();
       saveDatabase();
@@ -502,6 +504,52 @@ function ensureAuthSchema() {
 }
 
 /**
+ * Custom exercises belong to the user who made them (exercises.user_id);
+ * the built-in library has user_id NULL and everyone sees it.
+ *
+ * Until now every exercise was shared, and the only way to make one was a
+ * Hevy import. When the column is first added, each such exercise (not in
+ * the built-in list, and mapped from Hevy) goes to the one user who uses it.
+ * One used by several users, or by none, stays shared.
+ */
+function ensureExerciseOwnerSchema() {
+  try {
+    db.run('ALTER TABLE exercises ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE');
+  } catch (e) {
+    db.run('CREATE INDEX IF NOT EXISTS idx_exercises_user ON exercises(user_id)');
+    return; // Column already exists: assigned already
+  }
+  db.run('CREATE INDEX IF NOT EXISTS idx_exercises_user ON exercises(user_id)');
+
+  const builtIn = new Set(SEED_EXERCISES.map((e) => e.name.trim().toLowerCase()));
+  const hevyTable = db.exec("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'hevy_exercise_mappings'").length > 0;
+  if (!hevyTable) return;
+
+  const candidates = db.exec('SELECT DISTINCT e.id, e.name FROM exercises e JOIN hevy_exercise_mappings m ON m.exercise_id = e.id')[0]?.values ?? [];
+  let assigned = 0;
+  let shared = 0;
+  for (const [id, name] of candidates) {
+    if (builtIn.has(String(name).trim().toLowerCase())) continue;
+    const users = db.exec(
+      `SELECT user_id FROM hevy_exercise_mappings WHERE exercise_id = ?
+       UNION SELECT w.user_id FROM sets s JOIN workouts w ON w.id = s.workout_id WHERE s.exercise_id = ?
+       UNION SELECT t.user_id FROM template_sets ts JOIN workout_templates t ON t.id = ts.template_id WHERE ts.exercise_id = ?
+       UNION SELECT p.user_id FROM program_lifts pl JOIN programs p ON p.id = pl.program_id WHERE pl.exercise_id = ?`,
+      [id, id, id, id]
+    )[0]?.values ?? [];
+    if (users.length === 1) {
+      db.run('UPDATE exercises SET user_id = ? WHERE id = ?', [users[0][0], id]);
+      assigned++;
+    } else {
+      shared++;
+    }
+  }
+  if (assigned || shared) {
+    logger.info(`🏷️ Custom exercises: ${assigned} assigned to their user, ${shared} used by several users left shared`);
+  }
+}
+
+/**
  * Turn on foreign key enforcement, so ON DELETE CASCADE works (SQLite leaves
  * it off by default). It was off until now, so first remove rows whose
  * cascading parent is already gone (e.g. sets of deleted workouts); turning
@@ -544,13 +592,8 @@ function enableForeignKeys() {
   }
 }
 
-/**
- * Seed the database with common exercises
- */
-function seedExercises() {
-  console.log('🌱 Seeding exercises...');
-  
-  const exercises = [
+/** The built-in exercise library (user_id NULL), seeded into new databases. */
+const SEED_EXERCISES = [
     // Main Compound Lifts
     { name: 'Barbell Squat', category: 'barbell', primary: 'Quadriceps', secondary: '["Glutes","Hamstrings","Core"]', compound: 1 },
     { name: 'Barbell Bench Press', category: 'barbell', primary: 'Chest', secondary: '["Triceps","Shoulders"]', compound: 1 },
@@ -604,19 +647,26 @@ function seedExercises() {
     { name: 'Plank', category: 'bodyweight', primary: 'Core', secondary: '[]', compound: 0 },
     { name: 'Ab Wheel Rollout', category: 'other', primary: 'Core', secondary: '[]', compound: 0 },
     { name: 'Hanging Leg Raise', category: 'bodyweight', primary: 'Core', secondary: '[]', compound: 0 }
-  ];
+];
+
+/**
+ * Seed the database with common exercises
+ */
+function seedExercises() {
+  console.log('🌱 Seeding exercises...');
+  
   
   const stmt = db.prepare(`
     INSERT INTO exercises (name, category, primary_muscle_group, secondary_muscle_groups, is_compound)
     VALUES (?, ?, ?, ?, ?)
   `);
   
-  exercises.forEach(ex => {
+  SEED_EXERCISES.forEach(ex => {
     stmt.run([ex.name, ex.category, ex.primary, ex.secondary, ex.compound]);
   });
   
   stmt.free();
-  console.log(`✅ Seeded ${exercises.length} exercises`);
+  console.log(`✅ Seeded ${SEED_EXERCISES.length} exercises`);
 }
 
 /**

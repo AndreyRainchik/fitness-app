@@ -512,6 +512,20 @@ async function apiTests() {
       assert.equal(sets[1].reps, 6);
     });
 
+    await test('an exercise created by an import is private to that user', async () => {
+      const mine = (await call('GET', '/exercises/search?q=Cable%20Crossover')).body.exercises;
+      assert.equal(mine.length, 1);
+      assert.equal(mine[0].is_custom, 1);
+
+      const other = await anon('POST', '/auth/register', { email: 'other-hevy@test.local', password: 'secret123', username: 'other' });
+      const callOther = api(app.base, other.body.token);
+      assert.equal((await callOther('GET', '/exercises/search?q=Cable%20Crossover')).body.exercises.length, 0);
+      assert.equal((await callOther('GET', `/exercises/${mine[0].id}`)).status, 404);
+      const w = await callOther('POST', '/workouts', { date: '2026-01-05', name: 'x', sets: [{ exercise_id: mine[0].id, set_number: 1, reps: 5, weight: 50 }] });
+      assert.equal(w.status, 400, 'cannot log sets with another user\'s exercise');
+      assert.equal((await anon('GET', '/exercises')).status, 401, 'the library needs sign-in');
+    });
+
     await test('assisted exercises are stored as negative weight', async () => {
       const apu = preview.exercises.find((e) => e.template_id === 'T-APU');
       const r = await call('POST', '/hevy/import', {

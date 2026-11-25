@@ -1,5 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
+import { Plus } from 'lucide-react';
 import { exercisesAPI } from '../../services/api';
+import CreateExerciseModal from './CreateExerciseModal';
 
 const MIN_QUERY_LENGTH = 2;
 const DEBOUNCE_MS = 250;
@@ -8,13 +10,18 @@ const DEBOUNCE_MS = 250;
  * Exercise name field with server-side autocomplete.
  *
  * Typing calls onChange(name) (which should clear the matched exercise);
- * picking a suggestion calls onSelect({ id, name, ... }).
+ * picking a suggestion calls onSelect({ id, name, ... }). When nothing in
+ * the list has the typed name, a last "Create" row adds it as the user's own
+ * exercise and selects it.
  */
 function ExerciseNameInput({ value, onChange, onSelect, disabled = false }) {
   const listId = useId();
   const [suggestions, setSuggestions] = useState([]);
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(-1);
+  // The query the current suggestions answer (offered as a new exercise)
+  const [searched, setSearched] = useState('');
+  const [creating, setCreating] = useState(false);
   const timerRef = useRef(null);
   // Ignore responses for queries the user has already typed past
   const latestQueryRef = useRef('');
@@ -35,6 +42,7 @@ function ExerciseNameInput({ value, onChange, onSelect, disabled = false }) {
     latestQueryRef.current = query;
     if (query.length < MIN_QUERY_LENGTH) {
       setSuggestions([]);
+      setSearched('');
       return;
     }
 
@@ -44,9 +52,11 @@ function ExerciseNameInput({ value, onChange, onSelect, disabled = false }) {
         if (latestQueryRef.current !== query) return;
         const list = res?.exercises ?? res ?? [];
         setSuggestions(list);
-        setOpen(list.length > 0);
+        setSearched(query);
+        setOpen(true);
       } catch {
         setSuggestions([]);
+        setSearched('');
         setOpen(false);
       }
     }, DEBOUNCE_MS);
@@ -55,21 +65,36 @@ function ExerciseNameInput({ value, onChange, onSelect, disabled = false }) {
   const select = (suggestion) => {
     onSelect(suggestion);
     setSuggestions([]);
+    setSearched('');
     close();
   };
 
+  const canCreate = searched.length >= MIN_QUERY_LENGTH
+    && !suggestions.some((sug) => sug.name.trim().toLowerCase() === searched.toLowerCase());
+  const itemCount = suggestions.length + (canCreate ? 1 : 0);
+
+  const startCreate = () => {
+    close();
+    setCreating(true);
+  };
+
+  const choose = (index) => {
+    if (index < suggestions.length) select(suggestions[index]);
+    else startCreate();
+  };
+
   const handleKeyDown = (e) => {
-    if (!open || suggestions.length === 0) return;
+    if (!open || itemCount === 0) return;
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setHighlighted((h) => Math.min(h + 1, suggestions.length - 1));
+      setHighlighted((h) => Math.min(h + 1, itemCount - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setHighlighted((h) => Math.max(h - 1, 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      select(suggestions[highlighted >= 0 ? highlighted : 0]);
+      choose(highlighted >= 0 ? highlighted : 0);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       close();
@@ -83,7 +108,7 @@ function ExerciseNameInput({ value, onChange, onSelect, disabled = false }) {
         value={value}
         onChange={(e) => handleChange(e.target.value)}
         onKeyDown={handleKeyDown}
-        onFocus={() => suggestions.length > 0 && setOpen(true)}
+        onFocus={() => (suggestions.length > 0 || searched) && setOpen(true)}
         onBlur={close}
         placeholder="Search exercises…"
         aria-label="Exercise name"
@@ -94,7 +119,7 @@ function ExerciseNameInput({ value, onChange, onSelect, disabled = false }) {
         className="h-11 w-full px-3.5 text-[15px] font-semibold"
         disabled={disabled}
       />
-      {open && suggestions.length > 0 && (
+      {open && itemCount > 0 && (
         <ul
           id={listId}
           role="listbox"
@@ -113,16 +138,43 @@ function ExerciseNameInput({ value, onChange, onSelect, disabled = false }) {
               }}
               className={`rounded-lg px-3 py-2 cursor-pointer ${idx === highlighted ? 'bg-primary-50' : 'hover:bg-gray-50'}`}
             >
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center gap-2">
                 <div className="text-sm font-medium text-gray-900">{sug.name}</div>
-                {sug.primary_muscle_group && (
-                  <div className="text-xs text-gray-500">{sug.primary_muscle_group}</div>
-                )}
+                <div className="flex shrink-0 items-center gap-1.5 text-xs text-gray-500">
+                  {sug.is_custom ? <span className="rounded bg-primary-50 px-1.5 py-0.5 font-medium text-primary-700">Yours</span> : null}
+                  {sug.primary_muscle_group}
+                </div>
               </div>
             </li>
           ))}
+          {canCreate && suggestions.length === 0 && (
+            <li role="presentation" className="px-3 pt-2 pb-1 text-xs text-gray-500">No exercises match</li>
+          )}
+          {canCreate && (
+            <li
+              role="option"
+              aria-selected={highlighted === suggestions.length}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                startCreate();
+              }}
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer text-sm font-medium text-primary-700 ${highlighted === suggestions.length ? 'bg-primary-50' : 'hover:bg-gray-50'}`}
+            >
+              <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="truncate">Create “{searched}”</span>
+            </li>
+          )}
         </ul>
       )}
+      <CreateExerciseModal
+        open={creating}
+        initialName={searched || value}
+        onClose={() => setCreating(false)}
+        onCreated={(exercise) => {
+          setCreating(false);
+          select(exercise);
+        }}
+      />
     </div>
   );
 }

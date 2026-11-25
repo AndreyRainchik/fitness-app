@@ -1,6 +1,6 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
-import { WorkoutTemplate, TemplateSet } from '../models/index.js';
+import { WorkoutTemplate, TemplateSet, Exercise } from '../models/index.js';
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -296,6 +296,11 @@ router.post('/:id/sets',
       }
       
       const { exercise_id, set_number, reps, weight, rpe, is_warmup, notes } = req.body;
+
+      // The built-in library or one of this user's own exercises
+      if (!Exercise.findVisible(exercise_id, req.user.id)) {
+        return res.status(400).json({ error: `Exercise ${exercise_id} not found` });
+      }
       
       const set = TemplateSet.create({
         template_id: id,
