@@ -36,10 +36,14 @@ async function apiCall(endpoint, options = {}) {
 
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-    const data = await response.json();
+    // A proxy or crash can answer with HTML or nothing; don't fail on parsing it
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data.error || data.message || 'API request failed');
+      // express-validator routes answer { errors: [{ msg }] } without `error`
+      throw new Error(
+        data.error || data.errors?.[0]?.msg || data.message || `Request failed (${response.status})`
+      );
     }
 
     return data;

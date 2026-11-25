@@ -44,6 +44,7 @@ export async function initDatabase() {
       ensureStravaSchema();
       ensureAnalysisSchema();
       ensureProgramSchema();
+      enableForeignKeys();
       saveDatabase();
     } else {
       console.log('🆕 Creating new database...');
@@ -55,6 +56,7 @@ export async function initDatabase() {
       ensureAnalysisSchema();
       ensureProgramSchema();
       seedExercises();
+      enableForeignKeys();
       saveDatabase();
     }
     
@@ -482,6 +484,49 @@ function ensureProgramSchema() {
     db.run('ALTER TABLE program_lifts ADD COLUMN paused INTEGER NOT NULL DEFAULT 0');
   } catch (e) {
     // Column already exists
+  }
+}
+
+/**
+ * Turn on foreign key enforcement, so ON DELETE CASCADE works (SQLite leaves
+ * it off by default). It was off until now, so first remove rows whose
+ * cascading parent is already gone (e.g. sets of deleted workouts); turning
+ * it on doesn't check existing rows. Runs after the schema changes above.
+ */
+function enableForeignKeys() {
+  const tables = db.exec("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")[0]?.values.map(([name]) => name) ?? [];
+  const cascades = [];
+  for (const table of tables) {
+    const keys = db.exec(`PRAGMA foreign_key_list("${table}")`)[0];
+    if (!keys) continue;
+    const col = Object.fromEntries(keys.columns.map((c, i) => [c, i]));
+    for (const row of keys.values) {
+      if (String(row[col.on_delete]).toUpperCase() === 'CASCADE') {
+        cascades.push({ table, from: row[col.from], parent: row[col.table], to: row[col.to] || 'id' });
+      }
+    }
+  }
+
+  // Repeat until nothing changes: removing a row can orphan its own children
+  let removed = 0;
+  for (let pass = 0; pass < 10; pass++) {
+    let changed = 0;
+    for (const { table, from, parent, to } of cascades) {
+      db.run(
+        `DELETE FROM "${table}" WHERE "${from}" IS NOT NULL AND "${from}" NOT IN (SELECT "${to}" FROM "${parent}")`
+      );
+      changed += db.getRowsModified();
+    }
+    removed += changed;
+    if (changed === 0) break;
+  }
+  if (removed > 0) logger.info(`🧹 Removed ${removed} orphaned rows before enabling foreign keys`);
+
+  db.run('PRAGMA foreign_keys = ON');
+
+  const violations = db.exec('PRAGMA foreign_key_check')[0]?.values.length ?? 0;
+  if (violations > 0) {
+    logger.warn(`⚠️ ${violations} rows reference missing rows (not removed; see PRAGMA foreign_key_check)`);
   }
 }
 

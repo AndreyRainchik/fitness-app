@@ -7,7 +7,7 @@ import dotenv from 'dotenv';
 import { initDatabase } from './config/database.js';
 import logger from './config/logger.config.js';
 import { requestLogger, errorLogger, logStartup, logShutdown } from './middleware/logger.js';
-import { rateLimiter, authRateLimiter } from './middleware/rateLimiter.js';
+import { rateLimiter } from './middleware/rateLimiter.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -31,6 +31,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// Behind Cloud Run's front end (one proxy hop), so req.ip is the client's
+// address from X-Forwarded-For rather than the proxy's. Rate limits key on it.
+// TRUST_PROXY overrides the hop count (0 when the server is exposed directly).
+app.set('trust proxy', process.env.TRUST_PROXY !== undefined ? Number(process.env.TRUST_PROXY) : 1);
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
@@ -161,12 +166,8 @@ app.get('/api', (req, res) => {
   });
 });
 
-// Auth routes (with stricter rate limiting)
-if (NODE_ENV === 'production') {
-  app.use('/api/auth', authRoutes);
-} else {
-  app.use('/api/auth', authRoutes);
-}
+// Auth routes (routes/auth.js applies the stricter sign-in and sign-up limits)
+app.use('/api/auth', authRoutes);
 
 // Other API routes
 app.use('/api/exercises', exerciseRoutes);

@@ -8,7 +8,7 @@ import RestTimer from '../components/Timers/RestTimer';
 import WorkoutEditor from '../components/Workout/WorkoutEditor';
 import { Badge, Button, LoadingState, useConfirm } from '../components/ui';
 import { getLocalDateString } from '../utils/dateUtils';
-import { setsToExerciseBlocks } from '../utils/workoutPayload';
+import { isBlankSet, setsToExerciseBlocks } from '../utils/workoutPayload';
 import {
   clearDraft, formatDuration, loadDraft, newTimer, pauseTimer, resumeTimer, saveDraft, workoutElapsedMs,
 } from '../utils/workoutDraft';
@@ -122,12 +122,18 @@ function ActiveWorkout() {
 
   const handleFinish = async ({ name, date, notes, exercises, sets }) => {
     const minutes = Math.max(1, Math.round(workoutElapsedMs(timer) / 60000));
-    const doneSets = exercises.reduce((n, ex) => n + ex.sets.filter((s) => s.done).length, 0);
-    const totalSets = exercises.reduce((n, ex) => n + ex.sets.length, 0);
+    const allSets = exercises.flatMap((ex) => ex.sets);
+    const blankSets = allSets.filter(isBlankSet).length;
+    const totalSets = allSets.length - blankSets;
+    const uncheckedSets = allSets.filter((s) => !s.done && !isBlankSet(s)).length;
+    const savedExercises = exercises.filter((ex) => ex.sets.some((s) => !isBlankSet(s))).length;
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
     const confirmed = await confirm({
       title: 'Finish workout?',
-      message: `${name}\n${minutes} min · ${exercises.length} exercise${exercises.length === 1 ? '' : 's'} · ${totalSets} sets${
-        doneSets < totalSets ? `\n${totalSets - doneSets} set${totalSets - doneSets === 1 ? " isn't" : "s aren't"} checked off — they'll still be saved.` : ''
+      message: `${name}\n${minutes} min · ${plural(savedExercises, 'exercise', 'exercises')} · ${plural(totalSets, 'set', 'sets')}${
+        uncheckedSets > 0 ? `\n${plural(uncheckedSets, "set isn't", "sets aren't")} checked off — they'll still be saved.` : ''
+      }${
+        blankSets > 0 ? `\n${plural(blankSets, 'empty set', 'empty sets')} will be left out.` : ''
       }`,
       confirmLabel: 'Finish & save',
       cancelLabel: 'Keep going',
