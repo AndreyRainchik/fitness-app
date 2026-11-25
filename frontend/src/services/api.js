@@ -212,6 +212,24 @@ export const exercisesAPI = {
       body: JSON.stringify(exercise),
     });
   },
+
+  /** The user's own exercises, each with usage: { sets, templates, programs }. */
+  getMine: async () => {
+    return await apiCall('/exercises/mine');
+  },
+
+  /** Change one of the user's own exercises. */
+  update: async (id, exercise) => {
+    return await apiCall(`/exercises/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(exercise),
+    });
+  },
+
+  /** Delete one of the user's own exercises (409 with { usage } while it's in use). */
+  remove: async (id) => {
+    return await apiCall(`/exercises/${id}`, { method: 'DELETE' });
+  },
 };
 
 /**

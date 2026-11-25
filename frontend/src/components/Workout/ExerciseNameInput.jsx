@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { exercisesAPI } from '../../services/api';
-import CreateExerciseModal from './CreateExerciseModal';
+import ExerciseFormModal from './ExerciseFormModal';
 
 const MIN_QUERY_LENGTH = 2;
 const DEBOUNCE_MS = 250;
@@ -166,11 +166,11 @@ function ExerciseNameInput({ value, onChange, onSelect, disabled = false }) {
           )}
         </ul>
       )}
-      <CreateExerciseModal
+      <ExerciseFormModal
         open={creating}
         initialName={searched || value}
         onClose={() => setCreating(false)}
-        onCreated={(exercise) => {
+        onSaved={(exercise) => {
           setCreating(false);
           select(exercise);
         }}

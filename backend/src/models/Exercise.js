@@ -1,4 +1,4 @@
-import { get, all, insert, run } from '../config/database.js';
+import { get, all, insert, run, transaction } from '../config/database.js';
 
 /**
  * Exercise Model
@@ -130,12 +130,42 @@ class Exercise {
     run(`UPDATE exercises SET ${updates.join(', ')} WHERE id = ?`, params);
     return this.findById(id);
   }
-  
+
+  /** This user's own exercises, each with how much uses it (usage: { sets, templates, programs }). */
+  static getOwnWithUsage(userId) {
+    return all(
+      `SELECT e.*,
+         (SELECT COUNT(*) FROM sets s JOIN workouts w ON w.id = s.workout_id WHERE s.exercise_id = e.id) AS set_count,
+         (SELECT COUNT(DISTINCT ts.template_id) FROM template_sets ts WHERE ts.exercise_id = e.id) AS template_count,
+         (SELECT COUNT(DISTINCT pl.program_id) FROM program_lifts pl WHERE pl.exercise_id = e.id) AS program_count
+       FROM exercises e
+       WHERE e.user_id = ?
+       ORDER BY e.name COLLATE NOCASE`,
+      [userId]
+    ).map((row) => {
+      const { set_count, template_count, program_count, ...exercise } = row;
+      return { ...parse(exercise), usage: { sets: set_count, templates: template_count, programs: program_count } };
+    });
+  }
+
+  /** How much uses this exercise: { sets, templates, programs }. */
+  static usage(id) {
+    return {
+      sets: get('SELECT COUNT(*) AS n FROM sets WHERE exercise_id = ?', [id]).n,
+      templates: get('SELECT COUNT(DISTINCT template_id) AS n FROM template_sets WHERE exercise_id = ?', [id]).n,
+      programs: get('SELECT COUNT(DISTINCT program_id) AS n FROM program_lifts WHERE exercise_id = ?', [id]).n,
+    };
+  }
+
   /**
-   * Delete exercise
+   * Delete an exercise nothing uses. Hevy import choices that pointed at it
+   * are forgotten (the next import asks again).
    */
   static delete(id) {
-    run('DELETE FROM exercises WHERE id = ?', [id]);
+    transaction(() => {
+      run('DELETE FROM hevy_exercise_mappings WHERE exercise_id = ?', [id]);
+      run('DELETE FROM exercises WHERE id = ?', [id]);
+    });
     return { success: true };
   }
 }

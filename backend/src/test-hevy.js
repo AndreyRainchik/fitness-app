@@ -526,6 +526,39 @@ async function apiTests() {
       assert.equal((await anon('GET', '/exercises')).status, 401, 'the library needs sign-in');
     });
 
+    await test('own exercises: list with usage, edit, and delete only when unused', async () => {
+      const mine = (await call('GET', '/exercises/mine')).body.exercises;
+      const crossover = mine.find((e) => e.name === 'Cable Crossover');
+      assert.ok(crossover.usage.sets > 0, 'the imported workout uses it');
+
+      const edited = await call('PUT', `/exercises/${crossover.id}`, {
+        name: 'Cable Fly', category: 'cable', primary_muscle_group: 'Chest', secondary_muscle_groups: ['Shoulders', 'Chest', ' '],
+      });
+      assert.equal(edited.status, 200, JSON.stringify(edited.body));
+      assert.equal(edited.body.exercise.name, 'Cable Fly');
+      assert.deepEqual(edited.body.exercise.secondary_muscle_groups, ['Shoulders'], 'drops blanks and the main group');
+
+      const bench = (await call('GET', '/exercises/search?q=Barbell%20Bench%20Press')).body.exercises[0];
+      const builtIn = await call('PUT', `/exercises/${bench.id}`, { name: 'Bench', category: 'barbell', primary_muscle_group: 'Chest' });
+      assert.equal(builtIn.status, 403);
+      const clash = await call('PUT', `/exercises/${crossover.id}`, { name: 'barbell bench press', category: 'cable', primary_muscle_group: 'Chest' });
+      assert.equal(clash.status, 409);
+
+      const other = await anon('POST', '/auth/login', { email: 'other-hevy@test.local', password: 'secret123' });
+      const callOther = api(app.base, other.body.token);
+      assert.equal((await callOther('PUT', `/exercises/${crossover.id}`, { name: 'Mine now', category: 'cable', primary_muscle_group: 'Chest' })).status, 404);
+      assert.equal((await callOther('DELETE', `/exercises/${crossover.id}`)).status, 404);
+
+      const inUse = await call('DELETE', `/exercises/${crossover.id}`);
+      assert.equal(inUse.status, 409);
+      assert.ok(inUse.body.usage.sets > 0);
+
+      const spare = await call('POST', '/exercises', { name: 'Spare Lift', category: 'other', primary_muscle_group: 'Core' });
+      assert.equal(spare.status, 201);
+      assert.equal((await call('DELETE', `/exercises/${spare.body.exercise.id}`)).status, 200);
+      assert.ok(!(await call('GET', '/exercises/mine')).body.exercises.some((e) => e.name === 'Spare Lift'));
+    });
+
     await test('assisted exercises are stored as negative weight', async () => {
       const apu = preview.exercises.find((e) => e.template_id === 'T-APU');
       const r = await call('POST', '/hevy/import', {
