@@ -18,6 +18,7 @@
   "test:cardio": "node src/test-cardio.js",
   "test:strava": "node src/test-strava.js",
   "test:programs": "node src/test-programs.js",
+  "test:overview": "node src/test-overview.js",
   "strava:subscribe": "node src/strava-subscribe.js"
  },
  "keywords": [

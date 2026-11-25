@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout/Layout';
 import { analyticsAPI } from '../services/api';
-import StrengthScoreCard from '../components/Analytics/StrengthScoreCard';
+import OverviewView from '../components/Analytics/OverviewView';
 import LiftProgressionChart from '../components/Analytics/LiftProgressionChart';
 import SymmetryDisplay from '../components/Analytics/SymmetryDisplay';
 import StrengthStandardsTable from '../components/Analytics/StrengthStandardsTable';
@@ -138,28 +138,7 @@ function Analytics() {
         <div className="space-y-6">
           {/* Overview Tab */}
           {activeTab === 'overview' && (
-            <>
-              <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
-                <StrengthScoreCard title="Squat" lift={strengthScore?.squat} />
-                <StrengthScoreCard title="Bench press" lift={strengthScore?.bench} />
-                <StrengthScoreCard title="Deadlift" lift={strengthScore?.deadlift} />
-                <StrengthScoreCard title="Overhead press" lift={strengthScore?.ohp} />
-              </div>
-
-              {strengthScore?.total > 0 && (
-                <Card padding="p-0" className="overflow-hidden">
-                  <div className="flex items-center justify-between gap-4 bg-gradient-to-br from-primary-600 to-purple-600 p-5 text-white">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-white/80">Powerlifting total</p>
-                      <p className="tabular mt-1 text-3xl font-bold tracking-tight sm:text-4xl">
-                        {strengthScore.total} <span className="text-base font-medium text-white/80">{units}</span>
-                      </p>
-                    </div>
-                    <p className="text-right text-xs text-white/70">Squat +<br />Bench +<br />Deadlift</p>
-                  </div>
-                </Card>
-              )}
-            </>
+            <OverviewView weeks={weeks} distanceUnit={distanceUnit(units)} onNavigate={setActiveTab} />
           )}
 
           {/* Progression Tab */}
@@ -189,6 +168,7 @@ function Analytics() {
               <LiftProgressionChart
                 data={liftProgression[selectedLift]}
                 exerciseName={selectedLift}
+                units={units}
               />
             </>
           )}
@@ -203,7 +183,7 @@ function Analytics() {
 
           {/* Standards Tab */}
           {activeTab === 'standards' && (
-            <StrengthStandardsTable strengthData={strengthScore} />
+            <StrengthStandardsTable strengthData={strengthScore} units={strengthScore?.units ?? units} />
           )}
 
           {/* Symmetry Tab */}
@@ -213,7 +193,7 @@ function Analytics() {
         </div>
 
         {/* Empty State */}
-        {!strengthScore && !loading && !['endurance', 'load'].includes(activeTab) && (
+        {!strengthScore && !loading && !['overview', 'endurance', 'load'].includes(activeTab) && (
           <EmptyState
             icon="📊"
             title="No analytics data yet"

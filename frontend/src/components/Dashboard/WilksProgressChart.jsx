@@ -47,7 +47,8 @@ function WilksProgressChart({ weeks = 12 }) {
           date,
           dateFormatted: new Date(date).toLocaleDateString('en-US', {
             month: 'short',
-            day: 'numeric'
+            day: 'numeric',
+            timeZone: 'UTC'
           })
         };
 
@@ -83,7 +84,8 @@ function WilksProgressChart({ weeks = 12 }) {
             {new Date(payload[0].payload.date).toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
-              year: 'numeric'
+              year: 'numeric',
+              timeZone: 'UTC'
             })}
           </p>
           <div className="space-y-1">

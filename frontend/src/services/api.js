@@ -454,6 +454,12 @@ export const analyticsAPI = {
   },
 
   /**
+   * The Analytics overview: the last `weeks` weeks compared with the weeks before
+   * @param {number} weeks - Length of each period in weeks (default: 12)
+   */
+  getOverview: (weeks = 12) => apiCall(`/analytics/overview?${new URLSearchParams({ weeks, localDate: getLocalDateString() })}`),
+
+  /**
    * Get dashboard summary stats
    */
   getDashboardSummary: async () => {
