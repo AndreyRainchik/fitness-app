@@ -1,4 +1,4 @@
-import { getDatabase, saveDatabase } from '../config/database.js';
+import { getDatabase, saveDatabase, run, transaction } from '../config/database.js';
 
 /**
  * WorkoutTemplate model
@@ -130,6 +130,42 @@ class WorkoutTemplate {
     saveDatabase();
     
     return this.findById(id);
+  }
+
+  /**
+   * Update a template's fields and replace its sets with `sets`, in one
+   * transaction. Sets are re-inserted in the order given, because the order
+   * of set ids is what groups a template's sets by exercise when it is read.
+   * sets: [{ exercise_id, set_number, reps, weight, rpe?, is_warmup?, notes? }]
+   */
+  static updateWithSets(id, fields, sets = []) {
+    transaction(() => {
+      // Not this.update(): it saves the database itself, mid-transaction
+      if (fields.name !== undefined) {
+        run('UPDATE workout_templates SET name = ? WHERE id = ?', [fields.name, id]);
+      }
+      if (fields.description !== undefined) {
+        run('UPDATE workout_templates SET description = ? WHERE id = ?', [fields.description, id]);
+      }
+      run('DELETE FROM template_sets WHERE template_id = ?', [id]);
+      for (const set of sets) {
+        run(
+          `INSERT INTO template_sets (template_id, exercise_id, set_number, reps, weight, rpe, is_warmup, notes)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            id,
+            set.exercise_id,
+            set.set_number,
+            set.reps,
+            set.weight,
+            set.rpe ?? null,
+            set.is_warmup ? 1 : 0,
+            set.notes ?? null
+          ]
+        );
+      }
+    });
+    return this.getWithDetails(id);
   }
 
   /**

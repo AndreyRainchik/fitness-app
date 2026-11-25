@@ -119,8 +119,8 @@ export function isBlankSet(set) {
 /**
  * Returns the first validation error for the editor state, or null.
  */
-export function validateWorkout({ name, exercises }) {
-  if (!name.trim()) return 'Please enter a workout name';
+export function validateWorkout({ name, exercises, nameLabel = 'Workout name' }) {
+  if (!name.trim()) return `Please enter a ${nameLabel.toLowerCase()}`;
   if (exercises.length === 0) return 'Please add at least one exercise';
   if (exercises.some(ex => !ex.exerciseName.trim())) return 'Please enter names for all exercises';
   if (exercises.some(ex => ex.sets.length === 0)) return 'Each exercise must have at least one set';
