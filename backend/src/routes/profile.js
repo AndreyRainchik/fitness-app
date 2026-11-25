@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import { User, BodyweightLog } from '../models/index.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { signToken } from '../utils/authToken.js';
+import { convertWeight } from '../utils/units.js';
 import { autoSendBodyweightToHevy } from '../services/hevyAutoSync.js';
 
 const router = express.Router();
@@ -48,7 +49,8 @@ router.put('/',
   [
     body('username').optional().notEmpty().withMessage('Username cannot be empty'),
     body('units').optional().isIn(['kg', 'lbs']).withMessage('Units must be kg or lbs'),
-    body('sex').optional().isIn(['M', 'F']).withMessage('Sex must be M or F'),
+    // '' or null: prefer not to say
+    body('sex').optional({ values: 'null' }).isIn(['M', 'F', '']).withMessage('Sex must be M or F'),
     body('bodyweight').optional().isFloat({ min: 0 }).withMessage('Bodyweight must be positive')
   ],
   (req, res) => {
@@ -58,7 +60,8 @@ router.put('/',
     }
     
     try {
-      const { username, units, sex, bodyweight } = req.body;
+      const { username, units, bodyweight } = req.body;
+      const sex = req.body.sex === '' ? null : req.body.sex;
       const user = User.update(req.user.id, { username, units, sex, bodyweight });
       
       res.json({
@@ -205,8 +208,10 @@ router.post('/bodyweight',
         units
       });
       
-      // Also update user's current bodyweight in profile
-      User.update(req.user.id, { bodyweight: weight, units });
+      // Also update the profile's current bodyweight, in the profile's units
+      // (an entry in other units must not switch the user's units)
+      const profileUnits = User.findById(req.user.id)?.units;
+      User.update(req.user.id, { bodyweight: convertWeight(weight, units, profileUnits) });
 
       // Send it to Hevy when Hevy is connected (never fails the request)
       const hevy_sync = await autoSendBodyweightToHevy(req.user.id, [log.date]);

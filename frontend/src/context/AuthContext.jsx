@@ -104,8 +104,17 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Re-read the user after a change made elsewhere (e.g. units in Profile)
+  const refreshUser = async () => {
+    const data = await authAPI.getCurrentUser();
+    cacheUser(data.user);
+    setUser(data.user);
+    return data.user;
+  };
+
   const value = {
     user,
+    refreshUser,
     loading,
     error,
     login,

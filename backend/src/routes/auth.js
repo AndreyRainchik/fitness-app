@@ -20,7 +20,8 @@ router.post('/register',
     body('username').notEmpty().withMessage('Username is required'),
     body('bodyweight').optional().isFloat({ min: 0 }).withMessage('Bodyweight must be a positive number'),
     body('units').optional().isIn(['kg', 'lbs']).withMessage('Units must be kg or lbs'),
-    body('sex').optional().isIn(['M', 'F']).withMessage('Sex must be M or F')
+    // '' or null: prefer not to say
+    body('sex').optional({ values: 'null' }).isIn(['M', 'F', '']).withMessage('Sex must be M or F')
   ],
   async (req, res) => {
     // Check for validation errors
@@ -47,7 +48,7 @@ router.post('/register',
         units: units || 'kg',
         sex: sex || null
       });
-      PlateInventoryPreset.createDefaultPreset(user.id, units);
+      PlateInventoryPreset.createDefaultPreset(user.id, user.units);
 
       logger.info('😃 User registered successfully', {
         userId: user.id,
@@ -139,7 +140,8 @@ router.put('/me',
     body('username').optional().notEmpty().withMessage('Username cannot be empty'),
     body('bodyweight').optional().isFloat({ min: 0 }).withMessage('Bodyweight must be positive'),
     body('units').optional().isIn(['kg', 'lbs']).withMessage('Units must be kg or lbs'),
-    body('sex').optional().isIn(['M', 'F']).withMessage('Sex must be M or F')
+    // '' or null: prefer not to say
+    body('sex').optional({ values: 'null' }).isIn(['M', 'F', '']).withMessage('Sex must be M or F')
   ],
   (req, res) => {
     const errors = validationResult(req);
@@ -148,7 +150,8 @@ router.put('/me',
     }
     
     try {
-    const { username, bodyweight, units, sex } = req.body;
+    const { username, bodyweight, units } = req.body;
+    const sex = req.body.sex === '' ? null : req.body.sex;
     const user = User.update(req.user.id, { username, bodyweight, units, sex });
       
       res.json({

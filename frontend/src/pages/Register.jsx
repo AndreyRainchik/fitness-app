@@ -4,6 +4,23 @@ import { useAuth } from '../context/AuthContext';
 import AuthLayout from '../components/Layout/AuthLayout';
 import { Alert, Button } from '../components/ui';
 
+// Countries that weigh in pounds; everyone else starts in kilograms
+const POUND_REGIONS = new Set(['US', 'LR', 'MM']);
+
+/** 'lbs' or 'kg' from the browser's language settings (e.g. en-US -> lbs). */
+function defaultUnits() {
+  try {
+    const locales = navigator.languages?.length ? navigator.languages : [navigator.language];
+    for (const tag of locales) {
+      const region = new Intl.Locale(tag).maximize().region;
+      if (region) return POUND_REGIONS.has(region) ? 'lbs' : 'kg';
+    }
+  } catch {
+    // Old browser or odd tag: fall through
+  }
+  return 'kg';
+}
+
 function Register() {
   const navigate = useNavigate();
   const { register, isAuthenticated } = useAuth();
@@ -12,7 +29,7 @@ function Register() {
     email: '',
     password: '',
     bodyweight: '',
-    units: 'lbs',
+    units: defaultUnits(),
     sex: ''
   });
   const [error, setError] = useState('');
