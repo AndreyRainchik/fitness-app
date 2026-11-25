@@ -2,6 +2,7 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import { WorkoutTemplate, TemplateSet, Exercise } from '../models/index.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { bulkSetValidators, prepareBulkSets } from '../utils/bulkSets.js';
 
 const router = express.Router();
 
@@ -198,12 +199,14 @@ router.post('/:id/start',
 
 /**
  * PUT /api/templates/:id
- * Update a template
+ * Update a template. With a `sets` array, the template's sets are replaced
+ * by that list (in that order) in the same request.
  */
 router.put('/:id',
   [
-    body('name').optional().isString(),
-    body('description').optional().isString()
+    body('name').optional().isString().trim().notEmpty().withMessage('Template name cannot be empty'),
+    body('description').optional({ nullable: true }).isString(),
+    ...bulkSetValidators
   ],
   (req, res) => {
     const errors = validationResult(req);
@@ -223,8 +226,19 @@ router.put('/:id',
         return res.status(403).json({ error: 'Access denied' });
       }
       
-      const { name, description } = req.body;
-      const updatedTemplate = WorkoutTemplate.update(id, { name, description });
+      const { name, description, sets: rawSets } = req.body;
+      const fields = { name, description: description === '' ? null : description };
+
+      let updatedTemplate;
+      if (Array.isArray(rawSets)) {
+        const { sets, error } = prepareBulkSets(rawSets, req.user.id);
+        if (error) {
+          return res.status(400).json({ error });
+        }
+        updatedTemplate = WorkoutTemplate.updateWithSets(template.id, fields, sets);
+      } else {
+        updatedTemplate = WorkoutTemplate.update(id, fields);
+      }
       
       res.json({
         message: 'Template updated successfully',

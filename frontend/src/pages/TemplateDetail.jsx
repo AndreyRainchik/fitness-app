@@ -11,7 +11,7 @@ import {
   useConfirm,
   useToast
 } from '../components/ui';
-import { Play, Trash2 } from 'lucide-react';
+import { Pencil, Play, Trash2 } from 'lucide-react';
 import { groupSetsByExercise } from '../utils/workoutPayload';
 import { plural } from '../utils/format';
 import { ExerciseSetsCard, WorkoutStats } from '../components/Workout/ExerciseSetsCard';
@@ -117,6 +117,7 @@ function TemplateDetail() {
           actions={(
             <>
               <Button icon={Play} onClick={handleStartWorkout} className="flex-1 sm:flex-none">Start workout</Button>
+              <Button variant="secondary" iconOnly icon={Pencil} to={`/templates/${id}/edit`} aria-label="Edit template" title="Edit template" />
               <Button variant="danger-subtle" iconOnly icon={Trash2} onClick={handleDelete} aria-label="Delete template" title="Delete template" />
             </>
           )}

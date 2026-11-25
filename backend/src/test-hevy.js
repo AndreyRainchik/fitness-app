@@ -523,6 +523,9 @@ async function apiTests() {
       assert.equal((await callOther('GET', `/exercises/${mine[0].id}`)).status, 404);
       const w = await callOther('POST', '/workouts', { date: '2026-01-05', name: 'x', sets: [{ exercise_id: mine[0].id, set_number: 1, reps: 5, weight: 50 }] });
       assert.equal(w.status, 400, 'cannot log sets with another user\'s exercise');
+      const tpl = (await callOther('POST', '/templates', { name: 'Borrowed' })).body.template;
+      const t = await callOther('PUT', `/templates/${tpl.id}`, { name: 'Borrowed', sets: [{ exercise_id: mine[0].id, set_number: 1, reps: 5, weight: 50 }] });
+      assert.equal(t.status, 400, 'nor save them in a template');
       assert.equal((await anon('GET', '/exercises')).status, 401, 'the library needs sign-in');
     });
 

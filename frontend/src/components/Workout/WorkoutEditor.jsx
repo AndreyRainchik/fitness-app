@@ -125,6 +125,9 @@ function ExerciseBlock({
  * - onSetCompleted(): called when a set is checked off (starts the rest timer).
  * - excludeWorkoutId: workout to ignore for "last time" hints (Edit Workout).
  * - renderExerciseActions(exercise, { disabled }): extra buttons next to "Add set".
+ * - showDate: show the date field (off for templates, which have no date).
+ * - nameLabel / notesLabel / notesPlaceholder / addNotesLabel: field wording
+ *   (Edit Template uses the notes field for the template's description).
  * - ref: exposes { submit() } so a page header can trigger saving.
  */
 function WorkoutEditor({
@@ -139,6 +142,11 @@ function WorkoutEditor({
   onSetCompleted,
   excludeWorkoutId,
   renderExerciseActions,
+  showDate = true,
+  nameLabel = 'Workout name',
+  notesLabel = 'Notes',
+  notesPlaceholder = 'How did the workout feel? Any observations?',
+  addNotesLabel = 'Add notes',
   ref
 }) {
   // Fresh "last time" data for each editing session
@@ -227,7 +235,7 @@ function WorkoutEditor({
 
   const handleSubmit = async () => {
     setError('');
-    const validationError = validateWorkout({ name, exercises });
+    const validationError = validateWorkout({ name, exercises, nameLabel });
     if (validationError) {
       setError(validationError);
       requestAnimationFrame(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
@@ -264,7 +272,7 @@ function WorkoutEditor({
       <Card padding="p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="flex-1">
-            <label htmlFor="workout-name" className="eyebrow mb-1.5 block">Workout name</label>
+            <label htmlFor="workout-name" className="eyebrow mb-1.5 block">{nameLabel}</label>
             <Input
               id="workout-name"
               value={name}
@@ -274,10 +282,12 @@ function WorkoutEditor({
               className="!text-base font-semibold"
             />
           </div>
-          <div className="sm:w-44">
-            <label htmlFor="workout-date" className="eyebrow mb-1.5 block">Date</label>
-            <Input id="workout-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={isSaving} />
-          </div>
+          {showDate && (
+            <div className="sm:w-44">
+              <label htmlFor="workout-date" className="eyebrow mb-1.5 block">Date</label>
+              <Input id="workout-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={isSaving} />
+            </div>
+          )}
         </div>
       </Card>
 
@@ -314,12 +324,12 @@ function WorkoutEditor({
 
       {showNotes ? (
         <Card padding="p-4 sm:p-5">
-          <label htmlFor="workout-notes" className="eyebrow mb-1.5 block">Notes</label>
+          <label htmlFor="workout-notes" className="eyebrow mb-1.5 block">{notesLabel}</label>
           <Textarea
             id="workout-notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="How did the workout feel? Any observations?"
+            placeholder={notesPlaceholder}
             rows={3}
             className="resize-y"
             disabled={isSaving}
@@ -327,7 +337,7 @@ function WorkoutEditor({
         </Card>
       ) : (
         <Button variant="ghost" size="sm" icon={StickyNote} onClick={() => setShowNotes(true)}>
-          Add notes
+          {addNotesLabel}
         </Button>
       )}
 
