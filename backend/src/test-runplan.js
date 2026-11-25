@@ -268,6 +268,99 @@ async function unitTests() {
     }
   });
 
+  // Plans of every kind for the coaching rules below; the reported schedule: lift Mon/Tue/Thu/Fri,
+  // run Tue/Wed/Fri/Sat, long run Saturday, heavy legs Monday and Thursday
+  const USER = ['rest', 'lift', 'both', 'cardio', 'lift', 'both', 'cardio'];
+  const userHeavy = new Set();
+  const userLift = new Set();
+  for (let i = 0; i < 30 * 7; i++) {
+    const date = addDays('2026-11-22', i);
+    if (['lift', 'both'].includes(USER[weekday(date)])) userLift.add(date);
+    if ([1, 4].includes(weekday(date))) userHeavy.add(date);
+  }
+  const userPlan = (overrides) => plan({ days: USER, heavyLegDates: userHeavy, liftDates: userLift, longRunWeekday: 6, ...overrides });
+  const variety = [
+    ['half', plan()],
+    ['marathon', plan({ race: { key: 'marathon', date: '2027-04-18' }, runsPerWeek: 5 })],
+    ...[3, 4, 5].map((runs) => [`maintenance ${runs} runs`, userPlan({ kind: 'maintain', race: null, weeks: 12, runsPerWeek: runs, baseline: { weekly_m: (12 + runs * 5) * 1609, longest_m: 9 * 1609 } })]),
+  ];
+  const isBenchmark = (r) => sessionById(r.session_id).benchmark;
+
+  await test('the long run is the longest run of every week (time trials and races aside)', () => {
+    for (const [label, p] of variety) {
+      for (const w of p.weeks) {
+        const long = w.runs.find((r) => r.role === 'long');
+        if (!long) continue;
+        for (const r of w.runs) {
+          if (r === long || r.role === 'race' || isBenchmark(r)) continue;
+          assert.ok(r.distance_m < long.distance_m, `${label} week ${w.index}: ${r.title} ${r.distance_m} vs long ${long.distance_m}`);
+        }
+      }
+    }
+  });
+
+  await test('easy runs are at most about 70% of the long run', () => {
+    for (const [label, p] of variety) {
+      for (const w of p.weeks) {
+        const long = w.runs.find((r) => r.role === 'long');
+        if (!long) continue;
+        for (const r of w.runs.filter((x) => x.role === 'easy' && x.session_id !== 'shakeout')) {
+          // Rounded to half a mile, and strides add a little
+          assert.ok(r.distance_m <= long.distance_m * 0.7 + 805 + 400, `${label} week ${w.index}: ${r.distance_m} vs ${long.distance_m}`);
+        }
+      }
+    }
+  });
+
+  await test('warm-ups and cool-downs stay at 2 mi at most', () => {
+    for (const [label, p] of variety) {
+      for (const r of p.weeks.flatMap((w) => w.runs)) {
+        for (const step of r.steps.filter((x) => x.kind === 'warmup' || x.kind === 'cooldown')) {
+          assert.ok(step.distance_m <= 2 * 1609.344 + 1, `${label}: ${r.title} ${step.kind} ${step.distance_m}`);
+        }
+      }
+    }
+  });
+
+  await test('maintenance: two quality sessions a week at 5-6 runs (one of each family), one at 3-4', () => {
+    const quality = (w) => w.runs.filter((r) => QUALITY_ROLES.has(r.role));
+    const five = variety.find(([l]) => l === 'maintenance 5 runs')[1];
+    for (const w of five.weeks) {
+      const q = quality(w);
+      assert.equal(q.length, 2, `week ${w.index}`);
+      assert.notEqual(q[0].family, q[1].family);
+      assert.deepEqual(q.map((r) => r.role).sort(), ['A', 'B']);
+    }
+    for (const label of ['maintenance 3 runs', 'maintenance 4 runs']) {
+      for (const w of variety.find(([l]) => l === label)[1].weeks) assert.equal(quality(w).length, 1, `${label} week ${w.index}`);
+    }
+  });
+
+  await test('maintenance long runs rotate: fast finish and progression both appear', () => {
+    for (const label of ['maintenance 3 runs', 'maintenance 4 runs', 'maintenance 5 runs']) {
+      const ids = new Set(variety.find(([l]) => l === label)[1].weeks.flatMap((w) => w.runs.filter((r) => r.role === 'long').map((r) => r.session_id)));
+      assert.ok(ids.has('long_fast_finish') && ids.has('long_progression'), `${label}: ${[...ids]}`);
+    }
+  });
+
+  await test('easier weeks are easier, time trial weeks included', () => {
+    for (const label of ['maintenance 3 runs', 'maintenance 4 runs', 'maintenance 5 runs']) {
+      const weeks = variety.find(([l]) => l === label)[1].weeks;
+      const full = Math.min(...weeks.filter((w) => !w.cutback && w.index > 0).map((w) => w.total_m));
+      for (const w of weeks.filter((x) => x.cutback)) assert.ok(w.total_m < full * 0.95, `${label} week ${w.index}: ${w.total_m} vs ${full}`);
+    }
+  });
+
+  await test('no hill or repetition session on a heavy-leg day when it can go elsewhere', () => {
+    for (const [label, p] of variety.filter(([l]) => l.startsWith('maintenance'))) {
+      for (const r of p.weeks.flatMap((w) => w.runs)) {
+        if (QUALITY_ROLES.has(r.role) && sessionById(r.session_id).legStress === 'high') {
+          assert.ok(!userHeavy.has(r.date), `${label}: ${r.title} on ${r.date}`);
+        }
+      }
+    }
+  });
+
   await test('hills can be turned off', () => {
     const flat = plan({ settings: { hills: false } });
     assert.ok(!flat.weeks.some((w) => w.runs.some((r) => r.family === 'hills')));

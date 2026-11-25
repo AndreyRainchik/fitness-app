@@ -299,8 +299,14 @@ export function buildRun(session, { level = 0, ctx, zones, raceKey, weekly_m, un
 }
 
 /** Long-run variant for a week, by phase and how many weeks into the phase. */
-function longVariant({ phase, raceKey, weekInPhase, runsPerWeek, cutback }) {
+function longVariant({ phase, raceKey, weekInPhase, runsPerWeek, cutback, fullWeeks = 0 }) {
   if (cutback || phase === 'taper') return raceKey === 'marathon' && phase === 'taper' && weekInPhase === 0 ? 'long_race_pace' : 'long_easy';
+  // Maintenance rotates over full weeks only, so cutbacks don't swallow a variant:
+  // easy, fast finish, easy, progression; with 3 runs, quality every third week
+  if (phase === 'maintain') {
+    if (runsPerWeek <= 3) return fullWeeks % 3 !== 2 ? 'long_easy' : (Math.floor(fullWeeks / 3) % 2 === 0 ? 'long_fast_finish' : 'long_progression');
+    return ['long_easy', 'long_fast_finish', 'long_easy', 'long_progression'][fullWeeks % 4];
+  }
   // With 3 runs a week, the long run only has quality every third week
   if (runsPerWeek <= 3 && weekInPhase % 3 !== 2) return 'long_easy';
   const cycles = {
@@ -309,7 +315,6 @@ function longVariant({ phase, raceKey, weekInPhase, runsPerWeek, cutback }) {
     peak: raceKey === 'half' || raceKey === 'marathon'
       ? ['long_race_pace', 'long_fast_finish', 'long_race_pace', 'long_easy']
       : ['long_fast_finish', 'long_easy', 'long_surges'],
-    maintain: ['long_easy', 'long_fast_finish', 'long_easy', 'long_progression'],
   };
   const list = cycles[phase] ?? ['long_easy'];
   return list[weekInPhase % list.length];
@@ -436,7 +441,10 @@ export function placeRuns(runs, dates, { heavyLegDates = new Set(), liftDates = 
           problems.push({ run: i, date, kind: 'before_heavy' });
         }
         if (isHeavy(prev)) penalty += r.legStress === 'high' ? 3 : 1;
-        if (liftDates.has(date)) penalty += isHeavy(date) ? 4 : 1;
+        // Same day as lifting: hills or repetitions on a heavy-leg day are too much leg
+        // stress; threshold work on a leg day is acceptable
+        if (isHeavy(date)) penalty += r.legStress === 'high' ? 12 : 3;
+        else if (liftDates.has(date)) penalty += 1;
       } else if (r.role === 'long') {
         if (isHeavy(next)) {
           penalty += r.quality ? 6 : 4;
@@ -555,6 +563,7 @@ export function generatePlan(input) {
   const history = { lastUsed: new Map(), familyUsed: new Map(), levels: new Map() };
   const ctxBase = { mile: unit === 'mi' ? MILE : 1600, race: raceKey, hasGoal: !!goalPace, race_m: RACE_DISTANCES[raceKey]?.meters };
   let cutbackCount = 0;
+  let fullWeeks = 0;
   const placementNotes = new Set();
   const phaseWeek = new Map();
 
@@ -581,22 +590,8 @@ export function generatePlan(input) {
     // Quality sessions in the taper are kept small
     const qualityWeekly = phase === 'taper' ? target * 0.7 : target;
 
-    // Long run
     const runs = [];
-    if (weekRoles.includes('long')) {
-      const longDistance = roundDistance(Math.max(longTargets[index], 5000), unit);
-      const variantId = longVariant({ phase, raceKey, weekInPhase, runsPerWeek, cutback });
-      const variant = sessionById(variantId);
-      const level = history.levels.get(variantId) ?? 0;
-      const built = buildRun(variant, { level, ctx: { ...ctxBase, distance_m: longDistance }, zones, raceKey, weekly_m: target, unit })
-        ?? buildRun(sessionById('long_easy'), { ctx: { ...ctxBase, distance_m: longDistance }, zones, raceKey, weekly_m: target, unit });
-      // If the variant didn't fit and fell back to an easy long run, call it that
-      const zonesIn = (step) => (step.kind === 'repeat' ? step.reps.flatMap((r) => r.parts.map((p) => p.zone)) : [step.zone]);
-      const hasFaster = built.steps.some((step) => zonesIn(step).some((z) => z && z !== 'easy'));
-      const used = hasFaster ? variant : sessionById('long_easy');
-      runs.push(runEntry(used, built, 'long'));
-      bump(history, used, index);
-    }
+    const halfStep = unit === 'mi' ? MILE / 2 : 500;
 
     // Quality sessions
     const excludeFamilies = new Set();
@@ -621,13 +616,54 @@ export function generatePlan(input) {
     }
     if (cutback && weekRoles.includes('B')) cutbackCount += 1;
 
+    // Long run: its planned distance, but always the longest run of the week. A time
+    // trial is a race effort, like race day, so it doesn't count: the week still eases off.
+    if (weekRoles.includes('long')) {
+      const longestOther = Math.max(0, ...runs.filter((r) => !sessionById(r.session_id).benchmark).map((r) => r.distance_m));
+      const longDistance = roundDistance(Math.max(longTargets[index], 5000, longestOther ? longestOther + halfStep : 0), unit);
+      const variantId = longVariant({ phase, raceKey, weekInPhase, runsPerWeek, cutback, fullWeeks });
+      const variant = sessionById(variantId);
+      const level = history.levels.get(variantId) ?? 0;
+      const built = buildRun(variant, { level, ctx: { ...ctxBase, distance_m: longDistance }, zones, raceKey, weekly_m: target, unit })
+        ?? buildRun(sessionById('long_easy'), { ctx: { ...ctxBase, distance_m: longDistance }, zones, raceKey, weekly_m: target, unit });
+      // If the variant didn't fit and fell back to an easy long run, call it that
+      const zonesIn = (step) => (step.kind === 'repeat' ? step.reps.flatMap((r) => r.parts.map((p) => p.zone)) : [step.zone]);
+      const hasFaster = built.steps.some((step) => zonesIn(step).some((z) => z && z !== 'easy'));
+      const used = hasFaster ? variant : sessionById('long_easy');
+      runs.unshift(runEntry(used, built, 'long'));
+      bump(history, used, index);
+    }
+    if (!cutback) fullWeeks += 1;
+
+    // Quality sessions carry their share of the week: a short session on a big week gets a
+    // longer easy warm-up and cool-down, so easy days don't have to make up the difference
+    const longRun = runs.find((r) => r.role === 'long');
+    const share = target / runsPerWeek;
+    for (const r of runs.filter((x) => x.role === 'A' || x.role === 'B')) {
+      const wanted = Math.min(share, (longRun?.distance_m ?? Infinity) - halfStep);
+      const extra = wanted - r.distance_m;
+      if (extra < halfStep || sessionById(r.session_id).benchmark) continue;
+      const each = Math.floor(extra / 2 / halfStep) * halfStep;
+      if (!each) continue;
+      // Warm-ups and cool-downs stay at 2 mi / 3 km at most: beyond that it's just more easy running
+      const maxSide = unit === 'mi' ? 2 * MILE : 3000;
+      const hasWarmup = r.steps.some((step) => step.kind === 'warmup');
+      r.steps = hasWarmup
+        ? r.steps.map((step) => (step.kind === 'warmup' || step.kind === 'cooldown'
+          ? { ...step, distance_m: Math.max(step.distance_m, Math.min(step.distance_m + each, maxSide)) }
+          : step))
+        // Sessions that build their own warm-up (steady, progression) get easy running either side
+        : [{ kind: 'warmup', zone: 'easy', distance_m: Math.min(each, maxSide) }, ...r.steps, { kind: 'cooldown', zone: 'easy', distance_m: Math.min(each, maxSide) }];
+      r.distance_m = Math.round(sessionDistance(r.steps, zones));
+    }
+
     // Easy runs share what's left of the week's distance
     const easyCount = count - runs.length;
     if (easyCount > 0) {
       const used = runs.reduce((sum, r) => sum + r.distance_m, 0);
       const longest = runs.find((r) => r.role === 'long')?.distance_m ?? target * 0.3;
-      // Easy runs fill the week, within reason: never longer than 85% of the long run
-      const each = Math.min(Math.max((target - used) / easyCount, 4000), Math.max(longest * 0.7, (target / runsPerWeek) * 1.1), longest * 0.85);
+      // Easy runs fill the week, within reason: at most 70% of the long run, so it stands out
+      const each = Math.min(Math.max((target - used) / easyCount, 4000), longest * 0.7);
       for (let i = 0; i < easyCount; i++) {
         // One easy run a week gets strides (two in base with 5+ runs); the 6th run is a recovery run
         const id = i === 0 || (phase === 'base' && i === 1 && runsPerWeek >= 5) ? 'easy_strides' : (runsPerWeek >= 6 && i === easyCount - 1 ? 'recovery' : 'easy');
@@ -688,8 +724,12 @@ function settingsBlocks(session, settings) {
 function rolesFor(runsPerWeek, index, phase) {
   // With 3 runs, one quality session a week, alternating speed and threshold
   const quality = runsPerWeek <= 3 ? [index % 2 === 0 ? 'B' : 'A'] : ['A', 'B'];
-  // Maintenance: one quality session, rotating threshold -> speed -> hills/reps -> (cutback) benchmark or progression
-  if (phase === 'maintain') return ['long', index % 4 === 0 || index % 4 === 3 ? 'B' : 'A', ...Array(runsPerWeek - 2).fill('easy')];
+  // Maintenance: at 3-4 runs one quality session, rotating threshold -> speed -> hills/reps ->
+  // (cutback) benchmark or progression; at 5-6 runs one of each family every week
+  if (phase === 'maintain') {
+    const sessions = runsPerWeek >= 5 ? ['B', 'A'] : [index % 4 === 0 || index % 4 === 3 ? 'B' : 'A'];
+    return ['long', ...sessions, ...Array(runsPerWeek - 1 - sessions.length).fill('easy')];
+  }
   return ['long', ...quality, ...Array(runsPerWeek - 1 - quality.length).fill('easy')];
 }
 

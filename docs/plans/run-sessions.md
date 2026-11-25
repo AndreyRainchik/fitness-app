@@ -176,14 +176,23 @@ At most one long run in three has a quality element in base; up to every other o
 
 ### Maintenance mode
 
-One quality session a week on a 4-week rotation: threshold (tempo/cruise/over-under) → VO2 (intervals/rolling/pyramid) → hills or repetitions → fartlek or progression. The long run alternates easy and fast-finish. Every 8 weeks, a tune-up keeps paces honest.
+- **3–4 runs a week:** one quality session on a 4-week rotation: threshold (tempo/cruise/over-under) → VO2 (intervals/rolling/pyramid) → hills or repetitions → (easier week) time trial or progression.
+- **5–6 runs a week:** two quality sessions every week, one from the threshold family and one from the speed family, so neither threshold nor speed fades.
+- **Long run** rotates over full weeks: easy → fast finish → easy → progression (with 3 runs a week, a faster long run every third week).
+- Every 8 weeks, a tune-up keeps paces honest.
+
+### Week shape rules (all plans)
+
+- The **long run is the longest run of the week**, at least half a mile / 500 m longer than anything else. A time trial is a race effort, like race day, so it doesn't count: an easier week still eases off.
+- **Easy runs are at most 70% of the long run**, so the long run stands out.
+- **Quality sessions carry their share of the week:** on a big week a short session gets a longer easy warm-up and cool-down, up to 2 mi / 3 km each, so easy days don't have to make up the difference.
 
 ---
 
 ## 5. Fitting runs around lifting
 
-- **Hill sprints, hill repeats and repetitions** load the legs neuromuscularly much like a lifting session. Never within 48 h *before* a heavy-legs day. The day after an upper-body day is ideal.
-- **Threshold work** is the most forgiving: it may follow a heavy-legs day by 24 h if needed; never the day before.
+- **Hill sprints, hill repeats and repetitions** load the legs neuromuscularly much like a lifting session. Never within 48 h *before* a heavy-legs day, and not on the heavy-legs day itself. The day after an upper-body day is ideal.
+- **Threshold work** is the most forgiving: it may follow a heavy-legs day by 24 h, or share the day with it, if needed; never the day before.
 - **The long run** isn't the day after heavy deadlifts if the schedule allows. If the only option is the day after squats, the long run becomes an easy long that week.
 - **Matching heavy weeks:** in 5/3/1, week 3 is the heaviest lifting week and week 4 is the deload. By default, run cutback weeks line up with lifting deload weeks, so every fourth week is a true recovery week for both. The harder running weeks then avoid coinciding with week 3 where possible.
 - **Load check:** if total training load (lifting included) is 1.5× usual, the next quality session becomes a steady run (see "Adapting the plan").

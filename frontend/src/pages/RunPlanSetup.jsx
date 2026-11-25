@@ -46,7 +46,8 @@ function Segmented({ options, value, onChange, label }) {
 function PlanSummary({ plan }) {
   const unit = plan.unit;
   const peak = Math.max(...plan.weeks.map((w) => w.total_m));
-  const longest = Math.max(...plan.weeks.flatMap((w) => w.runs.filter((r) => r.role === 'long').map((r) => r.distance_m)), 0);
+  // Every training run counts (a time trial with its warm-up can be long); the race itself doesn't
+  const longest = Math.max(...plan.weeks.flatMap((w) => w.runs.filter((r) => r.role !== 'race').map((r) => r.distance_m)), 0);
   const phases = [];
   for (const w of plan.weeks) {
     const last = phases[phases.length - 1];
