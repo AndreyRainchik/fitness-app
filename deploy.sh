@@ -30,8 +30,10 @@ podman push ${IMAGE_NAME}
 
 # 4. Deploy with volume mount
 echo "🚢 Deploying to Cloud Run..."
+REVISION_SUFFIX="manual-$(date -u +%Y%m%d-%H%M%S)"
 gcloud run deploy ${SERVICE_NAME} \
   --image ${IMAGE_NAME} \
+  --revision-suffix "${REVISION_SUFFIX}" \
   --platform managed \
   --region ${REGION} \
   --allow-unauthenticated \
@@ -44,6 +46,14 @@ gcloud run deploy ${SERVICE_NAME} \
   --add-volume name=data-volume,type=cloud-storage,bucket=${BUCKET_NAME} \
   --add-volume-mount volume=data-volume,mount-path=/mnt/data \
   --env-vars-file ".env.yaml" \
+  --quiet
+
+# Send all traffic to the new revision. A no-traffic (preview) deploy pins
+# traffic to one revision, and `gcloud run deploy` won't move it after that.
+gcloud run services update-traffic ${SERVICE_NAME} \
+  --platform managed \
+  --region ${REGION} \
+  --to-revisions "${SERVICE_NAME}-${REVISION_SUFFIX}=100" \
   --quiet
 
 # 5. Get service URL

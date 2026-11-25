@@ -67,9 +67,15 @@ jobs:
           fi
           printf '%s\n' "$ENV_YAML" > .env.yaml
 
+      # The revision is named after the commit and run, so the steps below
+      # can route traffic to exactly this revision and check it is serving.
+      - name: Name the revision
+        run: echo "REVISION=$SERVICE_NAME-${GITHUB_SHA::7}-r$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
+
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy "$SERVICE_NAME" \
+            --revision-suffix "${REVISION#"$SERVICE_NAME-"}" \
             --project "$PROJECT_ID" \
             --image "$IMAGE:$GITHUB_SHA" \
             --platform managed \
@@ -90,16 +96,41 @@ jobs:
         if: always()
         run: rm -f .env.yaml
 
-      - name: Health check
+      # `gcloud run deploy` only moves traffic to the new revision while the
+      # service routes to "latest". A deploy with --no-traffic (e.g. a tagged
+      # preview) pins traffic to one revision, and every later deploy would
+      # then get 0%. Route all traffic here explicitly; tags are kept.
+      - name: Route traffic to the new revision
         run: |
-          SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" \
+          gcloud run services update-traffic "$SERVICE_NAME" \
             --project "$PROJECT_ID" \
             --platform managed \
             --region "$REGION" \
-            --format 'value(status.url)')
+            --to-revisions "$REVISION=100" \
+            --quiet
+
+      - name: Health check
+        run: |
+          SERVICE_JSON=$(gcloud run services describe "$SERVICE_NAME" \
+            --project "$PROJECT_ID" \
+            --platform managed \
+            --region "$REGION" \
+            --format json)
+          SERVICE_URL=$(jq -r '.status.url' <<< "$SERVICE_JSON")
           echo "Service URL: $SERVICE_URL"
+
+          # Fail if this revision isn't the one taking the traffic
+          PERCENT=$(jq -r --arg rev "$REVISION" \
+            '[.status.traffic[] | select(.revisionName == $rev) | .percent // 0] | add // 0' <<< "$SERVICE_JSON")
+          echo "Traffic to $REVISION: ${PERCENT}%"
+          if [ "$PERCENT" != "100" ]; then
+            echo "::error::$REVISION is serving ${PERCENT}% of traffic, not 100%"
+            jq '.status.traffic' <<< "$SERVICE_JSON"
+            exit 1
+          fi
+
           # Allow for a cold start (min-instances is 0)
           curl -fsS --retry 5 --retry-delay 5 --retry-all-errors --max-time 30 \
             "$SERVICE_URL/api/health"
           echo
-          echo "### Deployed \`${GITHUB_SHA::7}\` to $SERVICE_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Deployed \`${GITHUB_SHA::7}\` ($REVISION) to $SERVICE_URL" >> "$GITHUB_STEP_SUMMARY"
