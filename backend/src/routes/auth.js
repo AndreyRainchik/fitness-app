@@ -1,8 +1,8 @@
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import { User, PlateInventoryPreset } from '../models/index.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { signToken } from '../utils/authToken.js';
 import logger from '../config/logger.config.js';
 import { loginRateLimiter, registerRateLimiter } from '../middleware/rateLimiter.js';
 
@@ -56,12 +56,7 @@ router.post('/register',
         timestamp: new Date().toISOString()
       });
       
-      // Generate JWT token
-      const token = jwt.sign(
-        { id: user.id, email: user.email },
-        Buffer.from(process.env.JWT_SECRET, 'base64'),
-        { expiresIn: '7d' }
-      );
+      const token = signToken(user.id);
       
       res.status(201).json({
         message: 'User registered successfully',
@@ -102,12 +97,7 @@ router.post('/login',
         return res.status(401).json({ error: 'Invalid email or password' });
       }
       
-      // Generate JWT token
-      const token = jwt.sign(
-        { id: user.id, email: user.email },
-        Buffer.from(process.env.JWT_SECRET, 'base64'),
-        { expiresIn: '7d' }
-      );
+      const token = signToken(user.id);
       
       res.json({
         message: 'Login successful',

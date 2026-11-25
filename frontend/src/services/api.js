@@ -1,4 +1,42 @@
 import { getLocalDateString } from '../utils/dateUtils';
+import { clearDraft } from '../utils/workoutDraft';
+
+/** Fired when the server rejects the stored token (expired, or signed out elsewhere). */
+export const AUTH_EXPIRED_EVENT = 'auth-expired';
+
+// The signed-in user as last confirmed by the server, so the app still opens
+// signed in when it can't reach the server (offline, gym basement)
+const CACHED_USER_KEY = 'authUser';
+
+export function cacheUser(user) {
+  try {
+    if (user) localStorage.setItem(CACHED_USER_KEY, JSON.stringify(user));
+  } catch { /* storage blocked: offline sign-in just won't work */ }
+}
+
+export function cachedUser() {
+  try {
+    return JSON.parse(localStorage.getItem(CACHED_USER_KEY) || 'null');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Forget everything about the signed-in user on this device: the token, the
+ * cached profile, an unfinished workout, and API responses the service worker
+ * cached (it caches by URL, so the next user could be shown them offline).
+ */
+export function clearSession() {
+  try {
+    localStorage.removeItem('token');
+    localStorage.removeItem(CACHED_USER_KEY);
+  } catch { /* ignore */ }
+  clearDraft();
+  if (typeof caches !== 'undefined') {
+    caches.delete('api-cache').catch(() => {});
+  }
+}
 
 // Tells utils/usePlateInventory.js to refetch the active plate preset
 const plateInventoryChanged = (result) => {
@@ -26,12 +64,12 @@ async function apiCall(endpoint, options = {}) {
   const token = localStorage.getItem('token');
 
   const config = {
+    ...options,
     headers: {
       'Content-Type': 'application/json',
       ...(token && { 'Authorization': `Bearer ${token}` }),
       ...options.headers,
     },
-    ...options,
   };
 
   try {
@@ -41,14 +79,28 @@ async function apiCall(endpoint, options = {}) {
 
     if (!response.ok) {
       // express-validator routes answer { errors: [{ msg }] } without `error`
-      throw new Error(
+      const error = new Error(
         data.error || data.errors?.[0]?.msg || data.message || `Request failed (${response.status})`
       );
+      error.status = response.status;
+      error.code = data.code;
+      // The server no longer accepts this token: sign out (AuthContext listens).
+      // Not for sign-in itself, where 401 just means a wrong password.
+      if (response.status === 401 && token && !endpoint.startsWith('/auth/login')) {
+        window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+      }
+      throw error;
     }
 
     return data;
   } catch (error) {
     console.error('API Error:', error);
+    // fetch itself failed: offline, or the server is down
+    if (error instanceof TypeError && error.status === undefined) {
+      const offline = new Error("Can't reach the server. Check your connection and try again.");
+      offline.offline = true;
+      throw offline;
+    }
     throw error;
   }
 }
@@ -112,7 +164,7 @@ export const authAPI = {
    * Logout (clear token)
    */
   logout: () => {
-    localStorage.removeItem('token');
+    clearSession();
   },
 };
 
@@ -270,20 +322,25 @@ export const profileAPI = {
    * Change password
    */
   changePassword: async (currentPassword, newPassword) => {
-    return await apiCall('/profile/password', {
+    const data = await apiCall('/profile/password', {
       method: 'PUT',
       body: JSON.stringify({ currentPassword, newPassword }),
     });
+    // Changing the password signs out other sessions; this one gets a new token
+    if (data.token) localStorage.setItem('token', data.token);
+    return data;
   },
 
   /**
    * Change email
    */
-  changeEmail: async (email) => {
-    return await apiCall('/profile/email', {
+  changeEmail: async (email, currentPassword) => {
+    const data = await apiCall('/profile/email', {
       method: 'PUT',
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, currentPassword }),
     });
+    if (data.token) localStorage.setItem('token', data.token);
+    return data;
   },
 
   /**

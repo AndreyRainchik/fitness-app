@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI } from '../services/api';
+import { AUTH_EXPIRED_EVENT, authAPI, cacheUser, cachedUser } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -21,6 +21,22 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
+  // Any request the server rejects for the token (expired, or the password was
+  // changed on another device) signs out here
+  useEffect(() => {
+    const onExpired = () => {
+      authAPI.logout();
+      setUser(null);
+    };
+    window.addEventListener(AUTH_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired);
+  }, []);
+
+  const signedIn = (nextUser) => {
+    cacheUser(nextUser);
+    setUser(nextUser);
+  };
+
   const checkAuth = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -30,12 +46,18 @@ export const AuthProvider = ({ children }) => {
 
     try {
       const data = await authAPI.getCurrentUser();
+      cacheUser(data.user);
       setUser(data.user);
     } catch (err) {
-      console.error('Auth check failed:', err);
-      // Token invalid, clear it
-      localStorage.removeItem('token');
-      setUser(null);
+      if (err.status === 401) {
+        // The server rejected the token (the 401 handler already cleared it)
+        setUser(null);
+      } else {
+        // Offline, or the server is down or starting up: stay signed in as the
+        // user last seen; requests retry when the connection is back
+        console.warn('Could not reach the server to check sign-in:', err);
+        setUser(cachedUser());
+      }
     } finally {
       setLoading(false);
     }
@@ -45,7 +67,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       const data = await authAPI.login(credentials);
-      setUser(data.user);
+      signedIn(data.user);
       return data;
     } catch (err) {
       setError(err.message);
@@ -57,7 +79,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       const data = await authAPI.register(userData);
-      setUser(data.user);
+      signedIn(data.user);
       return data;
     } catch (err) {
       setError(err.message);
@@ -74,7 +96,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       const data = await authAPI.updateProfile(updates);
-      setUser(data.user);
+      signedIn(data.user);
       return data;
     } catch (err) {
       setError(err.message);

@@ -2,6 +2,7 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import { User, BodyweightLog } from '../models/index.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { signToken } from '../utils/authToken.js';
 import { autoSendBodyweightToHevy } from '../services/hevyAutoSync.js';
 
 const router = express.Router();
@@ -89,8 +90,9 @@ router.put('/password',
     try {
       const { currentPassword, newPassword } = req.body;
       const result = await User.changePassword(req.user.id, currentPassword, newPassword);
-      
-      res.json(result);
+
+      // Other sessions are now signed out; this one continues with a new token
+      res.json({ ...result, token: signToken(req.user.id) });
     } catch (error) {
       console.error('Change password error:', error);
       res.status(400).json({ error: error.message });
@@ -104,21 +106,29 @@ router.put('/password',
  */
 router.put('/email',
   [
-    body('email').isEmail().withMessage('Valid email is required')
+    body('email').isEmail().withMessage('Valid email is required'),
+    body('currentPassword').notEmpty().withMessage('Enter your current password to change your email')
   ],
-  (req, res) => {
+  async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
     
     try {
-      const { email } = req.body;
+      const { email, currentPassword } = req.body;
+      // A signed-in session alone isn't enough to move the account elsewhere.
+      // 400, not 401: a wrong password here must not sign the user out.
+      if (!(await User.checkPassword(req.user.id, currentPassword))) {
+        return res.status(400).json({ error: 'Current password is incorrect' });
+      }
       const user = User.changeEmail(req.user.id, email);
       
       res.json({
         message: 'Email updated successfully',
-        user
+        user,
+        // The token names the account's email, so hand out a current one
+        token: signToken(req.user.id)
       });
     } catch (error) {
       console.error('Change email error:', error);

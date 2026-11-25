@@ -44,6 +44,7 @@ export async function initDatabase() {
       ensureStravaSchema();
       ensureAnalysisSchema();
       ensureProgramSchema();
+      ensureAuthSchema();
       enableForeignKeys();
       saveDatabase();
     } else {
@@ -55,6 +56,7 @@ export async function initDatabase() {
       ensureStravaSchema();
       ensureAnalysisSchema();
       ensureProgramSchema();
+      ensureAuthSchema();
       seedExercises();
       enableForeignKeys();
       saveDatabase();
@@ -482,6 +484,18 @@ function ensureAnalysisSchema() {
 function ensureProgramSchema() {
   try {
     db.run('ALTER TABLE program_lifts ADD COLUMN paused INTEGER NOT NULL DEFAULT 0');
+  } catch (e) {
+    // Column already exists
+  }
+}
+
+/**
+ * Sign-in tokens carry users.token_version; bumping it (on a password
+ * change) ends every session signed in before.
+ */
+function ensureAuthSchema() {
+  try {
+    db.run('ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0');
   } catch (e) {
     // Column already exists
   }

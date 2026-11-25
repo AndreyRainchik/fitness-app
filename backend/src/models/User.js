@@ -40,6 +40,7 @@ class User {
       
       // Remove password hash from returned user
       delete user.password_hash;
+      delete user.token_version;
       
       return user;
     } catch (error) {
@@ -67,6 +68,7 @@ class User {
     const user = get('SELECT * FROM users WHERE id = ?', [id]);
     if (user) {
       delete user.password_hash;
+      delete user.token_version;
     }
     return user;
   }
@@ -87,6 +89,7 @@ class User {
     
     // Return user without password hash
     delete user.password_hash;
+    delete user.token_version;
     return user;
   }
   
@@ -138,6 +141,12 @@ class User {
   /**
    * Change user password
    */
+  /** True when password is this user's current password. */
+  static async checkPassword(id, password) {
+    const row = get('SELECT password_hash FROM users WHERE id = ?', [id]);
+    return Boolean(row && password && await bcrypt.compare(String(password), row.password_hash));
+  }
+
   static async changePassword(id, currentPassword, newPassword) {
     try {
       // Get user with password hash
@@ -156,8 +165,9 @@ class User {
       const newPasswordHash = await bcrypt.hash(newPassword, 10);
       
       // Update password
+      // Bumping token_version signs out every other session
       run(
-        'UPDATE users SET password_hash = ? WHERE id = ?',
+        'UPDATE users SET password_hash = ?, token_version = COALESCE(token_version, 0) + 1 WHERE id = ?',
         [newPasswordHash, id]
       );
       
