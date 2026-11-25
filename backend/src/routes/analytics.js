@@ -641,7 +641,7 @@ router.get('/dashboard-summary', authenticateToken, (req, res) => {
  *   weekEnd: '2025-11-09',
  *   muscleGroups: [
  *     { muscleGroup: 'Chest', setCount: 12 },
- *     { muscleGroup: 'Back', setCount: 8 }
+ *     { muscleGroup: 'Upper Back', setCount: 8 }
  *   ],
  *   totalSets: 20
  * }

@@ -14,7 +14,7 @@ const CATEGORIES = [
 // Always offered, plus any other group the library uses (the library only
 // reports groups some exercise has as its main one, so e.g. Glutes is missing)
 const STANDARD_MUSCLE_GROUPS = [
-  'Back', 'Biceps', 'Calves', 'Chest', 'Core', 'Forearms', 'Glutes', 'Hamstrings', 'Quadriceps', 'Shoulders', 'Triceps',
+  'Biceps', 'Calves', 'Chest', 'Core', 'Forearms', 'Glutes', 'Hamstrings', 'Lower Back', 'Quadriceps', 'Shoulders', 'Triceps', 'Upper Back',
 ];
 
 const mergeGroups = (groups) => [...new Set([...STANDARD_MUSCLE_GROUPS, ...groups])].sort((a, b) => a.localeCompare(b));

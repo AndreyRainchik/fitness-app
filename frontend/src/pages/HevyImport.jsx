@@ -14,7 +14,7 @@ import { formatTimestamp, plural } from '../utils/format';
 const MAX_SELECTED = 50;
 
 const CATEGORIES = ['barbell', 'dumbbell', 'machine', 'cable', 'bodyweight', 'other'];
-const MUSCLE_GROUPS = ['Back', 'Biceps', 'Calves', 'Chest', 'Core', 'Forearms', 'Glutes', 'Hamstrings', 'Quadriceps', 'Shoulders', 'Triceps', 'Other'];
+const MUSCLE_GROUPS = ['Biceps', 'Calves', 'Chest', 'Core', 'Forearms', 'Glutes', 'Hamstrings', 'Lower Back', 'Quadriceps', 'Shoulders', 'Triceps', 'Upper Back', 'Other'];
 
 const STATUS_BADGES = {
   imported: { tone: 'success', label: 'Imported' },

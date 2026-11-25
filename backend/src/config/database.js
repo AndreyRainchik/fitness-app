@@ -46,6 +46,7 @@ export async function initDatabase() {
       ensureProgramSchema();
       ensureAuthSchema();
       ensureExerciseOwnerSchema();
+      splitBackMuscleGroup();
       enableForeignKeys();
       saveDatabase();
     } else {
@@ -550,6 +551,40 @@ function ensureExerciseOwnerSchema() {
 }
 
 /**
+ * "Back" was one muscle group; it is now "Upper Back" and "Lower Back".
+ * Built-in exercises take their muscle groups from SEED_EXERCISES; any
+ * other exercise still tagged "Back" (custom or imported) becomes Upper Back,
+ * where most back accessory work lands. Does nothing once no "Back" is left.
+ */
+function splitBackMuscleGroup() {
+  const rows = db.exec(
+    `SELECT id, name, user_id, primary_muscle_group, secondary_muscle_groups FROM exercises
+     WHERE primary_muscle_group = 'Back' OR secondary_muscle_groups LIKE '%"Back"%'`
+  )[0]?.values ?? [];
+  if (rows.length === 0) return;
+
+  const seeds = new Map(SEED_EXERCISES.map((e) => [e.name.trim().toLowerCase(), e]));
+  for (const [id, name, userId, primary, secondary] of rows) {
+    const seed = userId == null ? seeds.get(String(name).trim().toLowerCase()) : null;
+    if (seed) {
+      db.run('UPDATE exercises SET primary_muscle_group = ?, secondary_muscle_groups = ? WHERE id = ?', [seed.primary, seed.secondary, id]);
+      continue;
+    }
+    let groups = [];
+    try {
+      groups = JSON.parse(secondary || '[]');
+    } catch {
+      groups = [];
+    }
+    const nextPrimary = primary === 'Back' ? 'Upper Back' : primary;
+    const nextSecondary = [...new Set((Array.isArray(groups) ? groups : []).map((g) => (g === 'Back' ? 'Upper Back' : g)))]
+      .filter((g) => g !== nextPrimary);
+    db.run('UPDATE exercises SET primary_muscle_group = ?, secondary_muscle_groups = ? WHERE id = ?', [nextPrimary, JSON.stringify(nextSecondary), id]);
+  }
+  logger.info(`💪 Split "Back" into Upper Back / Lower Back on ${rows.length} exercises`);
+}
+
+/**
  * Turn on foreign key enforcement, so ON DELETE CASCADE works (SQLite leaves
  * it off by default). It was off until now, so first remove rows whose
  * cascading parent is already gone (e.g. sets of deleted workouts); turning
@@ -597,9 +632,9 @@ const SEED_EXERCISES = [
     // Main Compound Lifts
     { name: 'Barbell Squat', category: 'barbell', primary: 'Quadriceps', secondary: '["Glutes","Hamstrings","Core"]', compound: 1 },
     { name: 'Barbell Bench Press', category: 'barbell', primary: 'Chest', secondary: '["Triceps","Shoulders"]', compound: 1 },
-    { name: 'Barbell Deadlift', category: 'barbell', primary: 'Back', secondary: '["Hamstrings","Glutes","Core"]', compound: 1 },
+    { name: 'Barbell Deadlift', category: 'barbell', primary: 'Lower Back', secondary: '["Hamstrings","Glutes","Upper Back","Core"]', compound: 1 },
     { name: 'Barbell Overhead Press', category: 'barbell', primary: 'Shoulders', secondary: '["Triceps","Core"]', compound: 1 },
-    { name: 'Barbell Row', category: 'barbell', primary: 'Back', secondary: '["Biceps","Core"]', compound: 1 },
+    { name: 'Barbell Row', category: 'barbell', primary: 'Upper Back', secondary: '["Biceps","Core"]', compound: 1 },
     
     // Squat Variations
     { name: 'Front Squat', category: 'barbell', primary: 'Quadriceps', secondary: '["Core","Glutes"]', compound: 1 },
@@ -612,22 +647,22 @@ const SEED_EXERCISES = [
     { name: 'Incline Dumbbell Press', category: 'dumbbell', primary: 'Chest', secondary: '["Shoulders","Triceps"]', compound: 1 },
     
     // Deadlift Variations
-    { name: 'Romanian Deadlift', category: 'barbell', primary: 'Hamstrings', secondary: '["Back","Glutes"]', compound: 1 },
-    { name: 'Sumo Deadlift', category: 'barbell', primary: 'Back', secondary: '["Glutes","Hamstrings"]', compound: 1 },
-    { name: 'Trap Bar Deadlift', category: 'barbell', primary: 'Back', secondary: '["Quadriceps","Glutes"]', compound: 1 },
+    { name: 'Romanian Deadlift', category: 'barbell', primary: 'Hamstrings', secondary: '["Lower Back","Glutes"]', compound: 1 },
+    { name: 'Sumo Deadlift', category: 'barbell', primary: 'Lower Back', secondary: '["Glutes","Hamstrings","Upper Back"]', compound: 1 },
+    { name: 'Trap Bar Deadlift', category: 'barbell', primary: 'Lower Back', secondary: '["Quadriceps","Glutes"]', compound: 1 },
     
     // Pull Exercises
-    { name: 'Pull-up', category: 'bodyweight', primary: 'Back', secondary: '["Biceps"]', compound: 1 },
-    {name: 'Machine-Assisted Pull-up', category: 'machine', primary: 'Back', secondary: '["Biceps"]', compound: 1 },
-    { name: 'Chin-up', category: 'bodyweight', primary: 'Back', secondary: '["Biceps"]', compound: 1 },
-    { name: 'Lat Pulldown', category: 'cable', primary: 'Back', secondary: '["Biceps"]', compound: 0 },
-    { name: 'Cable Row', category: 'cable', primary: 'Back', secondary: '["Biceps"]', compound: 0 },
-    { name: 'Dumbbell Row', category: 'dumbbell', primary: 'Back', secondary: '["Biceps"]', compound: 0 },
+    { name: 'Pull-up', category: 'bodyweight', primary: 'Upper Back', secondary: '["Biceps"]', compound: 1 },
+    {name: 'Machine-Assisted Pull-up', category: 'machine', primary: 'Upper Back', secondary: '["Biceps"]', compound: 1 },
+    { name: 'Chin-up', category: 'bodyweight', primary: 'Upper Back', secondary: '["Biceps"]', compound: 1 },
+    { name: 'Lat Pulldown', category: 'cable', primary: 'Upper Back', secondary: '["Biceps"]', compound: 0 },
+    { name: 'Cable Row', category: 'cable', primary: 'Upper Back', secondary: '["Biceps"]', compound: 0 },
+    { name: 'Dumbbell Row', category: 'dumbbell', primary: 'Upper Back', secondary: '["Biceps"]', compound: 0 },
     
     // Shoulder Exercises
     { name: 'Dumbbell Overhead Press', category: 'dumbbell', primary: 'Shoulders', secondary: '["Triceps"]', compound: 1 },
     { name: 'Lateral Raise', category: 'dumbbell', primary: 'Shoulders', secondary: '[]', compound: 0 },
-    { name: 'Face Pull', category: 'cable', primary: 'Shoulders', secondary: '["Back"]', compound: 0 },
+    { name: 'Face Pull', category: 'cable', primary: 'Shoulders', secondary: '["Upper Back"]', compound: 0 },
     
     // Leg Exercises
     { name: 'Leg Press', category: 'machine', primary: 'Quadriceps', secondary: '["Glutes"]', compound: 1 },

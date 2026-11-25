@@ -5,7 +5,7 @@ import { localDateStringFromDate } from '../../utils/dateUtils';
 import { Card, Spinner } from '../ui';
 import BodyMap from './BodyMap';
 
-const GROUPS = ['Chest', 'Shoulders', 'Biceps', 'Triceps', 'Forearms', 'Back', 'Core', 'Glutes', 'Quadriceps', 'Hamstrings', 'Calves'];
+const GROUPS = ['Chest', 'Shoulders', 'Biceps', 'Triceps', 'Forearms', 'Upper Back', 'Lower Back', 'Core', 'Glutes', 'Quadriceps', 'Hamstrings', 'Calves'];
 
 const UNTRAINED = 'rgb(var(--gray-200))';
 const SCALE = [0.25, 0.45, 0.65, 0.82, 1].map((a) => `rgb(var(--primary-500) / ${a})`);

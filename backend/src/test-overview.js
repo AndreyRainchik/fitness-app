@@ -168,11 +168,11 @@ async function unitTests() {
 
   await test('muscle group sets per week, secondaries count half', () => {
     const rows = [
-      ...Array(8).fill({ primary_muscle_group: 'Back', secondary_muscle_groups: '["Hamstrings","Glutes"]' }),
+      ...Array(8).fill({ primary_muscle_group: 'Lower Back', secondary_muscle_groups: '["Hamstrings","Glutes"]' }),
       ...Array(4).fill({ primary_muscle_group: 'Chest', secondary_muscle_groups: 'Triceps, Shoulders' }),
     ];
     const groups = Object.fromEntries(muscleGroupSets(rows, 4).map((g) => [g.muscleGroup, g.setsPerWeek]));
-    assert.equal(groups.Back, 2);
+    assert.equal(groups['Lower Back'], 2);
     assert.equal(groups.Hamstrings, 1);
     assert.equal(groups.Chest, 1);
     assert.equal(groups.Triceps, 0.5);
@@ -188,8 +188,9 @@ async function unitTests() {
     };
     const summary = { current: { strengthSessions: 12 } };
     const flags = overviewFlags({ lifts, muscleGroups: [
-      ...['Chest', 'Back', 'Shoulders', 'Quadriceps'].map((m) => ({ muscleGroup: m, setsPerWeek: 12 })),
+      ...['Chest', 'Upper Back', 'Shoulders', 'Quadriceps'].map((m) => ({ muscleGroup: m, setsPerWeek: 12 })),
       { muscleGroup: 'Hamstrings', setsPerWeek: 2 },
+      { muscleGroup: 'Lower Back', setsPerWeek: 1 }, // not flagged: trained by deadlifts and squats
     ], summary, weeks: 4 });
     assert.equal(flags[0].id, 'stalled-bench');
     assert.match(flags[0].title, /5 weeks/);
