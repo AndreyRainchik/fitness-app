@@ -1,6 +1,16 @@
 import { useState, useEffect } from 'react';
 import { platePresetsAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { unitLabel } from '../../utils/units';
 import { Alert, Button, useConfirm, usePrompt } from '../ui';
+
+// A new plate set starts with a common gym's plates in its unit
+const DEFAULT_SET = {
+  lbs: { bar_weight: '45', plates: { '45': '4', '25': '4', '10': '4', '5': '4', '2.5': '4' } },
+  kg: { bar_weight: '20', plates: { '25': '2', '20': '2', '15': '2', '10': '4', '5': '4', '2.5': '2', '1.25': '2' } },
+};
+const defaultForm = (units) => ({ name: '', units, ...DEFAULT_SET[units] });
+const isDefault = (form) => JSON.stringify({ bar_weight: form.bar_weight, plates: form.plates }) === JSON.stringify(DEFAULT_SET[form.units]);
 
 const PlateInventory = () => {
   const confirm = useConfirm();
@@ -14,17 +24,9 @@ const PlateInventory = () => {
   const [successMessage, setSuccessMessage] = useState('');
 
   // Form state for creating/editing presets
-  const [formData, setFormData] = useState({
-    name: '',
-    bar_weight: '45',
-    plates: {
-      '45': '4',
-      '25': '4',
-      '10': '4',
-      '5': '4',
-      '2.5': '4'
-    }
-  });
+  const userUnits = useAuth().user?.units === 'kg' ? 'kg' : 'lbs';
+  const [formData, setFormData] = useState(() => defaultForm(userUnits));
+  const unit = unitLabel(formData.units);
 
   useEffect(() => {
     loadPresets();
@@ -101,17 +103,7 @@ const PlateInventory = () => {
   };
 
   const startCreate = () => {
-    setFormData({
-      name: '',
-      bar_weight: '45',
-      plates: {
-        '45': '4',
-        '25': '4',
-        '10': '4',
-        '5': '4',
-        '2.5': '4'
-      }
-    });
+    setFormData(defaultForm(userUnits));
     setIsCreating(true);
     setIsEditing(false);
     setError('');
@@ -120,6 +112,7 @@ const PlateInventory = () => {
   const startEdit = (preset) => {
     setFormData({
       name: preset.name,
+      units: preset.units === 'kg' ? 'kg' : 'lbs',
       bar_weight: preset.bar_weight.toString(),
       plates: Object.keys(preset.plates).reduce((acc, key) => {
         acc[key] = preset.plates[key].toString();
@@ -153,6 +146,7 @@ const PlateInventory = () => {
     // Convert form data to proper format
     const plateData = {
       name: formData.name.trim(),
+      units: formData.units,
       bar_weight: parseFloat(formData.bar_weight),
       plates: Object.keys(formData.plates).reduce((acc, key) => {
         const count = parseInt(formData.plates[key]);
@@ -291,10 +285,33 @@ const PlateInventory = () => {
                 />
               </div>
 
+              {/* Plate unit: the numbers on the plates themselves, whatever unit the app shows */}
+              <div>
+                <label htmlFor="plate_units" className="block text-sm font-medium text-gray-700 mb-2">
+                  Plates are in
+                </label>
+                <select
+                  id="plate_units"
+                  value={formData.units}
+                  onChange={(e) => {
+                    const units = e.target.value;
+                    // Untouched defaults switch to that unit's common plates
+                    setFormData(isDefault(formData) ? { ...formData, units, ...DEFAULT_SET[units] } : { ...formData, units });
+                  }}
+                  className="h-11 w-full px-3.5"
+                >
+                  <option value="lbs">Pounds (lbs)</option>
+                  <option value="kg">Kilograms (kg)</option>
+                </select>
+                <p className="mt-1.5 text-xs text-gray-500">
+                  What's printed on your plates. Weights in {unitLabel(userUnits)} are converted when working out what to load.
+                </p>
+              </div>
+
               {/* Bar Weight */}
               <div>
                 <label htmlFor="bar_weight" className="block text-sm font-medium text-gray-700 mb-2">
-                  Barbell Weight (lbs) *
+                  Barbell Weight ({unit}) *
                 </label>
                 <input
                   type="number"
@@ -326,7 +343,7 @@ const PlateInventory = () => {
                   {Object.keys(formData.plates).sort((a, b) => parseFloat(b) - parseFloat(a)).map((weight) => (
                     <div key={weight} className="flex items-center gap-2 p-2 bg-surface rounded border border-gray-200">
                       <label className="text-sm font-medium text-gray-700 min-w-[60px]">
-                        {weight} lbs
+                        {weight} {unit}
                       </label>
                       <input
                         type="number"
@@ -399,12 +416,12 @@ const PlateInventory = () => {
                         )}
                       </div>
                       <div className="text-xs md:text-sm text-gray-600 space-y-1">
-                        <p>Bar: {preset.bar_weight} lbs</p>
+                        <p>Bar: {preset.bar_weight} {unitLabel(preset.units)}</p>
                         <p className="break-words">
                           Plates: {Object.entries(preset.plates)
                             .sort(([a], [b]) => parseFloat(b) - parseFloat(a))
                             .map(([weight, count]) => `${count}×${weight}`)
-                            .join(', ')}
+                            .join(', ')} {unitLabel(preset.units)}
                         </p>
                       </div>
                     </div>

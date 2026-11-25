@@ -47,6 +47,7 @@ export async function initDatabase() {
       ensureAuthSchema();
       ensureExerciseOwnerSchema();
       splitBackMuscleGroup();
+      ensurePlateUnitsSchema();
       enableForeignKeys();
       saveDatabase();
     } else {
@@ -60,6 +61,7 @@ export async function initDatabase() {
       ensureProgramSchema();
       ensureAuthSchema();
       ensureExerciseOwnerSchema();
+      ensurePlateUnitsSchema();
       seedExercises();
       enableForeignKeys();
       saveDatabase();
@@ -276,6 +278,14 @@ function ensureHevySchema() {
     }
   }
   db.run('CREATE INDEX IF NOT EXISTS idx_workouts_user_hevy ON workouts(user_id, hevy_workout_id)');
+
+  // When the workout or its sets were last changed in the app (NULL until
+  // then; an import clears it), so re-importing from Hevy keeps those edits
+  try {
+    db.run('ALTER TABLE workouts ADD COLUMN edited_at TEXT');
+  } catch (e) {
+    // Column already exists
+  }
 
   // One Hevy connection per user. The API key is stored encrypted.
   db.run(`
@@ -582,6 +592,38 @@ function splitBackMuscleGroup() {
     db.run('UPDATE exercises SET primary_muscle_group = ?, secondary_muscle_groups = ? WHERE id = ?', [nextPrimary, JSON.stringify(nextSecondary), id]);
   }
   logger.info(`💪 Split "Back" into Upper Back / Lower Back on ${rows.length} exercises`);
+}
+
+/**
+ * A plate set's numbers are in its own unit (plate_inventory_presets.units):
+ * plates are physical, so a 45 lb plate stays a 45 lb plate when the user
+ * switches to kilograms. When the column is first added, each set's unit is
+ * read from its contents (45/35/55 lb plates or bar mean pounds; a 20 kg bar
+ * or 20 and 15 plates mean kilograms), else the owner's units.
+ */
+function ensurePlateUnitsSchema() {
+  try {
+    db.run("ALTER TABLE plate_inventory_presets ADD COLUMN units TEXT CHECK(units IN ('kg', 'lbs'))");
+  } catch (e) {
+    return; // Column already exists: units assigned already
+  }
+  const rows = db.exec(
+    `SELECT p.id, p.plates, p.bar_weight, u.units FROM plate_inventory_presets p JOIN users u ON u.id = p.user_id`
+  )[0]?.values ?? [];
+  for (const [id, platesJson, barWeight, userUnits] of rows) {
+    let sizes = [];
+    try {
+      sizes = Object.keys(JSON.parse(platesJson || '{}')).map(Number);
+    } catch {
+      sizes = [];
+    }
+    const has = (w) => sizes.includes(w);
+    let units;
+    if ([45, 35, 55].includes(Number(barWeight)) || has(45) || has(35) || has(55)) units = 'lbs';
+    else if (Number(barWeight) === 20 || (has(20) && has(15))) units = 'kg';
+    else units = userUnits === 'kg' ? 'kg' : 'lbs';
+    db.run('UPDATE plate_inventory_presets SET units = ? WHERE id = ?', [units, id]);
+  }
 }
 
 /**

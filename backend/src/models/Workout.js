@@ -89,6 +89,14 @@ class Workout {
   }
 
   /**
+   * Note that the workout or its sets were just changed in the app. A Hevy
+   * re-import keeps such edits unless the user chooses to replace them.
+   */
+  static markEdited(id) {
+    run("UPDATE workouts SET edited_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?", [id]);
+  }
+
+  /**
    * Get workout by ID
    */
   static findById(id) {

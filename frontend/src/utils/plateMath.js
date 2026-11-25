@@ -1,20 +1,33 @@
+import { convertWeight } from './units';
+
 /**
  * Barbell plate math, done in the browser.
  *
  * Mirrors User.calculatePlatesNeeded in backend/src/models/User.js (which
  * still serves POST /api/profile/calculate-plates); keep the two in step.
  *
- * inventory: { bar_weight: 45, plates: { '45': 4, '25': 4, ... } } where
- * each count is how many of that plate can go on one side.
+ * inventory: { bar_weight: 45, plates: { '45': 4, '25': 4, ... }, units }
+ * where each count is how many of that plate can go on one side, and units
+ * ('lbs' | 'kg') is the plates' own unit.
  *
- * Returns { plates, per_side, total, exact }:
- * - plates: plate weights for one side, heaviest first
- * - per_side: weight each side needs to reach the target
- * - total: what the loaded bar actually weighs
+ * targetUnits is the unit targetWeight is in (the user's). When it differs
+ * from the plates' unit, the target is converted first, so a 61.23 kg set
+ * on a pound plate set loads 135 lbs.
+ *
+ * Returns { plates, per_side, total, exact, units, totalInTarget }:
+ * - plates: plate weights for one side, heaviest first (plate units)
+ * - per_side: weight each side needs to reach the target (plate units)
+ * - total: what the loaded bar actually weighs (plate units)
+ * - totalInTarget: the same, in targetUnits
  * - exact: whether total hits the target
  */
-export function calculatePlates(targetWeight, inventory) {
-  const target = Number(targetWeight);
+export function calculatePlates(targetWeight, inventory, targetUnits) {
+  const units = inventory?.units || targetUnits || 'lbs';
+  const result = platesFor(Number(convertWeight(Number(targetWeight), targetUnits, units)), inventory);
+  return { ...result, units, totalInTarget: convertWeight(result.total, units, targetUnits) };
+}
+
+function platesFor(target, inventory) {
   const barWeight = Number(inventory?.bar_weight) || 45;
 
   if (target === barWeight) {
@@ -54,12 +67,12 @@ export function calculatePlates(targetWeight, inventory) {
 }
 
 /**
- * The weight you can actually load for a programmed weight.
- * { adjustedWeight, isAdjusted }
+ * The weight you can actually load for a programmed weight, in the same
+ * units as the programmed weight. { adjustedWeight, isAdjusted }
  */
-export function achievableWeight(targetWeight, inventory) {
-  const result = calculatePlates(targetWeight, inventory);
-  const adjustedWeight = result.total || targetWeight;
+export function achievableWeight(targetWeight, inventory, targetUnits) {
+  const result = calculatePlates(targetWeight, inventory, targetUnits);
+  const adjustedWeight = Number(result.totalInTarget) || targetWeight;
   return {
     adjustedWeight,
     isAdjusted: !result.exact || Math.abs(adjustedWeight - targetWeight) > 0.01,

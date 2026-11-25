@@ -1,5 +1,7 @@
 import React from 'react';
 import { usePlateAdjustedWeight } from '../../utils/usePlateAdjustedWeight';
+import { useAuth } from '../../context/AuthContext';
+import { unitLabel } from '../../utils/units';
 
 /**
  * Component to display weight with plate adjustment indicator
@@ -11,11 +13,12 @@ import { usePlateAdjustedWeight } from '../../utils/usePlateAdjustedWeight';
  */
 const AdjustedWeightDisplay = ({ programmedWeight, className = '', inline = true }) => {
   const { adjustedWeight, isAdjusted, loading } = usePlateAdjustedWeight(programmedWeight);
+  const unit = unitLabel(useAuth().user?.units);
 
   if (loading) {
     return (
       <span className={`text-gray-400 ${className}`}>
-        {programmedWeight} lbs
+        {programmedWeight} {unit}
       </span>
     );
   }
@@ -24,7 +27,7 @@ const AdjustedWeightDisplay = ({ programmedWeight, className = '', inline = true
     // No adjustment needed - show normal weight
     return (
       <span className={className}>
-        {programmedWeight} lbs
+        {programmedWeight} {unit}
       </span>
     );
   }
@@ -34,13 +37,13 @@ const AdjustedWeightDisplay = ({ programmedWeight, className = '', inline = true
     return (
       <span className={`inline-flex items-center gap-1 ${className}`}>
         <span className="text-amber-600 font-bold">
-          {adjustedWeight} lbs
+          {adjustedWeight} {unit}
         </span>
-        <span className="text-xs text-amber-600" title={`Adjusted from ${programmedWeight} lbs based on available plates`}>
+        <span className="text-xs text-amber-600" title={`Adjusted from ${programmedWeight} {unit} based on available plates`}>
           ⚠️
         </span>
         <span className="text-xs text-gray-500">
-          (from {programmedWeight} lbs)
+          (from {programmedWeight} {unit})
         </span>
       </span>
     );
@@ -50,10 +53,10 @@ const AdjustedWeightDisplay = ({ programmedWeight, className = '', inline = true
   return (
     <div className={className}>
       <span className="text-amber-600 font-bold">
-        {adjustedWeight} lbs
+        {adjustedWeight} {unit}
       </span>
       <div className="text-xs text-amber-600 mt-1">
-        ⚠️ Adjusted from {programmedWeight} lbs based on available plates
+        ⚠️ Adjusted from {programmedWeight} {unit} based on available plates
       </div>
     </div>
   );

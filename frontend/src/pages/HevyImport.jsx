@@ -57,6 +57,7 @@ function WorkoutRow({ workout, checked, disabled, onToggle }) {
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="truncate font-semibold text-gray-900">{workout.title}</span>
             {badge && <Badge tone={badge.tone}>{badge.label}</Badge>}
+            {workout.edited_here && <Badge>Edited here</Badge>}
           </span>
           <span className="tabular mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-gray-500">
             <span>{formatWorkoutTime(workout.start_time)}</span>
@@ -317,6 +318,8 @@ function ReviewStep({ selected, onBack, onDone }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [importing, setImporting] = useState(false);
+  // Hevy ids of earlier imports, edited here since, whose edits may be replaced
+  const [replaceEdited, setReplaceEdited] = useState(() => new Set());
   const ids = useMemo(() => [...selected.keys()], [selected]);
 
   const load = useCallback(async () => {
@@ -362,7 +365,14 @@ function ReviewStep({ selected, onBack, onDone }) {
     });
   }, [preview, choices]);
 
-  const replacing = preview?.workouts.filter((w) => w.status !== 'new') ?? [];
+  // Imported before: replaced with Hevy's version, unless edited here since
+  const replacing = preview?.workouts.filter((w) => w.status !== 'new' && !w.edited_here) ?? [];
+  const editedHere = preview?.workouts.filter((w) => w.status !== 'new' && w.edited_here) ?? [];
+  const toggleReplace = (id) => setReplaceEdited((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   const allSkipped = preview && preview.exercises.length > 0
     && preview.exercises.every((e) => choices[e.template_id]?.action === 'skip');
 
@@ -375,7 +385,7 @@ function ReviewStep({ selected, onBack, onDone }) {
         if (c.action === 'create') return [id, { create: { ...c.create, name: c.create.name.trim() } }];
         return [id, { exercise_id: Number(c.exercise_id) }];
       }));
-      const result = await hevyAPI.importWorkouts(ids, payload);
+      const result = await hevyAPI.importWorkouts(ids, payload, [...replaceEdited]);
       toast({ tone: 'success', message: `Imported ${plural(result.imported.length, 'workout')} from Hevy` });
       onDone(result);
     } catch (err) {
@@ -412,6 +422,7 @@ function ReviewStep({ selected, onBack, onDone }) {
               <span className="font-medium text-gray-900">{w.title}</span>
               <span className="text-xs text-gray-500">{formatWorkoutTime(w.start_time)}</span>
               {STATUS_BADGES[w.status] && <Badge tone={STATUS_BADGES[w.status].tone}>{STATUS_BADGES[w.status].label}</Badge>}
+              {w.edited_here && <Badge>Edited here</Badge>}
             </li>
           ))}
         </ul>
@@ -423,9 +434,28 @@ function ReviewStep({ selected, onBack, onDone }) {
         {replacing.length > 0 && (
           <Alert tone="warning" className="mt-4">
             {plural(replacing.length, 'workout')} {replacing.length === 1 ? 'was' : 'were'} imported before.
-            Importing again replaces {replacing.length === 1 ? 'its' : 'their'} sets with Hevy&apos;s version,
-            including any edits you made here.
+            Importing again replaces {replacing.length === 1 ? 'its' : 'their'} sets with Hevy&apos;s version.
           </Alert>
+        )}
+        {editedHere.length > 0 && (
+          <div className="mt-4 rounded-xl border border-gray-200 p-3">
+            <p className="text-sm font-medium text-gray-900">
+              You changed {editedHere.length === 1 ? 'this workout' : 'these workouts'} here after importing
+            </p>
+            <p className="mt-0.5 text-sm text-gray-500">
+              Your changes are kept and {editedHere.length === 1 ? 'it' : 'they'} won&apos;t be re-imported, unless you choose to replace them.
+            </p>
+            <ul className="mt-2 space-y-1">
+              {editedHere.map((w) => (
+                <li key={w.id}>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+                    <input type="checkbox" className="h-4 w-4" checked={replaceEdited.has(w.id)} onChange={() => toggleReplace(w.id)} />
+                    Replace my changes to <span className="font-medium text-gray-900">{w.title}</span> with Hevy&apos;s version
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </Card>
 

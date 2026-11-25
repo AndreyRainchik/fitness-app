@@ -12,7 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import Program from './models/Program.js';
+import Program, { UNIT_RULES } from './models/Program.js';
 import { convertWeight } from './utils/units.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -49,6 +49,25 @@ async function unitTests() {
 
   await test('a failed week still means a decrease', () => {
     assert.equal(Program.getDefault531Adjustment([{ week: 1, status: 'skipped' }, { week: 2, status: 'failed' }]), 'decrement_1x');
+  });
+  console.log('\nUnits');
+
+  await test('warm-ups round to the unit\'s step and never go below the bar', () => {
+    assert.deepEqual(Program.getWarmupSets(300, UNIT_RULES.lbs).map((w) => w.weight), [120, 150, 180]);
+    assert.deepEqual(Program.getWarmupSets(100, UNIT_RULES.lbs).map((w) => w.weight), [45, 50, 60]);
+    assert.deepEqual(Program.getWarmupSets(85, UNIT_RULES.kg).map((w) => w.weight), [35, 42.5, 50]);
+    assert.deepEqual(Program.getWarmupSets(40, UNIT_RULES.kg).map((w) => w.weight), [20, 20, 25]);
+    // A user's own bar, e.g. a 15 kg bar
+    assert.deepEqual(Program.getWarmupSets(30, { ...UNIT_RULES.kg, bar: 15 }).map((w) => w.weight), [15, 15, 17.5]);
+  });
+
+  await test('5/3/1 sets round to 2.5 in either unit; steps are 5/10 lb or 2.5/5 kg', () => {
+    assert.deepEqual(Program.calculate531Week(1, 102, UNIT_RULES.kg).map((x) => x.weight), [67.5, 77.5, 87.5]);
+    assert.equal(Program.generateBBBSets(102, 0.5, UNIT_RULES.kg)[0].weight, 50);
+    assert.equal(Program.incrementFor('Barbell Squat', UNIT_RULES.kg), 5);
+    assert.equal(Program.incrementFor('Barbell Bench Press', UNIT_RULES.kg), 2.5);
+    assert.equal(Program.incrementFor('Barbell Deadlift', UNIT_RULES.lbs), 10);
+    assert.equal(Program.incrementFor('Barbell Overhead Press', UNIT_RULES.lbs), 5);
   });
 }
 
@@ -215,6 +234,50 @@ async function apiTests() {
       // Saving the same units again changes nothing
       await me('PUT', '/profile', { units: 'lbs', username: 'switcher2' });
       assert.deepEqual(await weights(), [135, 225, 0]);
+    });
+
+    await test('plate sets keep their own unit; plate maths converts the target', async () => {
+      const reg3 = await anon('POST', '/auth/register', { email: 'plates@test.local', password: 'secret123', username: 'plates', units: 'lbs' });
+      const me = api(app.base, reg3.body.token);
+      const active = (await me('GET', '/plate-presets/active')).body.preset;
+      assert.equal(active.units, 'lbs', 'the default set is in the user\'s units');
+
+      const made = await me('POST', '/plate-presets', { name: 'Garage', plates: { 45: 2 }, bar_weight: 45 });
+      assert.equal(made.body.preset.units, 'lbs', 'a new set starts in the user\'s units');
+      const kgSet = await me('POST', '/plate-presets', { name: 'Hotel', plates: { 20: 2, 10: 2 }, bar_weight: 20, units: 'kg' });
+      assert.equal(kgSet.body.preset.units, 'kg');
+
+      // Switching the user to kg leaves the pound plates as they are...
+      await me('PUT', '/profile', { units: 'kg' });
+      assert.equal((await me('GET', '/plate-presets/active')).body.preset.units, 'lbs');
+      assert.equal((await me('GET', '/plate-presets/active')).body.preset.bar_weight, 45);
+      // ...and a 61.23 kg target loads a 45 lb plate a side
+      const plates = (await me('POST', '/profile/calculate-plates', { target_weight: 61.23 })).body;
+      assert.equal(plates.units, 'lbs');
+      assert.deepEqual(plates.plates, [45]);
+      assert.equal(plates.total, 135);
+    });
+
+    await test('a kg lifter\'s program uses kg steps, rounding and bar', async () => {
+      const reg4 = await anon('POST', '/auth/register', { email: 'kilo@test.local', password: 'secret123', username: 'kilo', units: 'kg' });
+      const me = api(app.base, reg4.body.token);
+      const id = (await me('POST', '/programs', { name: 'Kilo', type: '531', lifts: [[squat, 100], [bench, 80], [deadlift, 140], [ohp, 50]].map(([exercise_id, training_max]) => ({ exercise_id, training_max })) })).body.id;
+      const week = (await me('GET', `/programs/${id}/current-week`)).body;
+      assert.equal(week.units, 'kg');
+      assert.equal(week.bar_weight, 20, 'the default kg plate set has a 20 kg bar');
+      const ohpLift = week.lifts.find((l) => l.exercise_id === ohp);
+      assert.deepEqual(ohpLift.warmup_sets.map((w) => w.weight), [20, 22.5, 25], 'no 45s for a kg lifter');
+      assert.equal(ohpLift.increment, 2.5);
+      assert.equal(week.lifts.find((l) => l.exercise_id === squat).increment, 5);
+
+      for (let w = 1; w <= 4; w++) {
+        for (const ex of [squat, bench, deadlift, ohp]) {
+          await me('PUT', `/programs/${id}/lifts/${ex}/status`, { status: 'completed', ...(w === 3 ? { amrap_reps: 6 } : {}) });
+        }
+        await me('POST', `/programs/${id}/advance-week`, {});
+      }
+      const tm = Object.fromEntries((await me('GET', `/programs/${id}`)).body.lifts.map((l) => [l.exercise_id, l.training_max]));
+      assert.deepEqual([tm[squat], tm[bench], tm[deadlift], tm[ohp]], [105, 82.5, 145, 52.5]);
     });
 
     await test('unit conversion rounds to plate-friendly numbers both ways', () => {

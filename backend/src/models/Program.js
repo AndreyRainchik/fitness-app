@@ -1,4 +1,5 @@
 import { get, all, run } from '../config/database.js';
+import { convertWeight } from '../utils/units.js';
 
 /**
  * Valid per-lift training max adjustment choices applied at the end of a
@@ -11,10 +12,43 @@ import { get, all, run } from '../config/database.js';
 export const ADJUSTMENT_CHOICES = ['increment_2x', 'increment_1x', 'keep', 'decrement_1x'];
 
 /**
+ * Program weights are in the user's units. Per unit: what working and
+ * warm-up sets round to, the progression step for upper- and lower-body
+ * lifts (Wendler's 5/10 lb or 2.5/5 kg), and the empty bar, which is also
+ * the lightest weight a lift goes down to.
+ */
+export const UNIT_RULES = {
+  lbs: { units: 'lbs', round: 2.5, warmupRound: 5, upper: 5, lower: 10, bar: 45 },
+  kg: { units: 'kg', round: 2.5, warmupRound: 2.5, upper: 2.5, lower: 5, bar: 20 },
+};
+
+const LOWER_BODY_LIFTS = ['Barbell Squat', 'Barbell Deadlift', 'Power Clean'];
+
+/** x to the nearest multiple of step, without float noise (62.50000001). */
+const roundTo = (x, step) => Math.round(Math.round(x / step) * step * 100) / 100;
+
+/**
  * Program Model
  * Handles training program management (5/3/1, Starting Strength, custom programs, etc.)
  */
 class Program {
+  /**
+   * UNIT_RULES for a user's units. The bar is their active plate set's bar
+   * (in their units) when they have one, so a 35 lb or 15 kg bar works.
+   */
+  static unitRules(userId) {
+    const user = get('SELECT units FROM users WHERE id = ?', [userId]);
+    const rules = UNIT_RULES[user?.units === 'kg' ? 'kg' : 'lbs'];
+    const preset = get('SELECT bar_weight, units FROM plate_inventory_presets WHERE user_id = ? AND is_active = 1', [userId]);
+    const bar = Number(convertWeight(preset?.bar_weight, preset?.units || rules.units, rules.units));
+    return bar > 0 ? { ...rules, bar } : rules;
+  }
+
+  /** Progression step for a lift: the lower-body step for squats, deadlifts and cleans. */
+  static incrementFor(exerciseName, rules = UNIT_RULES.lbs) {
+    return LOWER_BODY_LIFTS.includes(exerciseName) ? rules.lower : rules.upper;
+  }
+
   /**
    * Create a new program
    */
@@ -414,6 +448,7 @@ class Program {
     if (!program) {
       return null;
     }
+    const rules = this.unitRules(program.user_id);
     
     // UPDATED: Get ALL statuses for the current cycle (weeks 1-4)
     // instead of just the current week
@@ -459,13 +494,7 @@ class Program {
           const exercise = get('SELECT * FROM exercises WHERE id = ?', [lift.exercise_id]);
           
           if (exercise) {
-            let increment = 5; // Default: upper body
-            
-            // Determine increment based on exercise
-            const lowerBodyExercises = ['Barbell Squat', 'Barbell Deadlift', 'Power Clean'];
-            if (lowerBodyExercises.includes(exercise.name)) {
-              increment = 10;
-            }
+            const increment = Program.incrementFor(exercise.name, rules);
             
             // Determine the suggested adjustment from this cycle's performance
             // (week 3 AMRAP reps / failures), then apply any per-lift override.
@@ -477,16 +506,16 @@ class Program {
 
             let newTrainingMax = Program.applyAdjustment(adjustment, lift.training_max, increment);
 
-            // Ensure training max doesn't go below a reasonable minimum (45 lbs - empty bar)
-            if (newTrainingMax < 45) {
-              newTrainingMax = 45;
+            // Never below the empty bar
+            if (newTrainingMax < rules.bar) {
+              newTrainingMax = rules.bar;
             }
 
             const week3Status = liftStatuses.find(s => s.week === 3);
             const overrideNote = ADJUSTMENT_CHOICES.includes(override) && override !== defaultAdjustment
               ? ` [user override; suggested ${defaultAdjustment}]`
               : '';
-            console.log(`Adjusting ${exercise.name} (${adjustment}): ${lift.training_max} -> ${newTrainingMax} lbs (week 3 AMRAP: ${week3Status?.amrap_reps ?? 'n/a'})${overrideNote}`);
+            console.log(`Adjusting ${exercise.name} (${adjustment}): ${lift.training_max} -> ${newTrainingMax} ${rules.units} (week 3 AMRAP: ${week3Status?.amrap_reps ?? 'n/a'})${overrideNote}`);
 
             this.updateLift(id, lift.exercise_id, newTrainingMax);
           }
@@ -518,13 +547,7 @@ class Program {
         const exercise = get('SELECT * FROM exercises WHERE id = ?', [lift.exercise_id]);
         
         if (exercise) {
-          let increment = 5; // Default: upper body
-          
-          // Determine increment based on exercise
-          const lowerBodyExercises = ['Barbell Squat', 'Barbell Deadlift', 'Power Clean'];
-          if (lowerBodyExercises.includes(exercise.name)) {
-            increment = 10;
-          }
+          const increment = Program.incrementFor(exercise.name, rules);
           
           // Check if this lift was marked as failed
           const liftStatus = statusMap.get(lift.exercise_id);
@@ -533,20 +556,20 @@ class Program {
           if (liftStatus === 'failed') {
             // Deload: Decrease weight by the increment amount
             newWeight = lift.training_max - increment;
-            console.log(`Deloading ${exercise.name}: ${lift.training_max} -> ${newWeight} lbs (failed)`);
+            console.log(`Deloading ${exercise.name}: ${lift.training_max} -> ${newWeight} ${rules.units} (failed)`);
           } else if (liftStatus === 'skipped') {
             // Skipped (e.g. injured): same weight next time
             newWeight = lift.training_max;
-            console.log(`Keeping ${exercise.name} at ${newWeight} lbs (skipped)`);
+            console.log(`Keeping ${exercise.name} at ${newWeight} ${rules.units} (skipped)`);
           } else {
             // Progress normally: Increase weight
             newWeight = lift.training_max + increment;
-            console.log(`Progressing ${exercise.name}: ${lift.training_max} -> ${newWeight} lbs`);
+            console.log(`Progressing ${exercise.name}: ${lift.training_max} -> ${newWeight} ${rules.units}`);
           }
           
-          // Ensure weight doesn't go below a reasonable minimum (45 lbs - empty bar)
-          if (newWeight < 45) {
-            newWeight = 45;
+          // Never below the empty bar
+          if (newWeight < rules.bar) {
+            newWeight = rules.bar;
           }
           
           // Update the weight (stored in training_max for Starting Strength)
@@ -610,7 +633,7 @@ class Program {
    * @param {number} trainingMax - Training max for the exercise
    * @returns {Array} Array of set objects with weight, reps, and percentage
    */
-  static calculate531Week(week, trainingMax) {
+  static calculate531Week(week, trainingMax, rules = UNIT_RULES.lbs) {
     const sets = [];
     
     // 5/3/1 percentages for each week
@@ -640,7 +663,7 @@ class Program {
     const scheme = weekSchemes[week] || weekSchemes[1];
     
     scheme.forEach((set, index) => {
-      const weight = Math.round((trainingMax * set.percentage) / 2.5) * 2.5; // Round to nearest 2.5
+      const weight = roundTo(trainingMax * set.percentage, rules.round);
       sets.push({
         set_number: index + 1,
         weight: weight,
@@ -660,9 +683,9 @@ class Program {
    * @param {number} bbbPercentage - BBB percentage (default 50%)
    * @returns {Array} Array of 5 sets at bbbPercentage
    */
-  static generateBBBSets(trainingMax, bbbPercentage = 0.50) {
+  static generateBBBSets(trainingMax, bbbPercentage = 0.50, rules = UNIT_RULES.lbs) {
     const sets = [];
-    const weight = Math.round((trainingMax * bbbPercentage) / 2.5) * 2.5; // Round to nearest 2.5
+    const weight = roundTo(trainingMax * bbbPercentage, rules.round);
     
     // BBB is 5 sets of 10 reps
     for (let i = 0; i < 5; i++) {
@@ -747,24 +770,28 @@ class Program {
       });
     });
     
+    const rules = this.unitRules(program.user_id);
     const workout = {
       program_id: program.id,
       program_name: program.name,
       program_type: program.type,
       week: program.current_week,
       cycle: program.current_cycle,
+      // Weights are in these units; no lift goes below bar_weight
+      units: rules.units,
+      bar_weight: rules.bar,
       lifts: []
     };
     
     // For 5/3/1 BBB program
     if (program.type === '531') {
       program.lifts.forEach(lift => {
-        const mainSets = this.calculate531Week(program.current_week, lift.training_max);
-        const bbbSets = this.generateBBBSets(lift.training_max, 0.50);
+        const mainSets = this.calculate531Week(program.current_week, lift.training_max, rules);
+        const bbbSets = this.generateBBBSets(lift.training_max, 0.50, rules);
         
         // Calculate warmup sets based on the heaviest main set
         const heaviestMainSetWeight = Math.max(...mainSets.map(set => set.weight));
-        const warmupSets = this.getWarmupSets(heaviestMainSetWeight);
+        const warmupSets = this.getWarmupSets(heaviestMainSetWeight, rules);
         
         // Add status to lift
         const liftStatus = statusMap.get(lift.exercise_id);
@@ -774,6 +801,8 @@ class Program {
           exercise_name: lift.exercise_name,
           paused: !!lift.paused,
           training_max: lift.training_max,
+          // Change to the training max per step at the end of a cycle
+          increment: this.incrementFor(lift.exercise_name, rules),
           warmup_sets: warmupSets,
           main_sets: mainSets,
           accessory_sets: bbbSets,
@@ -806,7 +835,7 @@ class Program {
         const sets = this.generateStartingStrengthSets(lift.exercise_name, lift.training_max);
         
         // Calculate warmup sets based on working weight
-        const warmupSets = this.getWarmupSets(lift.training_max);
+        const warmupSets = this.getWarmupSets(lift.training_max, rules);
         
         // Add status to lift
         const liftStatus = statusMap.get(lift.exercise_id);
@@ -816,6 +845,8 @@ class Program {
           exercise_name: lift.exercise_name,
           paused: !!lift.paused,
           current_weight: lift.training_max, // Using training_max field to store current weight
+          // Added after each completed session
+          increment: this.incrementFor(lift.exercise_name, rules),
           warmup_sets: warmupSets,
           sets: sets,
           status: liftStatus ? liftStatus.status : null,
@@ -833,69 +864,17 @@ class Program {
   }
   
   /**
-   * Get recommended warmup sets for a given working weight
-   * @param {number} workingWeight - The main working weight
-   * @returns {Array} Array of warmup set objects
+   * Warm-up sets for a working weight: 40% and 50% for 5, then 60% for 3,
+   * rounded to the unit's warm-up step and never below the empty bar.
+   * @param {number} workingWeight - The heaviest working weight
+   * @param {Object} rules - UNIT_RULES entry (with the user's bar)
    */
-  static getWarmupSets(workingWeight) {
-    const warmups = [];
-    /*
-    // Bar only
-    warmups.push({
-      weight: 45, // Standard barbell weight (lbs) - should be configurable
-      reps: 5,
-      is_warmup: true
-    });
-    */
-    // 40% of working weight
-    const weight40 = Math.round((workingWeight * 0.40) / 5) * 5;
-    if(weight40 < 45) {
-        warmups.push({
-        weight: 45, // Standard barbell weight (lbs) - should be configurable
-        reps: 5,
-        is_warmup: true
-      });
-    } else {
-      warmups.push({
-        weight: weight40,
-        reps: 5,
-        is_warmup: true
-      });
-    }
-
-    // 50% of working weight
-    const weight50 = Math.round((workingWeight * 0.50) / 5) * 5;
-    if(weight50 < 45) {
-        warmups.push({
-        weight: 45, // Standard barbell weight (lbs) - should be configurable
-        reps: 5,
-        is_warmup: true
-      });
-    } else {
-      warmups.push({
-        weight: weight50,
-        reps: 5,
-        is_warmup: true
-      });
-    }
-    
-    // 60% of working weight
-    const weight60 = workingWeight * 0.60;
-    if(weight60 < 45) {
-        warmups.push({
-        weight: 45, // Standard barbell weight (lbs) - should be configurable
-        reps: 3,
-        is_warmup: true
-      });
-    } else {
-      warmups.push({
-        weight: weight60,
-        reps: 3,
-        is_warmup: true
-      });
-    }
-    
-    return warmups;
+  static getWarmupSets(workingWeight, rules = UNIT_RULES.lbs) {
+    return [[0.40, 5], [0.50, 5], [0.60, 3]].map(([share, reps]) => ({
+      weight: Math.max(roundTo(workingWeight * share, rules.warmupRound), rules.bar),
+      reps,
+      is_warmup: true,
+    }));
   }
 }
 

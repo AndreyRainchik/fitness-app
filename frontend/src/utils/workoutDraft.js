@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { convertWeight } from './units';
 
 /**
  * The in-progress Active Workout, saved to localStorage so it survives
@@ -45,17 +46,6 @@ export function saveDraft(draft) {
   }
 }
 
-const LBS_PER_KG = 2.20462262185;
-
-/** Same rounding as the server's convertWeight (backend/src/utils/units.js). */
-function convertWeight(value, from, to) {
-  if (value === '' || value === null || value === undefined || from === to || Number.isNaN(Number(value))) return value;
-  const converted = to === 'kg' ? Number(value) / LBS_PER_KG : Number(value) * LBS_PER_KG;
-  const rounded = Math.round(converted * 100) / 100;
-  const quarter = Math.round(rounded * 4) / 4;
-  return String(Math.abs(rounded - quarter) <= 0.015 ? quarter : rounded);
-}
-
 /** After a units switch: convert the unfinished workout's weights too. */
 export function convertDraftUnits(from, to) {
   const draft = loadDraft();
@@ -66,7 +56,10 @@ export function convertDraftUnits(from, to) {
       ...draft.values,
       exercises: draft.values.exercises.map((exercise) => ({
         ...exercise,
-        sets: (exercise.sets || []).map((set) => ({ ...set, weight: convertWeight(set.weight, from, to) })),
+        sets: (exercise.sets || []).map((set) => {
+          const weight = convertWeight(set.weight, from, to);
+          return { ...set, weight: weight === set.weight ? weight : String(weight) };
+        }),
       })),
     },
   });

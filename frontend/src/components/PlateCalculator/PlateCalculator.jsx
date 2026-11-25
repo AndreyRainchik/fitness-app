@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { usePlateInventory } from '../../utils/usePlateInventory';
 import { calculatePlates } from '../../utils/plateMath';
+import { unitLabel } from '../../utils/units';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * Get color for a plate weight (standard Olympic colors)
@@ -56,10 +58,15 @@ const plateHeight = (weight) => {
  */
 export function PlateLoadout({ targetWeight }) {
   const { inventory, loading, error: loadError } = usePlateInventory();
+  const userUnits = useAuth().user?.units;
   const platesData = useMemo(
-    () => (inventory && targetWeight > 0 ? calculatePlates(targetWeight, inventory) : null),
-    [inventory, targetWeight]
+    () => (inventory && targetWeight > 0 ? calculatePlates(targetWeight, inventory, userUnits) : null),
+    [inventory, targetWeight, userUnits]
   );
+  // Plates are labelled in their own unit, which may not be the user's
+  const plateUnit = unitLabel(platesData?.units);
+  const targetUnit = unitLabel(userUnits || platesData?.units);
+  const otherUnit = platesData && userUnits && platesData.units !== userUnits;
   const error = loadError ? 'Couldn\'t load your plate inventory' : !loading && !inventory ? 'No active plate preset selected' : null;
 
   return (
@@ -79,7 +86,7 @@ export function PlateLoadout({ targetWeight }) {
                     <span
                       key={index}
                       className={`${getPlateColor(plate)} ${getTextColor(plate)} ${plateHeight(plate)} flex w-7 flex-shrink-0 items-center justify-center rounded-[4px] text-[10px] font-bold shadow-sm`}
-                      title={`${plate} lbs`}
+                      title={`${plate} ${plateUnit}`}
                     >
                       {plate}
                     </span>
@@ -88,16 +95,21 @@ export function PlateLoadout({ targetWeight }) {
                 <span className="h-3 w-8 flex-shrink-0 rounded-r-sm bg-gray-400" aria-hidden="true" />
               </div>
               <div className="flex-shrink-0 text-right">
-                <p className="tabular text-sm font-semibold text-gray-900">{platesData.per_side} lbs</p>
+                <p className="tabular text-sm font-semibold text-gray-900">{Math.round(platesData.per_side * 100) / 100} {plateUnit}</p>
                 <p className="text-[11px] text-gray-500">per side</p>
               </div>
             </div>
           ) : (
             <p className="text-sm font-medium text-gray-700">Empty bar</p>
           )}
+          {otherUnit && (
+            <p className="mt-2 text-xs text-gray-500">
+              Your plates are in {plateUnit}: the bar loads {platesData.total} {plateUnit} ({platesData.totalInTarget} {targetUnit}).
+            </p>
+          )}
           {!platesData.exact && (
             <p className="mt-2 rounded-lg bg-warning-50 px-2 py-1 text-xs text-warning-700">
-              Approximate: not enough plates for {targetWeight} lbs exactly
+              Approximate: not enough plates for {targetWeight} {targetUnit} exactly
             </p>
           )}
         </>

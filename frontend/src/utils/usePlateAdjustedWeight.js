@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { usePlateInventory } from './usePlateInventory';
 import { achievableWeight } from './plateMath';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * Plate-adjusted weight for one programmed weight, computed locally from
@@ -10,11 +11,13 @@ import { achievableWeight } from './plateMath';
  */
 export const usePlateAdjustedWeight = (targetWeight) => {
   const { inventory, loading, error } = usePlateInventory();
+  // Programmed weights are in the user's units; the plates may not be
+  const units = useAuth().user?.units;
   return useMemo(() => {
     if (!targetWeight || targetWeight <= 0) return { adjustedWeight: null, isAdjusted: false, loading, error };
     if (!inventory) return { adjustedWeight: targetWeight, isAdjusted: false, loading, error };
-    return { ...achievableWeight(targetWeight, inventory), loading, error };
-  }, [targetWeight, inventory, loading, error]);
+    return { ...achievableWeight(targetWeight, inventory, units), loading, error };
+  }, [targetWeight, inventory, units, loading, error]);
 };
 
 /**
@@ -25,17 +28,18 @@ export const usePlateAdjustedWeight = (targetWeight) => {
  */
 export const useBatchPlateAdjustedWeights = (targetWeights) => {
   const { inventory, loading, error } = usePlateInventory();
+  const units = useAuth().user?.units;
   const key = (targetWeights || []).join(',');
   const weightsMap = useMemo(() => {
     const map = new Map();
     if (!inventory) return map;
     for (const weight of new Set(targetWeights || [])) {
-      if (weight > 0) map.set(weight, achievableWeight(weight, inventory));
+      if (weight > 0) map.set(weight, achievableWeight(weight, inventory, units));
     }
     return map;
     // key captures the contents of targetWeights
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, inventory]);
+  }, [key, inventory, units]);
   return { weightsMap, loading, error };
 };
 

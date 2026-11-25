@@ -930,11 +930,13 @@ export const hevyAPI = {
   }),
 
   /** exercises: { [templateId]: { exercise_id } | { create: {...} } | { skip: true } } */
-  importWorkouts: (workoutIds, exercises) => apiCall('/hevy/import', {
+  importWorkouts: (workoutIds, exercises, replaceEdited = []) => apiCall('/hevy/import', {
     method: 'POST',
     body: JSON.stringify({
       workout_ids: workoutIds,
       exercises,
+      // Earlier imports edited here whose edits may be replaced (else they're kept)
+      replace_edited: replaceEdited,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     }),
   }),

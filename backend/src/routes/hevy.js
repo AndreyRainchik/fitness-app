@@ -121,7 +121,13 @@ function withImportStatus(userId, hevyWorkouts) {
   const imported = HevyImportedWorkouts.findByHevyIds(userId, hevyWorkouts.map((w) => w.id));
   return hevyWorkouts.map((w) => {
     const local = imported.get(w.id);
-    return { ...summarizeHevyWorkout(w), status: importStatus(w, local), local_workout_id: local?.id ?? null };
+    return {
+      ...summarizeHevyWorkout(w),
+      status: importStatus(w, local),
+      local_workout_id: local?.id ?? null,
+      // Changed in this app since it was imported: re-importing keeps those edits unless asked not to
+      edited_here: Boolean(local?.edited_at),
+    };
   });
 }
 
@@ -299,6 +305,9 @@ router.post('/import',
     body('workout_ids.*').isString(),
     body('exercises').isObject().withMessage('exercises must be an object'),
     body('timezone').optional().isString().isLength({ max: 64 }),
+    // Hevy ids of earlier imports edited here whose edits may be replaced
+    body('replace_edited').optional().isArray(),
+    body('replace_edited.*').optional().isString(),
   ],
   async (req, res) => {
     if (validationFailed(req, res)) return;
@@ -307,6 +316,7 @@ router.post('/import',
 
     const userId = req.user.id;
     const choices = req.body.exercises;
+    const replaceEdited = new Set((req.body.replace_edited || []).map(String));
 
     let workouts;
     let missing;
@@ -400,6 +410,15 @@ router.post('/import',
           }
 
           const existing = already.get(hevyWorkout.id);
+          if (existing?.edited_at && !replaceEdited.has(hevyWorkout.id) && Workout.findById(existing.id)) {
+            skipped.push({
+              hevy_id: hevyWorkout.id,
+              title: hevyWorkout.title,
+              workout_id: existing.id,
+              reason: 'Edited here since it was imported, so your changes were kept',
+            });
+            continue;
+          }
           let workoutId;
           if (existing && Workout.findById(existing.id)) {
             Workout.updateWithSets(existing.id, converted.workout, converted.sets);
