@@ -22,6 +22,7 @@ const WorkoutDetail = lazy(() => import('./pages/WorkoutDetail'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Templates = lazy(() => import('./pages/Templates'));
 const TemplateDetail = lazy(() => import('./pages/TemplateDetail'));
+const EditTemplate = lazy(() => import('./pages/EditTemplate'));
 const ActiveWorkout = lazy(() => import('./pages/ActiveWorkout'));
 const HevyImport = lazy(() => import('./pages/HevyImport'));
 const LogCardio = lazy(() => import('./pages/LogCardio'));
@@ -137,6 +138,11 @@ function App() {
         <Route path="/templates/:id" element={
           <ProtectedRoute>
             <TemplateDetail />
+          </ProtectedRoute>
+        } />
+        <Route path="/templates/:id/edit" element={
+          <ProtectedRoute>
+            <EditTemplate />
           </ProtectedRoute>
         } />
         <Route path="/analytics" element={
