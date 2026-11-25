@@ -1,8 +1,8 @@
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import { User, PlateInventoryPreset } from '../models/index.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { signToken } from '../utils/authToken.js';
 import logger from '../config/logger.config.js';
 import { loginRateLimiter, registerRateLimiter } from '../middleware/rateLimiter.js';
 
@@ -20,7 +20,8 @@ router.post('/register',
     body('username').notEmpty().withMessage('Username is required'),
     body('bodyweight').optional().isFloat({ min: 0 }).withMessage('Bodyweight must be a positive number'),
     body('units').optional().isIn(['kg', 'lbs']).withMessage('Units must be kg or lbs'),
-    body('sex').optional().isIn(['M', 'F']).withMessage('Sex must be M or F')
+    // '' or null: prefer not to say
+    body('sex').optional({ values: 'null' }).isIn(['M', 'F', '']).withMessage('Sex must be M or F')
   ],
   async (req, res) => {
     // Check for validation errors
@@ -47,7 +48,7 @@ router.post('/register',
         units: units || 'kg',
         sex: sex || null
       });
-      PlateInventoryPreset.createDefaultPreset(user.id, units);
+      PlateInventoryPreset.createDefaultPreset(user.id, user.units);
 
       logger.info('😃 User registered successfully', {
         userId: user.id,
@@ -56,12 +57,7 @@ router.post('/register',
         timestamp: new Date().toISOString()
       });
       
-      // Generate JWT token
-      const token = jwt.sign(
-        { id: user.id, email: user.email },
-        Buffer.from(process.env.JWT_SECRET, 'base64'),
-        { expiresIn: '7d' }
-      );
+      const token = signToken(user.id);
       
       res.status(201).json({
         message: 'User registered successfully',
@@ -102,12 +98,7 @@ router.post('/login',
         return res.status(401).json({ error: 'Invalid email or password' });
       }
       
-      // Generate JWT token
-      const token = jwt.sign(
-        { id: user.id, email: user.email },
-        Buffer.from(process.env.JWT_SECRET, 'base64'),
-        { expiresIn: '7d' }
-      );
+      const token = signToken(user.id);
       
       res.json({
         message: 'Login successful',
@@ -149,7 +140,8 @@ router.put('/me',
     body('username').optional().notEmpty().withMessage('Username cannot be empty'),
     body('bodyweight').optional().isFloat({ min: 0 }).withMessage('Bodyweight must be positive'),
     body('units').optional().isIn(['kg', 'lbs']).withMessage('Units must be kg or lbs'),
-    body('sex').optional().isIn(['M', 'F']).withMessage('Sex must be M or F')
+    // '' or null: prefer not to say
+    body('sex').optional({ values: 'null' }).isIn(['M', 'F', '']).withMessage('Sex must be M or F')
   ],
   (req, res) => {
     const errors = validationResult(req);
@@ -158,7 +150,8 @@ router.put('/me',
     }
     
     try {
-    const { username, bodyweight, units, sex } = req.body;
+    const { username, bodyweight, units } = req.body;
+    const sex = req.body.sex === '' ? null : req.body.sex;
     const user = User.update(req.user.id, { username, bodyweight, units, sex });
       
       res.json({

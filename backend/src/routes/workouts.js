@@ -358,7 +358,7 @@ router.post('/',
 
       let workout;
       if (Array.isArray(rawSets)) {
-        const { sets, error } = prepareBulkSets(rawSets);
+        const { sets, error } = prepareBulkSets(rawSets, req.user.id);
         if (error) {
           return res.status(400).json({ error });
         }
@@ -421,7 +421,7 @@ router.put('/:id',
       let updatedWorkout;
       if (Array.isArray(rawSets)) {
         // Replace the workout's sets with this list in a single transaction
-        const { sets, error } = prepareBulkSets(rawSets);
+        const { sets, error } = prepareBulkSets(rawSets, req.user.id);
         if (error) {
           return res.status(400).json({ error });
         }
@@ -505,10 +505,15 @@ router.post('/:id/sets',
 
       const { exercise_id, set_number, reps, weight, rpe, is_warmup, notes } = req.body;
 
+      // The built-in library or one of this user's own exercises
+      const exercise = Exercise.findVisible(exercise_id, req.user.id);
+      if (!exercise) {
+        return res.status(400).json({ error: `Exercise ${exercise_id} not found` });
+      }
+
       // Negative weights are only meaningful for assisted exercises (e.g.
       // Machine-Assisted Pull-up where the stack reduces effective load).
       if (weight < 0) {
-        const exercise = Exercise.findById(exercise_id);
         if (!isAssistedExercise(exercise)) {
           return res.status(400).json({ error: 'Weight must be positive for this exercise' });
         }

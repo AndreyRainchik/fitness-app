@@ -35,7 +35,7 @@ function ExerciseBlock({
         <div className="min-w-0 flex-1">
           <ExerciseNameInput value={exercise.exerciseName} onChange={onNameChange} onSelect={onSelect} disabled={disabled} />
           {!exercise.exerciseId ? (
-            <p className="mt-1.5 text-xs text-gray-500">Type at least 2 letters, then pick from the list</p>
+            <p className="mt-1.5 text-xs text-gray-500">Type at least 2 letters, then pick from the list or create a new exercise</p>
           ) : last ? (
             <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500">
               <History className="h-3.5 w-3.5" aria-hidden="true" />

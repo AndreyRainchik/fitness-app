@@ -9,7 +9,8 @@ function SecuritySettings({ currentEmail, onEmailUpdate }) {
     confirmPassword: ''
   });
   const [emailForm, setEmailForm] = useState({
-    newEmail: ''
+    newEmail: '',
+    emailPassword: ''
   });
   const [passwordError, setPasswordError] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -52,7 +53,7 @@ function SecuritySettings({ currentEmail, onEmailUpdate }) {
 
     try {
       await profileAPI.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
-      setPasswordSuccess('Password changed successfully!');
+      setPasswordSuccess('Password changed. Other devices have been signed out.');
       
       // Clear form
       setPasswordForm({
@@ -75,11 +76,11 @@ function SecuritySettings({ currentEmail, onEmailUpdate }) {
     setIsEmailLoading(true);
 
     try {
-      const response = await profileAPI.changeEmail(emailForm.newEmail);
+      const response = await profileAPI.changeEmail(emailForm.newEmail, emailForm.emailPassword);
       setEmailSuccess('Email changed successfully!');
       
       // Clear form
-      setEmailForm({ newEmail: '' });
+      setEmailForm({ newEmail: '', emailPassword: '' });
       
       // Call parent's onEmailUpdate to refresh user data
       if (onEmailUpdate) {
@@ -204,6 +205,22 @@ function SecuritySettings({ currentEmail, onEmailUpdate }) {
               onChange={handleEmailChange}
               className="h-11 w-full px-3.5"
               placeholder="newemail@example.com"
+              required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="emailPassword" className="block text-sm font-medium text-gray-700 mb-2">
+              Current Password
+            </label>
+            <input
+              type="password"
+              id="emailPassword"
+              name="emailPassword"
+              value={emailForm.emailPassword}
+              onChange={handleEmailChange}
+              className="h-11 w-full px-3.5"
+              autoComplete="current-password"
               required
             />
           </div>

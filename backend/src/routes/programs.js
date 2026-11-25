@@ -285,7 +285,7 @@ router.post('/:id/lifts', authenticateToken, async (req, res) => {
     }
     
     // Verify exercise exists
-    const exercise = Exercise.findById(exercise_id);
+    const exercise = Exercise.findVisible(exercise_id, req.user.id);
     if (!exercise) {
       return res.status(404).json({ error: 'Exercise not found' });
     }

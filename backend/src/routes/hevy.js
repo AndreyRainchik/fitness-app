@@ -1,6 +1,7 @@
 import express from 'express';
 import { body, query, validationResult } from 'express-validator';
 import { BodyweightLog, Exercise, User, Workout } from '../models/index.js';
+import { EXERCISE_CATEGORIES } from '../models/Exercise.js';
 import { HevyConnection, HevyExerciseMapping, HevyImportedWorkouts, HevyWeightSyncs } from '../models/Hevy.js';
 import { pushBodyweight, weightSyncStatus } from '../services/hevyWeightSync.js';
 import { HevyApiError, HevyClient } from '../services/hevyClient.js';
@@ -13,7 +14,7 @@ import {
 } from '../services/hevyImport.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { linkUnmatchedStrength } from '../services/stravaSync.js';
-import { all, transaction } from '../config/database.js';
+import { transaction } from '../config/database.js';
 
 /**
  * Import workouts from Hevy, chosen by the user.
@@ -35,7 +36,6 @@ router.use(authenticateToken);
 const MAX_WORKOUTS_PER_IMPORT = 50;
 const HEVY_CONCURRENCY = 4;
 
-const EXERCISE_CATEGORIES = ['barbell', 'dumbbell', 'machine', 'bodyweight', 'cable', 'other'];
 
 function validationFailed(req, res) {
   const errors = validationResult(req);
@@ -249,7 +249,7 @@ router.post('/preview', [workoutIdsValidator, body('workout_ids.*').isString()],
   try {
     const { workouts, missing } = await fetchHevyWorkouts(client, uniqueIds(req.body.workout_ids));
     const saved = HevyExerciseMapping.getForUser(req.user.id);
-    const match = createExerciseMatcher(Exercise.getAll());
+    const match = createExerciseMatcher(Exercise.getAll(req.user.id));
 
     const templates = collectExerciseTemplates(workouts);
     const exercises = await mapWithConcurrency(templates, HEVY_CONCURRENCY, async (t) => {
@@ -330,7 +330,7 @@ router.post('/import',
         if (!String(name || '').trim()) problems.push(`Enter a name for the new exercise from “${t.title}”`);
         if (!EXERCISE_CATEGORIES.includes(category)) problems.push(`Choose a category for “${t.title}”`);
         if (!String(primary_muscle_group || '').trim()) problems.push(`Choose a muscle group for “${t.title}”`);
-      } else if (!Exercise.findById(Number(choice.exercise_id))) {
+      } else if (!Exercise.findVisible(Number(choice.exercise_id), userId)) {
         problems.push(`The exercise chosen for “${t.title}” no longer exists`);
       }
     }
@@ -346,7 +346,8 @@ router.post('/import',
 
       const result = transaction(() => {
         // Resolve each Hevy exercise to one of this app's exercises
-        const existingByName = new Map(all('SELECT id, name FROM exercises').map((e) => [e.name.trim().toLowerCase(), e]));
+        // Only names this user can see: the built-in library and their own
+        const existingByName = new Map(Exercise.getAll(userId).map((e) => [e.name.trim().toLowerCase(), e]));
         const resolved = new Map();
         const createdExercises = [];
 
@@ -361,6 +362,7 @@ router.post('/import',
             exercise = existingByName.get(name.toLowerCase());
             if (!exercise) {
               exercise = Exercise.create({
+                user_id: userId,
                 name,
                 category: choice.create.category,
                 primary_muscle_group: String(choice.create.primary_muscle_group).trim(),
@@ -372,7 +374,7 @@ router.post('/import',
               createdExercises.push({ id: exercise.id, name: exercise.name });
             }
           } else {
-            exercise = Exercise.findById(Number(choice.exercise_id));
+            exercise = Exercise.findVisible(Number(choice.exercise_id), userId);
           }
           resolved.set(templateId, exercise);
           HevyExerciseMapping.upsert(userId, templateId, title, exercise.id);

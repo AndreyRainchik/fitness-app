@@ -10,6 +10,7 @@ import HevyConnectionCard from '../components/Hevy/HevyConnectionCard';
 import StravaConnectionCard from '../components/Strava/StravaConnectionCard';
 import HeartRateSettings from '../components/Profile/HeartRateSettings';
 import HevyWeightSyncCard from '../components/Hevy/HevyWeightSyncCard';
+import MyExercises from '../components/Profile/MyExercises';
 import { hevyAPI, stravaAPI } from '../services/api';
 import Layout from '../components/Layout/Layout';
 import { Button, EmptyState, LoadingState, PageHeader, Tabs } from '../components/ui';
@@ -17,6 +18,7 @@ import { Button, EmptyState, LoadingState, PageHeader, Tabs } from '../component
 const TABS = [
   { id: 'info', label: 'Profile Info' },
   { id: 'bodyweight', label: 'Bodyweight' },
+  { id: 'exercises', label: 'Exercises' },
   { id: 'security', label: 'Security' },
   { id: 'heart-rate', label: 'Heart Rate' },
   { id: 'plates', label: 'Plates' },
@@ -175,6 +177,8 @@ function Profile() {
         {activeTab === 'security' && (
           <SecuritySettings currentEmail={profile.email} onEmailUpdate={setProfile} />
         )}
+
+        {activeTab === 'exercises' && <MyExercises />}
 
         {activeTab === 'plates' && <PlateInventory />}
 

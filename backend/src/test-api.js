@@ -101,7 +101,7 @@ try {
 // TEST 4: Get All Exercises
 console.log(colors.blue('\n📝 TEST 4: Get All Exercises'));
 try {
-  const { status, data } = await apiCall('GET', '/api/exercises');
+  const { status, data } = await apiCall('GET', '/api/exercises', null, authToken);
   
   if (status === 200) {
     console.log(colors.green(`  ✅ Found ${data.count} exercises`));
@@ -115,7 +115,7 @@ try {
 // TEST 5: Search Exercises
 console.log(colors.blue('\n📝 TEST 5: Search Exercises (bench)'));
 try {
-  const { status, data } = await apiCall('GET', '/api/exercises/search?q=bench');
+  const { status, data } = await apiCall('GET', '/api/exercises/search?q=bench', null, authToken);
   
   if (status === 200) {
     console.log(colors.green(`  ✅ Found ${data.count} exercises matching "bench"`));
@@ -132,7 +132,7 @@ try {
 // TEST 6: Get Exercises by Muscle Group
 console.log(colors.blue('\n📝 TEST 6: Get Exercises by Muscle Group (Chest)'));
 try {
-  const { status, data } = await apiCall('GET', '/api/exercises?muscle_group=Chest');
+  const { status, data } = await apiCall('GET', '/api/exercises?muscle_group=Chest', null, authToken);
   
   if (status === 200) {
     console.log(colors.green(`  ✅ Found ${data.count} chest exercises`));
@@ -167,7 +167,7 @@ try {
 console.log(colors.blue('\n📝 TEST 8: Add Set to Workout'));
 try {
   // Find bench press exercise ID
-  const { data: exercisesData } = await apiCall('GET', '/api/exercises/search?q=Barbell%20Bench%20Press');
+  const { data: exercisesData } = await apiCall('GET', '/api/exercises/search?q=Barbell%20Bench%20Press', null, authToken);
   const benchPressId = exercisesData.exercises[0].id;
   
   const { status, data } = await apiCall('POST', `/api/workouts/${workoutId}/sets`, {

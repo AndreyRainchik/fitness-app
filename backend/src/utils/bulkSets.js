@@ -28,14 +28,15 @@ export const bulkSetValidators = [
  * Normalize and check a bulk `sets` array. Returns { sets } or { error }.
  * Unknown exercises and negative weights on non-assisted exercises are rejected.
  */
-export function prepareBulkSets(rawSets) {
+export function prepareBulkSets(rawSets, userId) {
   const exercises = new Map();
   const sets = [];
 
   for (const raw of rawSets) {
     const exerciseId = Number(raw.exercise_id);
     if (!exercises.has(exerciseId)) {
-      exercises.set(exerciseId, Exercise.findById(exerciseId));
+      // The built-in library or one of this user's own exercises
+      exercises.set(exerciseId, Exercise.findVisible(exerciseId, userId));
     }
     const exercise = exercises.get(exerciseId);
     if (!exercise) {

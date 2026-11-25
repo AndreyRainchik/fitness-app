@@ -1,4 +1,5 @@
-import { get, all, run } from '../config/database.js';
+import { get, all, run, transaction } from '../config/database.js';
+import { convertWeight } from '../utils/units.js';
 import bcrypt from 'bcryptjs';
 import PlateInventoryPreset from './PlateInventoryPreset.js';
 
@@ -13,7 +14,7 @@ class User {
   /**
    * Create a new user
    */
-  static async create({ email: rawEmail, password, username, bodyweight = null, units = 'lbs', sex = null }) {
+  static async create({ email: rawEmail, password, username, bodyweight = null, units = 'kg', sex = null }) {
     try {
       const email = normalizeEmail(rawEmail);
       // Hash password
@@ -40,6 +41,7 @@ class User {
       
       // Remove password hash from returned user
       delete user.password_hash;
+      delete user.token_version;
       
       return user;
     } catch (error) {
@@ -67,6 +69,7 @@ class User {
     const user = get('SELECT * FROM users WHERE id = ?', [id]);
     if (user) {
       delete user.password_hash;
+      delete user.token_version;
     }
     return user;
   }
@@ -87,13 +90,64 @@ class User {
     
     // Return user without password hash
     delete user.password_hash;
+    delete user.token_version;
     return user;
   }
   
   /**
    * Update user profile (basic info)
    */
+  /**
+   * Update the profile. Changing units converts every weight the user has
+   * saved (see convertSavedWeights), so history keeps its real values; a
+   * bodyweight sent along with the new units is taken as already in them.
+   */
   static update(id, { username, bodyweight, units, sex, plate_inventory, bar_weight }) {
+    const current = get('SELECT units, bodyweight FROM users WHERE id = ?', [id]);
+    const switching = current && units !== undefined && units !== current.units;
+    return transaction(() => {
+      if (switching) {
+        this.convertSavedWeights(id, current.units, units);
+        if (bodyweight === undefined && current.bodyweight != null) {
+          bodyweight = convertWeight(current.bodyweight, current.units, units);
+        }
+      }
+      return this.applyUpdate(id, { username, bodyweight, units, sex, plate_inventory, bar_weight });
+    });
+  }
+
+  /**
+   * Convert all of a user's lifting weights from one unit to the other:
+   * logged sets, template sets and program training maxes. Bodyweight
+   * entries keep their own unit per entry, and plate inventories describe
+   * physical plates, so neither changes.
+   */
+  static convertSavedWeights(id, from, to) {
+    const convertRows = (rows, table, column) => {
+      for (const row of rows) {
+        run(`UPDATE ${table} SET ${column} = ? WHERE id = ?`, [convertWeight(row.value, from, to), row.id]);
+      }
+      return rows.length;
+    };
+    transaction(() => {
+      const sets = convertRows(all(
+        'SELECT s.id, s.weight AS value FROM sets s JOIN workouts w ON w.id = s.workout_id WHERE w.user_id = ? AND s.weight != 0',
+        [id]
+      ), 'sets', 'weight');
+      const templateSets = convertRows(all(
+        `SELECT ts.id, ts.weight AS value FROM template_sets ts JOIN workout_templates t ON t.id = ts.template_id
+         WHERE t.user_id = ? AND ts.weight != 0`,
+        [id]
+      ), 'template_sets', 'weight');
+      const lifts = convertRows(all(
+        'SELECT pl.id, pl.training_max AS value FROM program_lifts pl JOIN programs p ON p.id = pl.program_id WHERE p.user_id = ?',
+        [id]
+      ), 'program_lifts', 'training_max');
+      console.log(`Converted user ${id} from ${from} to ${to}: ${sets} sets, ${templateSets} template sets, ${lifts} training maxes`);
+    });
+  }
+
+  static applyUpdate(id, { username, bodyweight, units, sex, plate_inventory, bar_weight }) {
     const updates = [];
     const params = [];
     
@@ -138,6 +192,12 @@ class User {
   /**
    * Change user password
    */
+  /** True when password is this user's current password. */
+  static async checkPassword(id, password) {
+    const row = get('SELECT password_hash FROM users WHERE id = ?', [id]);
+    return Boolean(row && password && await bcrypt.compare(String(password), row.password_hash));
+  }
+
   static async changePassword(id, currentPassword, newPassword) {
     try {
       // Get user with password hash
@@ -156,8 +216,9 @@ class User {
       const newPasswordHash = await bcrypt.hash(newPassword, 10);
       
       // Update password
+      // Bumping token_version signs out every other session
       run(
-        'UPDATE users SET password_hash = ? WHERE id = ?',
+        'UPDATE users SET password_hash = ?, token_version = COALESCE(token_version, 0) + 1 WHERE id = ?',
         [newPasswordHash, id]
       );
       

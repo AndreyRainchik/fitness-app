@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { profileAPI } from '../../services/api';
-import { Alert, Button } from '../ui';
+import { useAuth } from '../../context/AuthContext';
+import { convertDraftUnits } from '../../utils/workoutDraft';
+import { Alert, Button, useConfirm } from '../ui';
+
+const UNIT_NAMES = { lbs: 'pounds', kg: 'kilograms' };
 
 function ProfileInfo({ user, onUpdate }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -12,6 +16,8 @@ function ProfileInfo({ user, onUpdate }) {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const { refreshUser } = useAuth();
+  const confirm = useConfirm();
 
   const handleChange = (e) => {
     setFormData({
@@ -24,12 +30,30 @@ function ProfileInfo({ user, onUpdate }) {
     e.preventDefault();
     setError('');
     setSuccessMessage('');
-    setIsLoading(true);
 
+    const from = user.units || 'lbs';
+    const switching = formData.units !== from;
+    if (switching) {
+      const example = from === 'lbs' ? '135 lbs becomes 61.23 kg' : '100 kg becomes 220.46 lbs';
+      const ok = await confirm({
+        title: `Switch to ${UNIT_NAMES[formData.units]}?`,
+        message: `Every weight you've logged, plus your templates and program training maxes, is converted (${example}). Switching back converts them back.\n\nBodyweight entries keep the unit they were logged in, and plate sets aren't changed.`,
+        confirmLabel: `Switch to ${formData.units}`,
+      });
+      if (!ok) return;
+    }
+
+    setIsLoading(true);
     try {
       const response = await profileAPI.updateProfile(formData);
-      setSuccessMessage('Profile updated successfully!');
+      setSuccessMessage(switching ? `Switched to ${UNIT_NAMES[formData.units]}. Your logged weights were converted.` : 'Profile updated successfully!');
       setIsEditing(false);
+
+      if (switching) {
+        convertDraftUnits(from, formData.units);
+        // Pages read units from the signed-in user
+        await refreshUser().catch(() => {});
+      }
       
       // Call parent's onUpdate to refresh user data
       if (onUpdate) {

@@ -13,6 +13,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import Program from './models/Program.js';
+import { convertWeight } from './utils/units.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let failures = 0;
@@ -174,6 +175,55 @@ async function apiTests() {
       await call('PUT', `/programs/${id}/lifts/${bench}/pause`, { paused: true });
       await call('PUT', `/programs/${id}/lifts/${bench}/pause`, { paused: false });
       assert.equal((await liftIn(id, bench)).status, 'skipped');
+    });
+
+    await test('switching units converts logged weights, templates and training maxes, and back again', async () => {
+      const reg2 = await anon('POST', '/auth/register', { email: 'switcher@test.local', password: 'secret123', username: 'switcher', units: 'lbs', bodyweight: 180 });
+      const me = api(app.base, reg2.body.token);
+      const workout = (await me('POST', '/workouts', { date: '2026-11-02', name: 'Squats', sets: [
+        { exercise_id: squat, set_number: 1, reps: 5, weight: 135 },
+        { exercise_id: squat, set_number: 2, reps: 5, weight: 225 },
+        { exercise_id: squat, set_number: 3, reps: 8, weight: 0 },
+      ] })).body.workout;
+      const template = (await me('POST', '/templates', { name: 'Leg day' })).body.template;
+      await me('POST', `/templates/${template.id}/sets`, { exercise_id: squat, set_number: 1, reps: 5, weight: 185 });
+      const program = (await me('POST', '/programs', { name: 'Block', type: '531', lifts: lifts531 })).body.id;
+
+      const weights = async () => (await me('GET', `/workouts/${workout.id}`)).body.workout.sets.map((x) => x.weight);
+      const templateWeight = async () => (await me('GET', `/templates/${template.id}`)).body.template.sets[0].weight;
+      const tm = async () => (await me('GET', `/programs/${program}`)).body.lifts.find((l) => l.exercise_id === squat).training_max;
+
+      const toKg = await me('PUT', '/profile', { units: 'kg' });
+      assert.equal(toKg.status, 200, JSON.stringify(toKg.body));
+      assert.equal(toKg.body.user.units, 'kg');
+      assert.equal(toKg.body.user.bodyweight, 81.65);
+      assert.deepEqual(await weights(), [61.23, 102.06, 0]);
+      assert.equal(await templateWeight(), 83.91);
+      assert.equal(await tm(), 136.08);
+
+      // Logging bodyweight in other units doesn't switch the user's units
+      await me('POST', '/profile/bodyweight', { weight: 200, date: '2026-11-03', units: 'lbs' });
+      const after = (await me('GET', '/profile')).body.user;
+      assert.equal(after.units, 'kg');
+      assert.equal(after.bodyweight, 90.72);
+
+      assert.equal((await me('PUT', '/profile', { units: 'lbs' })).status, 200);
+      assert.deepEqual(await weights(), [135, 225, 0], 'back to the original numbers');
+      assert.equal(await templateWeight(), 185);
+      assert.equal(await tm(), 300);
+
+      // Saving the same units again changes nothing
+      await me('PUT', '/profile', { units: 'lbs', username: 'switcher2' });
+      assert.deepEqual(await weights(), [135, 225, 0]);
+    });
+
+    await test('unit conversion rounds to plate-friendly numbers both ways', () => {
+      for (const lbs of [45, 95, 135, 137.5, 185, 225, 315, 405, 2.5]) {
+        assert.equal(convertWeight(convertWeight(lbs, 'lbs', 'kg'), 'kg', 'lbs'), lbs, `${lbs} lbs`);
+      }
+      for (const kg of [20, 60, 61.25, 100, 102.5, 140, 1.25]) {
+        assert.equal(convertWeight(convertWeight(kg, 'kg', 'lbs'), 'lbs', 'kg'), kg, `${kg} kg`);
+      }
     });
   } finally {
     if (failures) console.log(`\nServer output:\n${app.output().slice(-3000)}`);

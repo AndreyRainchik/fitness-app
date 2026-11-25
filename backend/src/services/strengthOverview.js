@@ -26,7 +26,8 @@ const round1 = (n) => Math.round(n * 10) / 10;
 // A lift whose best hasn't improved for this long, while still being trained, is stalled
 export const STALL_WEEKS = 4;
 // Muscle groups checked for low weekly volume, and the level that's flagged
-export const MAJOR_MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Quadriceps', 'Hamstrings'];
+// (Lower Back isn't flagged: deadlifts and squats train it without many direct sets)
+export const MAJOR_MUSCLE_GROUPS = ['Chest', 'Upper Back', 'Shoulders', 'Quadriceps', 'Hamstrings'];
 export const LOW_SETS_PER_WEEK = 5;
 
 /**
@@ -306,7 +307,7 @@ export function overviewFlags({ lifts, muscleGroups, summary, weeks }) {
       .forEach((g) => {
         flags.push({
           // No Analytics tab breaks volume down by muscle (the Dashboard's heatmap does)
-          id: `volume-${g.group.toLowerCase()}`, tone: 'warning', tab: null,
+          id: `volume-${g.group.toLowerCase().replace(/\s+/g, '-')}`, tone: 'warning', tab: null,
           title: `${g.group}: about ${Math.round(g.sets)} sets a week`,
           detail: 'Many lifters aim for 10–20 hard sets per muscle group a week.',
         });
