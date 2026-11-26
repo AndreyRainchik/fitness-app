@@ -10,9 +10,10 @@ const LABEL_TONES = {
 
 /**
  * One prescribed set on the This Week screen: label, weight × reps, a
- * caption, and a button that shows the plate loadout underneath.
+ * caption, and a button that shows the plate loadout underneath (with
+ * the exercise's own plate set, if it has one).
  */
-function ProgramSetRow({ label, tone = 'main', weight, reps, caption, badge, plateWeight }) {
+function ProgramSetRow({ label, tone = 'main', weight, reps, caption, badge, plateWeight, exerciseId }) {
   const [showPlates, setShowPlates] = useState(false);
   return (
     <li className="py-2.5">
@@ -45,7 +46,7 @@ function ProgramSetRow({ label, tone = 'main', weight, reps, caption, badge, pla
       </div>
       {showPlates && (
         <div className="mt-2 animate-fade-in">
-          <PlateLoadout targetWeight={plateWeight} />
+          <PlateLoadout targetWeight={plateWeight} exerciseId={exerciseId} />
         </div>
       )}
     </li>

@@ -8,11 +8,12 @@ import { unitLabel } from '../../utils/units';
  * Shows adjusted weight in amber if it differs from programmed weight
  * 
  * @param {number} programmedWeight - The target weight from the program
+ * @param {number} exerciseId - Optional: use this exercise's plate preset
  * @param {string} className - Additional CSS classes
  * @param {boolean} inline - Whether to show inline (true) or as block (false)
  */
-const AdjustedWeightDisplay = ({ programmedWeight, className = '', inline = true }) => {
-  const { adjustedWeight, isAdjusted, loading } = usePlateAdjustedWeight(programmedWeight);
+const AdjustedWeightDisplay = ({ programmedWeight, exerciseId, className = '', inline = true }) => {
+  const { adjustedWeight, isAdjusted, loading } = usePlateAdjustedWeight(programmedWeight, exerciseId);
   const unit = unitLabel(useAuth().user?.units);
 
   if (loading) {

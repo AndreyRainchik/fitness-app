@@ -48,6 +48,7 @@ export async function initDatabase() {
       ensureExerciseOwnerSchema();
       splitBackMuscleGroup();
       ensurePlateUnitsSchema();
+      ensureExercisePlateSchema();
       ensureCoachSchema();
       enableForeignKeys();
       saveDatabase();
@@ -63,6 +64,7 @@ export async function initDatabase() {
       ensureAuthSchema();
       ensureExerciseOwnerSchema();
       ensurePlateUnitsSchema();
+      ensureExercisePlateSchema();
       ensureCoachSchema();
       seedExercises();
       enableForeignKeys();
@@ -626,6 +628,30 @@ function ensurePlateUnitsSchema() {
     else units = userUnits === 'kg' ? 'kg' : 'lbs';
     db.run('UPDATE plate_inventory_presets SET units = ? WHERE id = ?', [units, id]);
   }
+}
+
+/**
+ * Which plate set each user loads an exercise with (e.g. bench on the
+ * Default set, overhead press on the "Home" set). A per-user mapping rather
+ * than a column on exercises, because built-in exercises are shared by every
+ * user. No row means the exercise uses the user's active plate set; deleting
+ * a plate set (or the exercise, or the user) drops its rows, so those
+ * exercises go back to the active set. Safe to run on every start.
+ */
+function ensureExercisePlateSchema() {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS exercise_plate_presets (
+      user_id INTEGER NOT NULL,
+      exercise_id INTEGER NOT NULL,
+      preset_id INTEGER NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, exercise_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE,
+      FOREIGN KEY (preset_id) REFERENCES plate_inventory_presets(id) ON DELETE CASCADE
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_exercise_plate_presets_preset ON exercise_plate_presets(preset_id)');
 }
 
 /**

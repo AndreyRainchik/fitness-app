@@ -38,7 +38,7 @@ export function clearSession() {
   }
 }
 
-// Tells utils/usePlateInventory.js to refetch the active plate preset
+// Tells utils/usePlateInventory.js to refetch the plate presets and choices
 const plateInventoryChanged = (result) => {
   window.dispatchEvent(new Event('plate-inventory-changed'));
   return result;
@@ -898,6 +898,25 @@ export const platePresetsAPI = {
     return plateInventoryChanged(await apiCall(`/plate-presets/${id}/duplicate`, {
       method: 'POST',
       body: JSON.stringify({ name: newName }),
+    }));
+  },
+
+  /**
+   * Which preset each exercise loads with:
+   * { assignments: [{ exercise_id, exercise_name, preset_id, preset_name }] }.
+   * Exercises not listed use the active preset.
+   */
+  getAssignments: async () => {
+    return await apiCall('/plate-presets/assignments');
+  },
+
+  /**
+   * Load an exercise with a preset; presetId null goes back to the active one
+   */
+  setForExercise: async (exerciseId, presetId) => {
+    return plateInventoryChanged(await apiCall(`/plate-presets/assignments/${exerciseId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ preset_id: presetId ?? null }),
     }));
   },
 };

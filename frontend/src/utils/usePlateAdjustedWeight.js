@@ -1,16 +1,17 @@
-import { useMemo } from 'react';
-import { usePlateInventory } from './usePlateInventory';
+import { useCallback, useMemo } from 'react';
+import { usePlateInventory, usePlateSetups } from './usePlateInventory';
 import { achievableWeight } from './plateMath';
 import { useAuth } from '../context/AuthContext';
 
 /**
  * Plate-adjusted weight for one programmed weight, computed locally from
- * the active plate preset (one shared request, no request per weight).
+ * the exercise's plate preset, else the active one (one shared request, no
+ * request per weight).
  *
  * @returns {Object} { adjustedWeight, isAdjusted, loading, error }
  */
-export const usePlateAdjustedWeight = (targetWeight) => {
-  const { inventory, loading, error } = usePlateInventory();
+export const usePlateAdjustedWeight = (targetWeight, exerciseId) => {
+  const { inventory, loading, error } = usePlateInventory(exerciseId);
   // Programmed weights are in the user's units; the plates may not be
   const units = useAuth().user?.units;
   return useMemo(() => {
@@ -21,26 +22,21 @@ export const usePlateAdjustedWeight = (targetWeight) => {
 };
 
 /**
- * Same, for many weights at once.
+ * Same, for many weights of many exercises: adjust(weight, exerciseId)
+ * gives { adjustedWeight, isAdjusted } with each exercise's own plates.
+ * While the plates load, weights come back as programmed.
  *
- * @param {Array<number>} targetWeights
- * @returns {{ weightsMap: Map<number, { adjustedWeight, isAdjusted }>, loading, error }}
+ * @returns {{ adjust: (weight: number, exerciseId?: number) => { adjustedWeight, isAdjusted }, loading, error }}
  */
-export const useBatchPlateAdjustedWeights = (targetWeights) => {
-  const { inventory, loading, error } = usePlateInventory();
+export const usePlateAdjuster = () => {
+  const { inventoryFor, loading, error } = usePlateSetups();
   const units = useAuth().user?.units;
-  const key = (targetWeights || []).join(',');
-  const weightsMap = useMemo(() => {
-    const map = new Map();
-    if (!inventory) return map;
-    for (const weight of new Set(targetWeights || [])) {
-      if (weight > 0) map.set(weight, achievableWeight(weight, inventory, units));
-    }
-    return map;
-    // key captures the contents of targetWeights
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, inventory, units]);
-  return { weightsMap, loading, error };
+  const adjust = useCallback((weight, exerciseId) => {
+    const inventory = inventoryFor(exerciseId);
+    if (!(weight > 0) || !inventory) return { adjustedWeight: weight, isAdjusted: false };
+    return achievableWeight(weight, inventory, units);
+  }, [inventoryFor, units]);
+  return { adjust, loading, error };
 };
 
 export default usePlateAdjustedWeight;
