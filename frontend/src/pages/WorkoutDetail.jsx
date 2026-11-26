@@ -18,6 +18,7 @@ import { groupSetsByExercise } from '../utils/workoutPayload';
 import { formatNumber } from '../utils/format';
 import { ExerciseSetsCard, WorkoutStats } from '../components/Workout/ExerciseSetsCard';
 import CardioSessionView from '../components/Cardio/CardioSessionView';
+import CoachFeedbackCard from '../components/Coach/CoachFeedbackCard';
 import { ViewOnStrava } from '../components/Strava/StravaConnectionCard';
 import ZoneBreakdown from '../components/Cardio/ZoneBreakdown';
 import useSessionAnalysis from '../utils/useSessionAnalysis';
@@ -188,6 +189,7 @@ function WorkoutDetail() {
             )}
           />
           <CardioSessionView workout={workout} unit={distanceUnit(units)} />
+          <CoachFeedbackCard workoutId={id} />
         </div>
       </Layout>
     );
@@ -299,6 +301,8 @@ function WorkoutDetail() {
         {workout.sets?.length === 0 && (
           <EmptyState title="No sets logged for this workout" />
         )}
+
+        {workout.sets?.length > 0 && <CoachFeedbackCard workoutId={id} />}
 
         <Modal
           open={showTemplateModal}

@@ -12,6 +12,7 @@ import analyticsRoutes from './routes/analytics.js';
 import templateRoutes from './routes/templates.js';
 import programRoutes from './routes/programs.js';
 import hevyRoutes from './routes/hevy.js';
+import coachRoutes from './routes/coach.js';
 import cardioRoutes from './routes/cardio.js';
 import stravaRoutes from './routes/strava.js';
 import platePresetRoutes from './routes/platepresets.js';
@@ -60,6 +61,7 @@ app.get('/api', (req, res) => {
       templates: '/api/templates',
       programs: '/api/programs',
       hevy: '/api/hevy',
+      coach: '/api/coach',
       platePresets: '/api/plate-presets'
     }
   });
@@ -74,6 +76,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/programs', programRoutes);
 app.use('/api/hevy', hevyRoutes);
+app.use('/api/coach', coachRoutes);
 app.use('/api/cardio', cardioRoutes);
 app.use('/api/strava', stravaRoutes);
 app.use('/api/plate-presets', platePresetRoutes);
