@@ -4,8 +4,69 @@ import { coachAPI } from '../../services/api';
 import { Alert, Button, Card, CardHeader, Field, Input, useConfirm, useToast } from '../ui';
 import { formatTimestamp } from '../../utils/format';
 
+const STYLE_DESCRIPTIONS = {
+  normal: 'Clear, friendly, straight to the point.',
+  tough_love: 'Blunt and demanding. Credit only where it\u2019s earned.',
+  kawaii: 'Sweet, bubbly cheerleading with cute emojis~',
+};
+
+/** Choose the voice the coach writes in. Applies to new and regenerated feedback. */
+function CoachStylePicker({ status, onChange }) {
+  const toast = useToast();
+  const [saving, setSaving] = useState(null);
+
+  const choose = async (style) => {
+    if (style === status.style || saving) return;
+    setSaving(style);
+    try {
+      const { style: saved } = await coachAPI.setStyle(style);
+      onChange?.({ ...status, style: saved });
+    } catch (err) {
+      toast({ tone: 'error', message: `Couldn't change the style: ${err.message}` });
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  return (
+    <fieldset className="mt-6 border-t border-gray-100 pt-5">
+      <legend className="sr-only">Coach style</legend>
+      <p className="mb-1 text-sm font-medium text-gray-900">Coach style</p>
+      <p className="mb-3 text-xs text-gray-500">Used for new feedback and when you regenerate. The advice is the same; only the tone changes.</p>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {(status.styles || []).map(({ id, label }) => {
+          const selected = id === status.style;
+          return (
+            <label
+              key={id}
+              className={`cursor-pointer rounded-xl border p-3 transition-colors ${selected
+                ? 'border-primary-500 bg-primary-50'
+                : 'border-gray-200 hover:border-gray-300'}`}
+            >
+              <input
+                type="radio"
+                name="coach-style"
+                value={id}
+                checked={selected}
+                onChange={() => choose(id)}
+                disabled={Boolean(saving)}
+                className="sr-only"
+              />
+              <span className={`block text-sm font-semibold ${selected ? 'text-primary-700' : 'text-gray-900'}`}>
+                {label}{saving === id && '…'}
+              </span>
+              {STYLE_DESCRIPTIONS[id] && <span className="mt-0.5 block text-xs text-gray-500">{STYLE_DESCRIPTIONS[id]}</span>}
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
 /**
- * Save, replace or remove the Anthropic API key the AI coach uses.
+ * Save, replace or remove the Anthropic API key the AI coach uses, and
+ * choose the coach's style.
  * `status` comes from coachAPI.getStatus(); onChange(newStatus) after any change.
  */
 function AiCoachConnectionCard({ status, onChange }) {
@@ -117,6 +178,8 @@ function AiCoachConnectionCard({ status, onChange }) {
           </div>
         </form>
       )}
+
+      {status?.styles?.length > 0 && <CoachStylePicker status={status} onChange={onChange} />}
     </Card>
   );
 }

@@ -645,6 +645,13 @@ function ensureCoachSchema() {
     )
   `);
 
+  // The coach's voice: 'normal', 'tough_love' or 'kawaii'
+  try {
+    db.run("ALTER TABLE users ADD COLUMN coach_style TEXT NOT NULL DEFAULT 'normal'");
+  } catch (e) {
+    // Column already exists
+  }
+
   // One feedback per workout; regenerating replaces it. workout_edited_at is
   // the workout's edited_at when the feedback was written, to tell when the
   // workout changed since.
@@ -655,11 +662,18 @@ function ensureCoachSchema() {
       feedback TEXT NOT NULL,
       model TEXT NOT NULL,
       workout_edited_at TEXT,
+      style TEXT,
       created_at TEXT NOT NULL,
       FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
+  // The style the feedback was written in (added after the table)
+  try {
+    db.run('ALTER TABLE workout_feedback ADD COLUMN style TEXT');
+  } catch (e) {
+    // Column already exists
+  }
 }
 
 /**
