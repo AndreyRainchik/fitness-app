@@ -40,7 +40,10 @@ function LiftProgressionChart({ data, exerciseName, units = 'lbs' }) {
   const latestValue = data[data.length - 1];
   const firstValue = data[0];
   const improvement = latestValue.estimated1RM - firstValue.estimated1RM;
-  const improvementPercent = ((improvement / firstValue.estimated1RM) * 100).toFixed(1);
+  // A percentage needs a positive start: assisted lifts can start at or below 0
+  const improvementPercent = firstValue.estimated1RM > 0
+    ? ((improvement / firstValue.estimated1RM) * 100).toFixed(1)
+    : null;
 
   // Custom tooltip
   const CustomTooltip = ({ active, payload }) => {
@@ -110,7 +113,7 @@ function LiftProgressionChart({ data, exerciseName, units = 'lbs' }) {
           <p className={`text-lg md:text-2xl font-bold ${improvement >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
             {improvement >= 0 ? '+' : ''}{improvement.toFixed(1)}
           </p>
-          <p className="text-xs text-gray-500">{improvementPercent}%</p>
+          <p className="text-xs text-gray-500">{improvementPercent !== null ? `${improvementPercent}%` : units}</p>
         </div>
         <div className="text-center p-2 md:p-3 bg-purple-50 rounded-lg">
           <p className="text-xs md:text-sm text-gray-600 mb-1">Level</p>

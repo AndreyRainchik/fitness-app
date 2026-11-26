@@ -50,7 +50,10 @@ const within = (date, w) => date >= w.start && date <= w.end;
  * PRs: a working set whose estimated 1RM beats every earlier set of that
  * exercise, one per exercise per day (the best of that day), from `since` on.
  *
- * sets: [{ date, workout_id, exercise, exercise_id, weight, reps }] sorted by date
+ * sets: [{ date, workout_id, exercise, exercise_id, weight, reps, assisted?, bodyweight? }]
+ * sorted by date. Sets need positive weight, except for assisted exercises
+ * (assisted: true), where any weight counts (negative = assistance) and the
+ * 1RM is estimated with that day's bodyweight (see estimate1RM).
  * Returns [{ exercise, exerciseId, workoutId, weight, reps, date, estimated1RM, previousBest, firstTime }]
  */
 export function findPRs(sets, since) {
@@ -60,18 +63,18 @@ export function findPRs(sets, since) {
   let currentDate = null;
   const flushDay = () => {
     for (const [exerciseId, value] of dayBest) {
-      bestBefore.set(exerciseId, Math.max(bestBefore.get(exerciseId) ?? 0, value));
+      bestBefore.set(exerciseId, Math.max(bestBefore.get(exerciseId) ?? -Infinity, value));
     }
     dayBest = new Map();
   };
   for (const set of sets) {
-    if (!(set.weight > 0) || !(set.reps > 0)) continue;
+    if (!(set.reps > 0) || !(set.weight > 0 || set.assisted)) continue;
     if (set.date !== currentDate) {
       flushDay();
       currentDate = set.date;
     }
-    const e1rm = estimate1RM(set.weight, set.reps);
-    dayBest.set(set.exercise_id, Math.max(dayBest.get(set.exercise_id) ?? 0, e1rm));
+    const e1rm = estimate1RM(set.weight, set.reps, set.bodyweight || 0);
+    dayBest.set(set.exercise_id, Math.max(dayBest.get(set.exercise_id) ?? -Infinity, e1rm));
     if (set.date < since) continue;
 
     const previous = bestBefore.get(set.exercise_id);

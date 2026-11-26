@@ -129,6 +129,41 @@ async function unitTests() {
     assert.ok(summary.biggest.gainPct > 0);
   });
 
+  await test('assisted 1RM is estimated on bodyweight minus assistance', () => {
+    // 10 reps at -40 with a 180 bodyweight is 10 reps at 140: a 1RM of
+    // 140 * (1 + 10/30) = 186.7, about 6.7 more than bodyweight
+    assert.ok(Math.abs(estimate1RM(-40, 10, 180) - (140 * (1 + 10 / 30) - 180)) < 1e-9);
+    assert.ok(estimate1RM(-40, 10, 180) > 0, 'enough reps with assistance means a single needs none');
+    // One scale: assisted < bodyweight only < weighted, and more reps beat fewer
+    assert.ok(estimate1RM(-40, 8, 180) < estimate1RM(0, 8, 180));
+    assert.ok(estimate1RM(0, 8, 180) < estimate1RM(10, 8, 180));
+    assert.ok(estimate1RM(-40, 6, 180) < estimate1RM(-40, 10, 180));
+    assert.ok(estimate1RM(0, 10, 180) > 0, 'bodyweight-only reps still estimate a 1RM above 0');
+    assert.equal(estimate1RM(-40, 1, 180), -40);
+    assert.equal(estimate1RM(-40, 0, 180), 0);
+    // Without a bodyweight, the old heuristic: less assistance than the working weight
+    assert.equal(estimate1RM(-40, 10), -30);
+    // A bodyweight changes nothing for an ordinary lift's caller that doesn't pass one
+    assert.equal(estimate1RM(200, 5), estimate1RM(200, 5, 0));
+  });
+
+  await test('PRs: assisted sets count, and less assistance is a PR', () => {
+    const apu = (date, weight, reps) => set(date, weight, reps, {
+      exercise_id: 3, exercise: 'Machine-Assisted Pull-up', assisted: true, bodyweight: 180,
+    });
+    const prs = findPRs([
+      apu('2026-09-01', -50, 8),
+      apu('2026-11-01', -60, 8), // more help: not a PR
+      apu('2026-11-08', -40, 8),
+      set('2026-11-09', -40, 8, { exercise_id: 4, exercise: 'Lat Pulldown' }), // not assisted: ignored
+    ], windows.current.start);
+    assert.equal(prs.length, 1);
+    assert.equal(prs[0].weight, -40);
+    assert.equal(prs[0].firstTime, false);
+    assert.ok(prs[0].previousBest < prs[0].estimated1RM);
+    assert.ok(prs[0].estimated1RM < 0, 'still needs some assistance for a single');
+  });
+
   await test('total and DOTS need squat, bench and deadlift', () => {
     const lift = (current, previous) => ({ current, previous });
     const lifts = { squat: lift(300, 290), bench: lift(200, 200), deadlift: lift(400, 380), ohp: lift(null, null) };
@@ -407,6 +442,38 @@ async function apiTests() {
       assert.equal(heavy.estimated1RM, light.estimated1RM);
       assert.ok(light.percentile > heavy.percentile, 'the same lift is stronger at a lower bodyweight');
       assert.ok(light.wilksScore > heavy.wilksScore);
+    });
+
+    await test('assisted pull-ups: PRs, progression, last time and volume use bodyweight minus assistance', async () => {
+      // lbsUser weighs 165 from 2025-02-15 (logged above)
+      const c = lbsUser;
+      const apu = 'Machine-Assisted Pull-up';
+      const expected = (weight) => Math.round(((165 + weight) * 36 / 29 - 165) * 10) / 10; // 8 reps: Brzycki
+      const first = await workout(c, '2025-06-02', lift(apu, -50, 8));
+      assert.equal(first.status, 201, JSON.stringify(first.body));
+      const second = await workout(c, '2025-06-09', [...lift(apu, -40, 8, 2), { exercise_id: id(apu), set_number: 3, reps: 0, weight: -40, is_warmup: false }]);
+      assert.equal(second.status, 201, JSON.stringify(second.body));
+      const secondId = second.body.workout.id;
+
+      const prs = (await c('GET', `/workouts/${secondId}/with-prs`)).body;
+      const sets = prs.workout.sets;
+      assert.ok(sets.filter((s) => s.reps > 0).every((s) => s.is1RMPR && s.isVolumePR), JSON.stringify(sets));
+      assert.ok(sets.filter((s) => s.reps === 0).every((s) => !s.is1RMPR && !s.isVolumePR), 'a failed set is no PR');
+      assert.equal(sets[0].estimated1RM, expected(-40));
+      assert.equal(prs.prSummary[0].oneRMPRs[0].estimated1RM, expected(-40));
+      assert.equal(prs.prSummary[0].volumePRs[0].volume, 125 * 8);
+
+      const progression = (await c('GET', `/analytics/lift-progression/${encodeURIComponent(apu)}?localDate=2025-06-10&weeks=4`)).body.progression;
+      assert.deepEqual(progression.map((p) => p.estimated1RM), [expected(-50), expected(-40)]);
+
+      const last = (await c('GET', `/workouts/exercise/${id(apu)}/last`)).body.last;
+      assert.equal(last.best_e1rm, expected(-40));
+
+      const dashboard = (await c('GET', '/analytics/dashboard-summary?localDate=2025-06-10')).body;
+      assert.ok(dashboard.recentPRs.some((p) => p.exercise === apu && p.weight === -40), JSON.stringify(dashboard.recentPRs));
+
+      const listed = (await c('GET', '/workouts')).body.workouts.find((w) => w.id === secondId);
+      assert.equal(listed.total_volume, 0, 'assistance doesn\'t subtract from volume');
     });
 
     await test('a malformed localDate falls back to today instead of failing', async () => {

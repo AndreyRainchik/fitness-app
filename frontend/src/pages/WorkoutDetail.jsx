@@ -239,13 +239,14 @@ function WorkoutDetail() {
             </div>
             <ul className="space-y-2">
               {prSummary.map((exercise) => {
-                const best1RM = Math.max(0, ...exercise.oneRMPRs.map((p) => p.estimated1RM));
+                // Assisted lifts can have a 1RM at or below 0 (assistance still needed)
+                const best1RM = exercise.oneRMPRs.length ? Math.max(...exercise.oneRMPRs.map((p) => p.estimated1RM)) : null;
                 const bestVolume = Math.max(0, ...exercise.volumePRs.map((p) => p.volume));
                 return (
                   <li key={exercise.exerciseName} className="rounded-xl bg-surface/70 px-3 py-2.5">
                     <p className="truncate text-sm font-semibold text-gray-900">{exercise.exerciseName}</p>
                     <p className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-600">
-                      {best1RM > 0 && <span>Est. 1RM <b className="tabular font-semibold text-gray-900">{formatNumber(best1RM, 1)}</b> {units}</span>}
+                      {best1RM !== null && <span>Est. 1RM <b className="tabular font-semibold text-gray-900">{formatNumber(best1RM, 1)}</b> {units}</span>}
                       {bestVolume > 0 && <span>Set volume <b className="tabular font-semibold text-gray-900">{formatNumber(bestVolume)}</b> {units}</span>}
                     </p>
                   </li>

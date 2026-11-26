@@ -111,7 +111,7 @@ class Workout {
       SELECT 
         w.*,
         COUNT(DISTINCT s.exercise_id) as exercise_count,
-        SUM(s.weight * s.reps) as total_volume,
+        SUM(MAX(s.weight, 0) * s.reps) as total_volume,
         ${CARDIO_LIST_COLUMNS}
       FROM workouts w
       LEFT JOIN sets s ON w.id = s.workout_id
@@ -174,7 +174,7 @@ class Workout {
       `SELECT 
         w.*,
         COUNT(DISTINCT s.exercise_id) as exercise_count,
-        SUM(s.weight * s.reps) as total_volume,
+        SUM(MAX(s.weight, 0) * s.reps) as total_volume,
         ${CARDIO_LIST_COLUMNS}
        FROM workouts w
        LEFT JOIN sets s ON w.id = s.workout_id

@@ -39,53 +39,56 @@ function interpolate(weight, reps) {
   return brzyckiEstimate * (1 - factor) + epleyEstimate * factor;
 }
 
+/** The hybrid formula on a positive load: Brzycki, Epley, or a blend. */
+function hybrid(weight, reps) {
+  if (reps < 8) return brzycki(weight, reps);
+  if (reps > 10) return epley(weight, reps);
+  return interpolate(weight, reps);
+}
+
 /**
  * Hybrid 1RM Estimation
  * Automatically selects the most accurate formula based on rep range
  *
- * For assisted exercises (negative weight = assistance from machine):
- * Uses an inverted formula so the estimated 1RM is less negative (less
- * assistance required) than the working weight — reflecting that you need
- * less assistance to grind out a single max rep than to complete a full set.
- * When the 1RM reaches 0 the lifter can do an unassisted rep; once they log
- * positive (added) weight the standard formulas take over and the 1RM
- * continues to increase normally.
+ * Assisted exercises (negative weight = assistance from the machine, 0 =
+ * bodyweight only, positive = added weight): pass the lifter's bodyweight,
+ * in the same unit as the weight, and the estimate is made on the load
+ * actually moved (bodyweight + weight), then given back on the same scale
+ * as the logged weight. So 10 reps at -40 with a bodyweight of 180 is 10
+ * reps at 140, a 1RM of about 187, returned as +6.7: one rep with about
+ * 6.7 added. Assisted, unassisted and weighted sets stay on one continuous
+ * scale where higher is stronger.
+ *
+ * Without a bodyweight, a negative weight falls back to inverting the
+ * multiplier, so the 1RM is still less negative (less assistance) than the
+ * working weight, but it understates the lifter.
  *
  * @param {number} weight - Weight lifted (negative = machine assistance)
  * @param {number} reps - Number of reps completed
- * @returns {number} - Estimated 1RM
+ * @param {number} [bodyweight] - Bodyweight, for assisted exercises only
+ * @returns {number} - Estimated 1RM, on the scale of `weight`
  */
-export function estimate1RM(weight, reps) {
+export function estimate1RM(weight, reps, bodyweight = 0) {
   // Validate inputs
   if (reps <= 0) return 0;
   if (reps === 1) return weight;
 
+  if (bodyweight > 0 && bodyweight + weight > 0) {
+    return hybrid(bodyweight + weight, reps) - bodyweight;
+  }
+
   if (weight < 0) {
-    // Assisted exercise: invert the multiplier so the 1RM is less negative
+    // No bodyweight: invert the multiplier so the 1RM is less negative
     // (i.e. needs less assistance) than the working weight.
     if (reps >= 37) return weight / 2; // Safety fallback
-    if (reps < 8) {
-      return weight / (36 / (37 - reps));
-    } else if (reps > 10) {
-      return weight / (1 + reps / 30);
-    } else {
-      // Interpolate for 8-10 rep range
-      const factor = (reps - 8) / 2;
-      const brzyckiResult = weight / (36 / (37 - reps));
-      const epleyResult = weight / (1 + reps / 30);
-      return brzyckiResult * (1 - factor) + epleyResult * factor;
-    }
+    if (reps < 8) return weight / (36 / (37 - reps));
+    if (reps > 10) return weight / (1 + reps / 30);
+    const factor = (reps - 8) / 2;
+    return (weight / (36 / (37 - reps))) * (1 - factor) + (weight / (1 + reps / 30)) * factor;
   }
 
   // weight === 0 (unassisted bodyweight) or positive (added weight)
-  if (reps < 8) {
-    return brzycki(weight, reps);
-  } else if (reps > 10) {
-    return epley(weight, reps);
-  } else {
-    // Interpolate for 8-10 rep range
-    return interpolate(weight, reps);
-  }
+  return hybrid(weight, reps);
 }
 
 // ============================================================================
@@ -791,15 +794,16 @@ export function calculateSymmetryScore(lifts, sex, bodyweightLbs, age = null) {
  * Returns the set with the highest estimated 1RM
  * 
  * @param {array} sets - Array of set objects with weight and reps
+ * @param {number} [bodyweight] - Bodyweight, for an assisted exercise (see estimate1RM)
  * @returns {object} - Best set with estimated1RM added
  */
-export function getBestWorkingSet(sets) {
+export function getBestWorkingSet(sets, bodyweight = 0) {
   if (!sets || sets.length === 0) return null;
   
   // Calculate estimated 1RM for each set
   const setsWithE1RM = sets.map(set => ({
     ...set,
-    estimated1RM: estimate1RM(set.weight, set.reps)
+    estimated1RM: estimate1RM(set.weight, set.reps, bodyweight)
   }));
   
   // Return set with highest estimated 1RM

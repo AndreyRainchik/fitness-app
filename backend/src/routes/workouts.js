@@ -4,6 +4,7 @@ import { Workout, Set, Exercise } from '../models/index.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { all } from '../config/database.js';
 import { estimate1RM } from '../utils/strengthCalculations.js';
+import { assistedBodyweightLookup } from '../services/assistedLoad.js';
 import { linkUnmatchedStrength } from '../services/stravaSync.js';
 import { bulkSetValidators, prepareBulkSets, isAssistedExercise } from '../utils/bulkSets.js';
 
@@ -74,7 +75,13 @@ router.get('/exercise/:exerciseId/last', (req, res) => {
       [workout.id, exerciseId]
     );
     const working = sets.filter((s) => !s.is_warmup && s.reps > 0);
-    const bestE1rm = working.reduce((best, s) => Math.max(best, estimate1RM(s.weight, s.reps)), 0);
+    // Assisted exercises are estimated on bodyweight minus assistance, and
+    // can be negative (assistance still needed for a single)
+    const exercise = all('SELECT name FROM exercises WHERE id = ?', [exerciseId])[0];
+    const bodyweight = assistedBodyweightLookup(req.user.id).bodyweightFor(exercise?.name, workout.date);
+    const bestE1rm = working.length
+      ? Math.max(...working.map((s) => estimate1RM(s.weight, s.reps, bodyweight)))
+      : 0;
 
     res.json({
       last: {
@@ -183,10 +190,12 @@ function detectPRsForWorkout(workout, userId) {
   
   // For each exercise, determine which sets are PRs
   const prFlags = {}; // Store PR decisions by set ID
+  const bodyweights = assistedBodyweightLookup(userId);
   
   Object.entries(exerciseGroups).forEach(([exerciseId, sets]) => {
-    // Skip warmup sets
-    const workingSets = sets.filter(s => s.is_warmup !== 1);
+    // Skip warmup and failed (0-rep) sets: a failed assisted set would
+    // otherwise estimate to 0, above any real (negative) assisted best
+    const workingSets = sets.filter(s => s.is_warmup !== 1 && s.reps > 0);
     
     if (workingSets.length === 0) {
       // Mark all warmup sets as non-PRs
@@ -200,11 +209,17 @@ function detectPRsForWorkout(workout, userId) {
       return;
     }
     
-    // Calculate metrics for all working sets in this workout
+    // Calculate metrics for all working sets in this workout. Assisted
+    // exercises are measured on the load actually moved (bodyweight minus
+    // assistance), at the bodyweight on each set's day, so more reps at the
+    // same assistance is more volume, not less.
+    const exerciseName = workingSets[0].exercise_name;
+    const volumeOf = (weight, reps, bodyweight) => (bodyweight + weight) * reps;
+    const bodyweight = bodyweights.bodyweightFor(exerciseName, workout.date);
     const setsWithMetrics = workingSets.map(set => ({
       ...set,
-      volume: set.weight * set.reps,
-      estimated1RM: estimate1RM(set.weight, set.reps)
+      volume: volumeOf(set.weight, set.reps, bodyweight),
+      estimated1RM: estimate1RM(set.weight, set.reps, bodyweight)
     }));
     
     // Find the best volume and best 1RM in THIS workout
@@ -213,13 +228,14 @@ function detectPRsForWorkout(workout, userId) {
     
     // Get historical data for this exercise
     const previousSets = all(
-      `SELECT s.weight, s.reps
+      `SELECT s.weight, s.reps, w.date
        FROM sets s
        INNER JOIN workouts w ON s.workout_id = w.id
        WHERE w.user_id = ?
          AND s.exercise_id = ?
          AND s.workout_id != ?
          AND s.is_warmup = 0
+         AND s.reps > 0
        ORDER BY w.date DESC`,
       [userId, exerciseId, workout.id]
     );
@@ -232,8 +248,9 @@ function detectPRsForWorkout(workout, userId) {
     let historicalBest1RM = -Infinity;
 
     previousSets.forEach(prevSet => {
-      const prevVolume = prevSet.weight * prevSet.reps;
-      const prev1RM = estimate1RM(prevSet.weight, prevSet.reps);
+      const prevBodyweight = bodyweights.bodyweightFor(exerciseName, prevSet.date);
+      const prevVolume = volumeOf(prevSet.weight, prevSet.reps, prevBodyweight);
+      const prev1RM = estimate1RM(prevSet.weight, prevSet.reps, prevBodyweight);
 
       if (prevVolume > historicalBestVolume) {
         historicalBestVolume = prevVolume;
@@ -253,7 +270,8 @@ function detectPRsForWorkout(workout, userId) {
         // Only mark as PR if this set matches the best value AND it's a PR
         isVolumePR: isVolumePR && set.volume === bestVolume,
         is1RMPR: is1RMPR && set.estimated1RM === best1RM,
-        estimated1RM: Math.round(set.estimated1RM * 10) / 10
+        estimated1RM: Math.round(set.estimated1RM * 10) / 10,
+        volume: Math.round(set.volume * 10) / 10
       };
     });
     
@@ -305,7 +323,7 @@ function createPRSummary(sets) {
       prsByExercise[set.exercise_name].volumePRs.push({
         weight: set.weight,
         reps: set.reps,
-        volume: set.weight * set.reps,
+        volume: set.volume,
         setNumber: set.set_number
       });
     }

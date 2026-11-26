@@ -167,7 +167,7 @@ class Set {
    */
   static getTotalVolume(exercise_id, user_id, start_date = null, end_date = null) {
     let query = `
-      SELECT SUM(s.weight * s.reps) as total_volume
+      SELECT SUM(MAX(s.weight, 0) * s.reps) as total_volume
       FROM sets s
       JOIN workouts w ON s.workout_id = w.id
       WHERE s.exercise_id = ? AND w.user_id = ? AND s.is_warmup = 0`;
