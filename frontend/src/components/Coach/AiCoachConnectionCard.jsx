@@ -10,19 +10,28 @@ const STYLE_DESCRIPTIONS = {
   kawaii: 'Sweet, bubbly cheerleading with cute emojis~',
 };
 
-/** Choose the voice the coach writes in. Applies to new and regenerated feedback. */
-function CoachStylePicker({ status, onChange }) {
+const MODEL_DESCRIPTIONS = {
+  'claude-haiku-5-5': 'Fast and very cheap. Good for everyday reviews.',
+  'claude-sonnet-5-5': 'Sharper at spotting trends across weeks.',
+};
+
+/**
+ * A row of choice cards that saves the choice right away.
+ * `field` is the status key ('style' or 'model'); `save(id)` stores it and
+ * resolves to { [field]: savedId }.
+ */
+function ChoicePicker({ status, onChange, field, options, title, hint, descriptions, save, columns }) {
   const toast = useToast();
   const [saving, setSaving] = useState(null);
 
-  const choose = async (style) => {
-    if (style === status.style || saving) return;
-    setSaving(style);
+  const choose = async (id) => {
+    if (id === status[field] || saving) return;
+    setSaving(id);
     try {
-      const { style: saved } = await coachAPI.setStyle(style);
-      onChange?.({ ...status, style: saved });
+      const result = await save(id);
+      onChange?.({ ...status, [field]: result[field] });
     } catch (err) {
-      toast({ tone: 'error', message: `Couldn't change the style: ${err.message}` });
+      toast({ tone: 'error', message: `Couldn't change the ${title.toLowerCase()}: ${err.message}` });
     } finally {
       setSaving(null);
     }
@@ -30,12 +39,12 @@ function CoachStylePicker({ status, onChange }) {
 
   return (
     <fieldset className="mt-6 border-t border-gray-100 pt-5">
-      <legend className="sr-only">Coach style</legend>
-      <p className="mb-1 text-sm font-medium text-gray-900">Coach style</p>
-      <p className="mb-3 text-xs text-gray-500">Used for new feedback and when you regenerate. The advice is the same; only the tone changes.</p>
-      <div className="grid gap-2 sm:grid-cols-3">
-        {(status.styles || []).map(({ id, label }) => {
-          const selected = id === status.style;
+      <legend className="sr-only">{title}</legend>
+      <p className="mb-1 text-sm font-medium text-gray-900">{title}</p>
+      <p className="mb-3 text-xs text-gray-500">{hint}</p>
+      <div className={`grid gap-2 ${columns}`}>
+        {options.map(({ id, label, cost }) => {
+          const selected = id === status[field];
           return (
             <label
               key={id}
@@ -45,7 +54,7 @@ function CoachStylePicker({ status, onChange }) {
             >
               <input
                 type="radio"
-                name="coach-style"
+                name={`coach-${field}`}
                 value={id}
                 checked={selected}
                 onChange={() => choose(id)}
@@ -55,7 +64,8 @@ function CoachStylePicker({ status, onChange }) {
               <span className={`block text-sm font-semibold ${selected ? 'text-primary-700' : 'text-gray-900'}`}>
                 {label}{saving === id && '…'}
               </span>
-              {STYLE_DESCRIPTIONS[id] && <span className="mt-0.5 block text-xs text-gray-500">{STYLE_DESCRIPTIONS[id]}</span>}
+              {descriptions[id] && <span className="mt-0.5 block text-xs text-gray-500">{descriptions[id]}</span>}
+              {cost && <span className="mt-1 block text-xs font-medium text-gray-600">{cost[0].toUpperCase() + cost.slice(1)}</span>}
             </label>
           );
         })}
@@ -66,7 +76,7 @@ function CoachStylePicker({ status, onChange }) {
 
 /**
  * Save, replace or remove the Anthropic API key the AI coach uses, and
- * choose the coach's style.
+ * choose the coach's model and style.
  * `status` comes from coachAPI.getStatus(); onChange(newStatus) after any change.
  */
 function AiCoachConnectionCard({ status, onChange }) {
@@ -154,7 +164,7 @@ function AiCoachConnectionCard({ status, onChange }) {
                 and add a little credit under Billing. A Claude Pro or Max subscription doesn&apos;t include API use.
               </li>
               <li>Create an API key and paste it below.</li>
-              <li>Each feedback costs a fraction of a cent (Claude Haiku), billed to your Anthropic account.</li>
+              <li>Each feedback costs about a tenth of a cent with Claude Haiku or 1.5 cents with Claude Sonnet, billed to your Anthropic account.</li>
             </ol>
           )}
           {error && <Alert>{error}</Alert>}
@@ -179,7 +189,33 @@ function AiCoachConnectionCard({ status, onChange }) {
         </form>
       )}
 
-      {status?.styles?.length > 0 && <CoachStylePicker status={status} onChange={onChange} />}
+      {status?.models?.length > 0 && (
+        <ChoicePicker
+          status={status}
+          onChange={onChange}
+          field="model"
+          options={status.models}
+          title="Model"
+          hint="Billed to your Anthropic account. Used for new feedback and when you regenerate."
+          descriptions={MODEL_DESCRIPTIONS}
+          save={coachAPI.setModel}
+          columns="sm:grid-cols-2"
+        />
+      )}
+
+      {status?.styles?.length > 0 && (
+        <ChoicePicker
+          status={status}
+          onChange={onChange}
+          field="style"
+          options={status.styles}
+          title="Coach style"
+          hint="Used for new feedback and when you regenerate. The advice is the same; only the tone changes."
+          descriptions={STYLE_DESCRIPTIONS}
+          save={coachAPI.setStyle}
+          columns="sm:grid-cols-3"
+        />
+      )}
     </Card>
   );
 }

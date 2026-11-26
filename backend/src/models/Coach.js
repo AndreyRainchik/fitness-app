@@ -56,6 +56,17 @@ export class CoachStyle {
   }
 }
 
+/** The Claude model the coach uses, per user. */
+export class CoachModel {
+  static get(user_id) {
+    return get('SELECT coach_model FROM users WHERE id = ?', [user_id])?.coach_model || null;
+  }
+
+  static set(user_id, model) {
+    run('UPDATE users SET coach_model = ? WHERE id = ?', [model, user_id]);
+  }
+}
+
 /** The AI coach's feedback on a workout, one per workout. */
 export class WorkoutFeedback {
   static find(workout_id) {
