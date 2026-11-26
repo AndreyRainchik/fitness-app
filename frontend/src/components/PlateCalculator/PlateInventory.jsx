@@ -16,6 +16,8 @@ const PlateInventory = () => {
   const confirm = useConfirm();
   const prompt = usePrompt();
   const [presets, setPresets] = useState([]);
+  // [{ exercise_id, exercise_name, preset_id }]: exercises with their own plate set
+  const [assignments, setAssignments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -36,8 +38,12 @@ const PlateInventory = () => {
     try {
       setIsLoading(true);
       setError('');
-      const response = await platePresetsAPI.getAll();
+      const [response, assigned] = await Promise.all([
+        platePresetsAPI.getAll(),
+        platePresetsAPI.getAssignments().catch(() => ({ assignments: [] })),
+      ]);
       setPresets(response.presets || []);
+      setAssignments(assigned.assignments || []);
     } catch (err) {
       console.error('Failed to load presets:', err);
       setError('Failed to load plate inventory presets');
@@ -60,9 +66,11 @@ const PlateInventory = () => {
 
   const handleDelete = async (id) => {
     const preset = presets.find((p) => p.id === id);
+    const usedBy = assignments.filter((a) => a.preset_id === id).map((a) => a.exercise_name);
     const confirmed = await confirm({
       title: 'Delete plate preset?',
-      message: `“${preset?.name ?? 'This preset'}” will be permanently deleted.`,
+      message: `“${preset?.name ?? 'This preset'}” will be permanently deleted.`
+        + (usedBy.length ? ` ${usedBy.join(', ')} will go back to your active plates.` : ''),
       confirmLabel: 'Delete',
       tone: 'danger'
     });
@@ -417,6 +425,11 @@ const PlateInventory = () => {
                       </div>
                       <div className="text-xs md:text-sm text-gray-600 space-y-1">
                         <p>Bar: {preset.bar_weight} {unitLabel(preset.units)}</p>
+                        {assignments.some((a) => a.preset_id === preset.id) && (
+                          <p className="break-words">
+                            Used for: {assignments.filter((a) => a.preset_id === preset.id).map((a) => a.exercise_name).join(', ')}
+                          </p>
+                        )}
                         <p className="break-words">
                           Plates: {Object.entries(preset.plates)
                             .sort(([a], [b]) => parseFloat(b) - parseFloat(a))

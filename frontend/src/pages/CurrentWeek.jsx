@@ -1,13 +1,14 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { programsAPI } from '../services/api';
+import { platePresetsAPI, programsAPI } from '../services/api';
 import ProgramSetRow from '../components/Program/ProgramSetRow';
-import { CalendarCheck, Check, ChevronDown, Pause, Play, RotateCcw, SkipForward, X } from 'lucide-react';
+import { CalendarCheck, Check, ChevronDown, Disc3, Pause, Play, RotateCcw, SkipForward, X } from 'lucide-react';
 import Layout from '../components/Layout/Layout';
-import { useBatchPlateAdjustedWeights } from '../utils/usePlateAdjustedWeight';
+import { usePlateAdjuster } from '../utils/usePlateAdjustedWeight';
+import { usePlateSetups } from '../utils/usePlateInventory';
 import { useAuth } from '../context/AuthContext';
 import { unitLabel } from '../utils/units';
-import { Alert, Badge, Button, Card, EmptyState, LoadingState, PageHeader, useConfirm } from '../components/ui';
+import { Alert, Badge, Button, Card, EmptyState, LoadingState, PageHeader, Select, useConfirm } from '../components/ui';
 
 // Per-lift training max adjustment choices shown on the week 4 preview.
 // `delta(increment)` returns the change (in the user's units) for the given lift increment.
@@ -58,59 +59,32 @@ const CurrentWeek = () => {
   // Only lifts the user explicitly overrode are present; others use the suggested default.
   const [adjustmentOverrides, setAdjustmentOverrides] = useState({});
 
-  // Collect all weights from workout for batch fetching (INCLUDING WARMUP SETS)
-  const allWeights = useMemo(() => {
-    if (!workout || !workout.lifts) return [];
-    
-    const weights = [];
-    workout.lifts.forEach(lift => {
-      // NEW: Warmup sets (for both program types)
-      if (lift.warmup_sets) {
-        lift.warmup_sets.forEach(set => weights.push(set.weight));
-      }
-      
-      if (workout.program_type === '531') {
-        // Main sets
-        if (lift.main_sets) {
-          lift.main_sets.forEach(set => weights.push(set.weight));
-        }
-        // BBB accessory sets
-        if (lift.accessory_sets && lift.accessory_sets.length > 0) {
-          weights.push(lift.accessory_sets[0].weight);
-        }
-      } else if (workout.program_type === 'starting_strength') {
-        // Starting Strength sets
-        if (lift.sets && lift.sets.length > 0) {
-          weights.push(lift.sets[0].weight);
-        }
-      }
-    });
-    
-    return [...new Set(weights)]; // Remove duplicates
-  }, [workout]);
+  // Programmed weights rounded to what each lift's own plates can load
+  // (the lift's plate set, else the active one)
+  const { adjust } = usePlateAdjuster();
+  const { presets: platePresets, activeId: activePresetId, assignedPresetId } = usePlateSetups();
+  const [plateSetSaving, setPlateSetSaving] = useState(null); // exercise_id being saved
 
-  // Fetch adjusted weights for all programmed weights
-  const { weightsMap, loading: weightsLoading } = useBatchPlateAdjustedWeights(allWeights);
+  const getAdjustedWeightInfo = (programmedWeight, exerciseId) => {
+    const info = adjust(programmedWeight, exerciseId);
+    return { weight: info.adjustedWeight, isAdjusted: info.isAdjusted };
+  };
 
-  // Helper function to get adjusted weight info
-  const getAdjustedWeightInfo = (programmedWeight) => {
-    if (weightsLoading || !weightsMap.has(programmedWeight)) {
-      return {
-        weight: programmedWeight,
-        isAdjusted: false
-      };
+  // Load this lift with another plate set (null: the active set)
+  const handlePlateSetChange = async (exerciseId, presetId) => {
+    setPlateSetSaving(exerciseId);
+    try {
+      await platePresetsAPI.setForExercise(exerciseId, presetId);
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Couldn\'t change the plate set' });
+    } finally {
+      setPlateSetSaving(null);
     }
-    
-    const info = weightsMap.get(programmedWeight);
-    return {
-      weight: info.adjustedWeight,
-      isAdjusted: info.isAdjusted
-    };
   };
 
   // Component to display weight with adjustment indicator
-  const WeightDisplay = ({ programmedWeight }) => {
-    const { weight, isAdjusted } = getAdjustedWeightInfo(programmedWeight);
+  const WeightDisplay = ({ programmedWeight, exerciseId }) => {
+    const { weight, isAdjusted } = getAdjustedWeightInfo(programmedWeight, exerciseId);
     return (
       <span
         className={`tabular text-[15px] font-semibold ${isAdjusted ? 'text-warning-700' : 'text-gray-900'}`}
@@ -657,7 +631,7 @@ const CurrentWeek = () => {
     // Add warmup sets
     if (lift.warmup_sets && lift.warmup_sets.length > 0) {
       lift.warmup_sets.forEach((set, index) => {
-        const { weight } = getAdjustedWeightInfo(set.weight);
+        const { weight } = getAdjustedWeightInfo(set.weight, lift.exercise_id);
         templateSets.push({
           id: setId++,
           exercise_id: lift.exercise_id,
@@ -677,7 +651,7 @@ const CurrentWeek = () => {
       
       if (lift.main_sets) {
         lift.main_sets.forEach((set) => {
-          const { weight } = getAdjustedWeightInfo(set.weight);
+          const { weight } = getAdjustedWeightInfo(set.weight, lift.exercise_id);
           templateSets.push({
             id: setId++,
             exercise_id: lift.exercise_id,
@@ -694,7 +668,7 @@ const CurrentWeek = () => {
       // Add BBB accessory sets with adjusted weights
       if (lift.accessory_sets && lift.accessory_sets.length > 0) {
         const bbbSet = lift.accessory_sets[0];
-        const { weight } = getAdjustedWeightInfo(bbbSet.weight);
+        const { weight } = getAdjustedWeightInfo(bbbSet.weight, lift.exercise_id);
         
         // Add 5 sets of BBB
         for (let i = 0; i < 5; i++) {
@@ -716,7 +690,7 @@ const CurrentWeek = () => {
     if (workout.program_type === 'starting_strength') {
       if (lift.sets) {
         lift.sets.forEach((set) => {
-          const { weight } = getAdjustedWeightInfo(set.weight);
+          const { weight } = getAdjustedWeightInfo(set.weight, lift.exercise_id);
           templateSets.push({
             id: setId++,
             exercise_id: lift.exercise_id,
@@ -1104,7 +1078,7 @@ const CurrentWeek = () => {
                     <span className="tabular block truncate text-xs text-gray-500">
                       {workout.program_type === '531' && `TM ${lift.training_max} ${unit}`}
                       {workout.program_type === 'starting_strength' && `Working weight ${lift.current_weight} ${unit}`}
-                      {topSet && ` · Top set ${getAdjustedWeightInfo(topSet.weight).weight} × ${topSet.reps}${topSet.is_amrap ? '+' : ''}`}
+                      {topSet && ` · Top set ${getAdjustedWeightInfo(topSet.weight, lift.exercise_id).weight} × ${topSet.reps}${topSet.is_amrap ? '+' : ''}`}
                     </span>
                   </span>
                   {lift.status && <StatusIndicator status={lift.status} />}
@@ -1125,9 +1099,10 @@ const CurrentWeek = () => {
                                   key={`w${i}`}
                                   tone="warmup"
                                   label={`W${i + 1}`}
-                                  weight={<WeightDisplay programmedWeight={set.weight} />}
+                                  weight={<WeightDisplay programmedWeight={set.weight} exerciseId={lift.exercise_id} />}
                                   reps={set.reps}
-                                  plateWeight={getAdjustedWeightInfo(set.weight).weight}
+                                  plateWeight={getAdjustedWeightInfo(set.weight, lift.exercise_id).weight}
+                                  exerciseId={lift.exercise_id}
                                 />
                               ))}
                             </ul>
@@ -1141,11 +1116,12 @@ const CurrentWeek = () => {
                               <ProgramSetRow
                                 key={`m${i}`}
                                 label={set.set_number}
-                                weight={<WeightDisplay programmedWeight={set.weight} />}
+                                weight={<WeightDisplay programmedWeight={set.weight} exerciseId={lift.exercise_id} />}
                                 reps={`${set.reps}${set.is_amrap ? '+' : ''}`}
                                 caption={`${set.percentage}% of training max`}
                                 badge={set.is_amrap ? <Badge tone="warning">AMRAP</Badge> : null}
-                                plateWeight={getAdjustedWeightInfo(set.weight).weight}
+                                plateWeight={getAdjustedWeightInfo(set.weight, lift.exercise_id).weight}
+                                exerciseId={lift.exercise_id}
                               />
                             ))}
                           </ul>
@@ -1158,10 +1134,11 @@ const CurrentWeek = () => {
                               <ProgramSetRow
                                 tone="accessory"
                                 label={`${lift.accessory_sets.length}×`}
-                                weight={<WeightDisplay programmedWeight={lift.accessory_sets[0].weight} />}
+                                weight={<WeightDisplay programmedWeight={lift.accessory_sets[0].weight} exerciseId={lift.exercise_id} />}
                                 reps={lift.accessory_sets[0].reps}
                                 caption={`${lift.accessory_sets[0].percentage}% TM · same weight every set · rest 1–2 min`}
-                                plateWeight={getAdjustedWeightInfo(lift.accessory_sets[0].weight).weight}
+                                plateWeight={getAdjustedWeightInfo(lift.accessory_sets[0].weight, lift.exercise_id).weight}
+                                exerciseId={lift.exercise_id}
                               />
                             </ul>
                           </section>
@@ -1181,9 +1158,10 @@ const CurrentWeek = () => {
                                   key={`w${i}`}
                                   tone="warmup"
                                   label={`W${i + 1}`}
-                                  weight={<WeightDisplay programmedWeight={set.weight} />}
+                                  weight={<WeightDisplay programmedWeight={set.weight} exerciseId={lift.exercise_id} />}
                                   reps={set.reps}
-                                  plateWeight={getAdjustedWeightInfo(set.weight).weight}
+                                  plateWeight={getAdjustedWeightInfo(set.weight, lift.exercise_id).weight}
+                                  exerciseId={lift.exercise_id}
                                 />
                               ))}
                             </ul>
@@ -1194,14 +1172,39 @@ const CurrentWeek = () => {
                           <ul>
                             <ProgramSetRow
                               label={`${lift.sets.length}×`}
-                              weight={<WeightDisplay programmedWeight={lift.sets[0].weight} />}
+                              weight={<WeightDisplay programmedWeight={lift.sets[0].weight} exerciseId={lift.exercise_id} />}
                               reps={lift.sets[0].reps}
                               caption={`Next session: ${lift.sets[0].weight + lift.increment} ${unit} · rest 3–5 min`}
-                              plateWeight={getAdjustedWeightInfo(lift.sets[0].weight).weight}
+                              plateWeight={getAdjustedWeightInfo(lift.sets[0].weight, lift.exercise_id).weight}
+                              exerciseId={lift.exercise_id}
                             />
                           </ul>
                         </section>
                       </>
+                    )}
+
+                    {/* Which plates this lift loads with, once there's more than one set */}
+                    {platePresets.length > 1 && (
+                      <div className="mt-3 flex items-center gap-3 border-t border-gray-100 pt-3">
+                        <label htmlFor={`plates-${lift.exercise_id}`} className="flex flex-shrink-0 items-center gap-1.5 text-sm text-gray-600">
+                          <Disc3 className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                          Plates
+                        </label>
+                        <Select
+                          id={`plates-${lift.exercise_id}`}
+                          size="sm"
+                          value={assignedPresetId(lift.exercise_id) ?? ''}
+                          disabled={plateSetSaving === lift.exercise_id}
+                          onChange={(e) => handlePlateSetChange(lift.exercise_id, e.target.value ? Number(e.target.value) : null)}
+                        >
+                          <option value="">
+                            Default ({platePresets.find((p) => p.id === activePresetId)?.name ?? 'active set'})
+                          </option>
+                          {platePresets.map((p) => (
+                            <option key={p.id} value={p.id}>{p.name} · bar {p.bar_weight} {unitLabel(p.units)}</option>
+                          ))}
+                        </Select>
+                      </div>
                     )}
 
                     <div className="mt-3 space-y-3 border-t border-gray-100 pt-4">

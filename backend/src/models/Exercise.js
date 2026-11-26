@@ -159,11 +159,12 @@ class Exercise {
 
   /**
    * Delete an exercise nothing uses. Hevy import choices that pointed at it
-   * are forgotten (the next import asks again).
+   * are forgotten (the next import asks again), and so are plate set choices.
    */
   static delete(id) {
     transaction(() => {
       run('DELETE FROM hevy_exercise_mappings WHERE exercise_id = ?', [id]);
+      run('DELETE FROM exercise_plate_presets WHERE exercise_id = ?', [id]);
       run('DELETE FROM exercises WHERE id = ?', [id]);
     });
     return { success: true };

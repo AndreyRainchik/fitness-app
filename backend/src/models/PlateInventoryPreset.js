@@ -1,4 +1,4 @@
-import { get, all, run } from '../config/database.js';
+import { get, all, run, transaction } from '../config/database.js';
 
 /**
  * PlateInventoryPreset Model
@@ -119,7 +119,11 @@ class PlateInventoryPreset {
       }
     }
 
-    run('DELETE FROM plate_inventory_presets WHERE id = ?', [id]);
+    // Exercises that used this set go back to the active one
+    transaction(() => {
+      run('DELETE FROM exercise_plate_presets WHERE preset_id = ?', [id]);
+      run('DELETE FROM plate_inventory_presets WHERE id = ?', [id]);
+    });
     return { success: true };
   }
 
@@ -139,6 +143,51 @@ class PlateInventoryPreset {
     run('UPDATE plate_inventory_presets SET is_active = 1 WHERE id = ?', [id]);
     
     return this.getById(id);
+  }
+
+  /**
+   * The user's per-exercise plate set choices:
+   * [{ exercise_id, exercise_name, preset_id, preset_name }]. Exercises not
+   * listed use the active preset.
+   */
+  static getAssignments(userId) {
+    return all(
+      `SELECT a.exercise_id, e.name AS exercise_name, a.preset_id, p.name AS preset_name
+       FROM exercise_plate_presets a
+       JOIN exercises e ON e.id = a.exercise_id
+       JOIN plate_inventory_presets p ON p.id = a.preset_id AND p.user_id = a.user_id
+       WHERE a.user_id = ?
+       ORDER BY e.name COLLATE NOCASE`,
+      [userId]
+    );
+  }
+
+  /**
+   * Load this exercise with this preset (null: back to the active preset).
+   * The caller checks the user can see the exercise and owns the preset.
+   */
+  static assignToExercise(userId, exerciseId, presetId) {
+    if (presetId == null) {
+      run('DELETE FROM exercise_plate_presets WHERE user_id = ? AND exercise_id = ?', [userId, exerciseId]);
+      return null;
+    }
+    run(
+      `INSERT INTO exercise_plate_presets (user_id, exercise_id, preset_id) VALUES (?, ?, ?)
+       ON CONFLICT(user_id, exercise_id) DO UPDATE SET preset_id = excluded.preset_id, updated_at = CURRENT_TIMESTAMP`,
+      [userId, exerciseId, presetId]
+    );
+    return presetId;
+  }
+
+  /** The preset this user loads this exercise with: its own, else the active one. */
+  static getForExercise(userId, exerciseId) {
+    const assigned = get(
+      `SELECT p.* FROM exercise_plate_presets a
+       JOIN plate_inventory_presets p ON p.id = a.preset_id AND p.user_id = a.user_id
+       WHERE a.user_id = ? AND a.exercise_id = ?`,
+      [userId, exerciseId]
+    );
+    return assigned || this.getActive(userId);
   }
 
   /**

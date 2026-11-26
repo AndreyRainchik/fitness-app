@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { usePlateInventory } from '../../utils/usePlateInventory';
+import { usePlateSetups } from '../../utils/usePlateInventory';
 import { calculatePlates } from '../../utils/plateMath';
 import { unitLabel } from '../../utils/units';
 import { useAuth } from '../../context/AuthContext';
@@ -54,10 +54,17 @@ const plateHeight = (weight) => {
 /**
  * What to load for a target weight: one side of the bar (the other side
  * mirrors it), plus the per-side total. Computed in the browser from the
- * active plate preset (see utils/plateMath.js).
+ * exercise's plate preset, else the active one (see utils/plateMath.js).
  */
-export function PlateLoadout({ targetWeight }) {
-  const { inventory, loading, error: loadError } = usePlateInventory();
+export function PlateLoadout({ targetWeight, exerciseId }) {
+  const { presetFor, assignedPresetId, loading, error: loadError } = usePlateSetups();
+  const preset = presetFor(exerciseId);
+  const inventory = useMemo(
+    () => (preset ? { bar_weight: preset.bar_weight, plates: preset.plates || {}, units: preset.units || 'lbs' } : null),
+    [preset]
+  );
+  // Name the set when the exercise has its own, so it's clear which plates to grab
+  const ownSet = assignedPresetId(exerciseId) != null ? preset?.name : null;
   const userUnits = useAuth().user?.units;
   const platesData = useMemo(
     () => (inventory && targetWeight > 0 ? calculatePlates(targetWeight, inventory, userUnits) : null),
@@ -102,6 +109,9 @@ export function PlateLoadout({ targetWeight }) {
           ) : (
             <p className="text-sm font-medium text-gray-700">Empty bar</p>
           )}
+          {ownSet && (
+            <p className="mt-2 text-xs text-gray-500">Using your “{ownSet}” plates (bar {preset.bar_weight} {plateUnit}).</p>
+          )}
           {otherUnit && (
             <p className="mt-2 text-xs text-gray-500">
               Your plates are in {plateUnit}: the bar loads {platesData.total} {plateUnit} ({platesData.totalInTarget} {targetUnit}).
@@ -121,7 +131,7 @@ export function PlateLoadout({ targetWeight }) {
 /**
  * PlateCalculator: a "Plates" toggle that reveals PlateLoadout.
  */
-const PlateCalculator = ({ targetWeight, className = '' }) => {
+const PlateCalculator = ({ targetWeight, exerciseId, className = '' }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (!targetWeight || targetWeight <= 0) {
@@ -141,7 +151,7 @@ const PlateCalculator = ({ targetWeight, className = '' }) => {
         </svg>
         Plate loading
       </button>
-      {isExpanded && <div className="mt-1"><PlateLoadout targetWeight={targetWeight} /></div>}
+      {isExpanded && <div className="mt-1"><PlateLoadout targetWeight={targetWeight} exerciseId={exerciseId} /></div>}
     </div>
   );
 };

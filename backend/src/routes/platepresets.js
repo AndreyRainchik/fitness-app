@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import { authenticateToken } from '../middleware/auth.js';
 import PlateInventoryPreset from '../models/PlateInventoryPreset.js';
 import User from '../models/User.js';
+import Exercise from '../models/Exercise.js';
 
 const router = express.Router();
 
@@ -54,6 +55,64 @@ router.get('/active', (req, res) => {
     res.status(500).json({ error: 'Failed to fetch active preset' });
   }
 });
+
+/**
+ * GET /api/plate-presets/assignments
+ * Which plate set each exercise loads with:
+ * { assignments: [{ exercise_id, exercise_name, preset_id, preset_name }] }.
+ * Exercises not listed use the active preset.
+ */
+router.get('/assignments', (req, res) => {
+  try {
+    res.json({ assignments: PlateInventoryPreset.getAssignments(req.user.id) });
+  } catch (error) {
+    console.error('Get plate assignments error:', error);
+    res.status(500).json({ error: 'Failed to fetch exercise plate sets' });
+  }
+});
+
+/**
+ * PUT /api/plate-presets/assignments/:exerciseId
+ * Body { preset_id }: load this exercise with that preset; null goes back to
+ * the active preset.
+ */
+router.put('/assignments/:exerciseId',
+  [
+    body('preset_id').optional({ values: 'null' }).isInt({ min: 1 }).withMessage('preset_id must be a preset id or null')
+  ],
+  (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const exercise = Exercise.findVisible(req.params.exerciseId, req.user.id);
+      if (!exercise) {
+        return res.status(404).json({ error: 'Exercise not found' });
+      }
+
+      const presetId = req.body.preset_id == null ? null : Number(req.body.preset_id);
+      if (presetId != null) {
+        const preset = PlateInventoryPreset.getById(presetId);
+        if (!preset || preset.user_id !== req.user.id) {
+          return res.status(404).json({ error: 'Preset not found' });
+        }
+      }
+
+      PlateInventoryPreset.assignToExercise(req.user.id, exercise.id, presetId);
+      const preset = PlateInventoryPreset.getForExercise(req.user.id, exercise.id);
+      res.json({
+        exercise_id: exercise.id,
+        preset_id: presetId,
+        preset: preset ? { ...preset, plates: PlateInventoryPreset.parsePlates(preset) } : null
+      });
+    } catch (error) {
+      console.error('Set plate assignment error:', error);
+      res.status(500).json({ error: 'Failed to set the exercise\'s plate set' });
+    }
+  }
+);
 
 /**
  * GET /api/plate-presets/:id

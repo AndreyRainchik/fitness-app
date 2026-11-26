@@ -19,6 +19,7 @@
   "test:strava": "node src/test-strava.js",
   "test:programs": "node src/test-programs.js",
   "test:overview": "node src/test-overview.js",
+  "test:plates": "node src/test-plate-presets.js",
   "strava:subscribe": "node src/strava-subscribe.js"
  },
  "keywords": [
