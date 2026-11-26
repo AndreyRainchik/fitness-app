@@ -955,7 +955,7 @@ export const hevyAPI = {
  * AI coach API calls (see backend/src/routes/coach.js)
  */
 export const coachAPI = {
-  /** { connected, provider?, key_hint?, connected_at?, key_readable?, style, styles: [{ id, label }] } */
+  /** { connected, provider?, key_hint?, connected_at?, key_readable?, style, styles: [{ id, label }], model, models: [{ id, label, cost }] } */
   getStatus: () => apiCall('/coach/status'),
 
   /** Saves the Anthropic API key after Anthropic accepts it */
@@ -965,6 +965,12 @@ export const coachAPI = {
   }),
 
   disconnect: () => apiCall('/coach/connection', { method: 'DELETE' }),
+
+  /** model: one of the ids in getStatus().models */
+  setModel: (model) => apiCall('/coach/model', {
+    method: 'PUT',
+    body: JSON.stringify({ model }),
+  }),
 
   /** style: one of the ids in getStatus().styles */
   setStyle: (style) => apiCall('/coach/style', {

@@ -54,6 +54,8 @@ function CoachFeedbackCard({ workoutId }) {
 
   const loading = saved === undefined;
   const styleLabel = (id) => status?.styles?.find((s) => s.id === id)?.label ?? null;
+  // A model no longer offered (or a fallback model) shows its id
+  const modelLabel = (id) => status?.models?.find((m) => m.id === id)?.label ?? id ?? null;
   const connected = status?.connected && status.key_readable !== false;
   const hasFeedback = Boolean(saved?.feedback);
 
@@ -70,7 +72,7 @@ function CoachFeedbackCard({ workoutId }) {
         icon={Sparkles}
         title="AI coach"
         subtitle={hasFeedback && !generating
-          ? `Written ${formatTimestamp(saved.created_at)}${styleLabel(saved.style) ? ` · ${styleLabel(saved.style)}` : ''}`
+          ? ['Written ' + formatTimestamp(saved.created_at), styleLabel(saved.style), modelLabel(saved.model)].filter(Boolean).join(' · ')
           : 'Feedback on this session from Claude'}
         action={action}
       />

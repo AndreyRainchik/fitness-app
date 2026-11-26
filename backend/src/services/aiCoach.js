@@ -7,7 +7,24 @@ import { estimate1RM } from '../utils/strengthCalculations.js';
  * Anthropic API key.
  */
 
-export const COACH_MODEL = 'claude-haiku-5-5';
+/**
+ * The Claude models the coach can use. Cost is a rough figure for one
+ * feedback on a typical session (about 2,500 tokens in, 1,000 out).
+ */
+export const COACH_MODELS = {
+  'claude-haiku-5-5': { label: 'Claude Haiku 5.5', cost: 'about $0.001 per feedback' },
+  'claude-sonnet-5-5': {
+    label: 'Claude Sonnet 5.5',
+    cost: 'about $0.015 per feedback',
+    // If Sonnet's safety check wrongly declines a review, the API retries it on
+    // a fallback model in the same call (Haiku has no server-side fallback)
+    fallback: true,
+  },
+};
+
+export const DEFAULT_COACH_MODEL = 'claude-haiku-5-5';
+
+const modelOrDefault = (model) => (COACH_MODELS[model] ? model : DEFAULT_COACH_MODEL);
 
 /** A user's AI key was refused, or the provider couldn't be used. */
 export class CoachError extends Error {
@@ -199,22 +216,23 @@ function toCoachError(error) {
 /** Checks an API key works, without spending tokens. Throws CoachError. */
 export async function checkApiKey(apiKey) {
   try {
-    await new Anthropic({ apiKey, maxRetries: 1 }).models.retrieve(COACH_MODEL);
+    await new Anthropic({ apiKey, maxRetries: 1 }).models.retrieve(DEFAULT_COACH_MODEL);
   } catch (error) {
     throw toCoachError(error);
   }
 }
 
 /** Feedback for a workout: { summary, highlights, improvements, next_session }. Throws CoachError. */
-export async function generateFeedback(apiKey, user, workout, styleKey = DEFAULT_COACH_STYLE) {
+export async function generateFeedback(apiKey, user, workout, styleKey = DEFAULT_COACH_STYLE, modelKey = DEFAULT_COACH_MODEL) {
   const client = new Anthropic({ apiKey, timeout: 90_000 });
+  const model = modelOrDefault(modelKey);
   const context = buildWorkoutContext(user, workout);
   const style = COACH_STYLES[styleKey] ?? COACH_STYLES[DEFAULT_COACH_STYLE];
 
   let response;
   try {
-    response = await client.messages.create({
-      model: COACH_MODEL,
+    const params = {
+      model,
       max_tokens: 8000,
       system: SYSTEM_PROMPT,
       output_config: {
@@ -226,7 +244,10 @@ export async function generateFeedback(apiKey, user, workout, styleKey = DEFAULT
         // The style goes here, after the fixed system prompt, so the system prompt stays the same for every user
         content: `Style for this review. ${style.prompt}\n\nHere is the session to review, with my recent history:\n\n${JSON.stringify(context, null, 2)}`,
       }],
-    });
+    };
+    response = COACH_MODELS[model].fallback
+      ? await client.beta.messages.create({ ...params, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' })
+      : await client.messages.create(params);
   } catch (error) {
     throw toCoachError(error);
   }
@@ -244,5 +265,6 @@ export async function generateFeedback(apiKey, user, workout, styleKey = DEFAULT
   } catch {
     throw new CoachError('The coach answered in an unexpected format. Try regenerating.', { status: 502 });
   }
-  return { feedback, model: response.model || COACH_MODEL, style: COACH_STYLES[styleKey] ? styleKey : DEFAULT_COACH_STYLE };
+  // The model that actually wrote it (a fallback model, if one took over)
+  return { feedback, model: response.model || model, style: COACH_STYLES[styleKey] ? styleKey : DEFAULT_COACH_STYLE };
 }

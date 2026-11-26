@@ -1,16 +1,19 @@
 import express from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { User, Workout } from '../models/index.js';
-import { AiConnection, CoachStyle, WorkoutFeedback } from '../models/Coach.js';
-import { COACH_STYLES, CoachError, checkApiKey, generateFeedback } from '../services/aiCoach.js';
+import { AiConnection, CoachModel, CoachStyle, WorkoutFeedback } from '../models/Coach.js';
+import {
+  COACH_MODELS, COACH_STYLES, DEFAULT_COACH_MODEL, CoachError, checkApiKey, generateFeedback,
+} from '../services/aiCoach.js';
 import { authenticateToken } from '../middleware/auth.js';
 
 /**
  * AI coach: feedback on a workout, written by Claude with the user's own
  * Anthropic API key.
  *
- *   GET    /api/coach/status                  whether an AI key is saved, and the chosen style
+ *   GET    /api/coach/status                  whether an AI key is saved, and the chosen style and model
  *   PUT    /api/coach/style                   choose the coach's style
+ *   PUT    /api/coach/model                   choose the Claude model (Haiku or Sonnet)
  *   PUT    /api/coach/connection              save (and check) an Anthropic API key
  *   DELETE /api/coach/connection              forget the key
  *   GET    /api/coach/workouts/:id/feedback   the saved feedback for a workout, or null
@@ -62,14 +65,39 @@ function feedbackResponse(saved, workout) {
 // ---------------------------------------------------------------------------
 
 const styleOptions = () => Object.entries(COACH_STYLES).map(([id, s]) => ({ id, label: s.label }));
+const modelOptions = () => Object.entries(COACH_MODELS).map(([id, m]) => ({ id, label: m.label, cost: m.cost }));
+const currentModel = (userId) => {
+  const model = CoachModel.get(userId);
+  return COACH_MODELS[model] ? model : DEFAULT_COACH_MODEL;
+};
+/** Style and model choices, sent with every status-like response. */
+const choices = (userId) => ({
+  style: CoachStyle.get(userId),
+  styles: styleOptions(),
+  model: currentModel(userId),
+  models: modelOptions(),
+});
 
 router.get('/status', (req, res) => {
   try {
-    res.json({ ...AiConnection.status(req.user.id), style: CoachStyle.get(req.user.id), styles: styleOptions() });
+    res.json({ ...AiConnection.status(req.user.id), ...choices(req.user.id) });
   } catch (error) {
     sendCoachError(res, error, 'get AI coach status');
   }
 });
+
+router.put('/model',
+  [body('model').isIn(Object.keys(COACH_MODELS)).withMessage('Choose Claude Haiku or Claude Sonnet')],
+  (req, res) => {
+    if (validationFailed(req, res)) return;
+    try {
+      CoachModel.set(req.user.id, req.body.model);
+      res.json({ model: req.body.model });
+    } catch (error) {
+      sendCoachError(res, error, 'save the coach model');
+    }
+  }
+);
 
 router.put('/style',
   [body('style').isIn(Object.keys(COACH_STYLES)).withMessage('Choose one of the coach styles')],
@@ -91,7 +119,7 @@ router.put('/connection',
     const apiKey = req.body.api_key.trim();
     try {
       await checkApiKey(apiKey);
-      res.json({ ...AiConnection.save(req.user.id, apiKey, 'anthropic'), style: CoachStyle.get(req.user.id), styles: styleOptions() });
+      res.json({ ...AiConnection.save(req.user.id, apiKey, 'anthropic'), ...choices(req.user.id) });
     } catch (error) {
       sendCoachError(res, error, 'save the API key');
     }
@@ -101,7 +129,7 @@ router.put('/connection',
 router.delete('/connection', (req, res) => {
   try {
     AiConnection.remove(req.user.id);
-    res.json({ connected: false, style: CoachStyle.get(req.user.id), styles: styleOptions() });
+    res.json({ connected: false, ...choices(req.user.id) });
   } catch (error) {
     sendCoachError(res, error, 'remove the API key');
   }
@@ -150,7 +178,7 @@ router.post('/workouts/:id/feedback', [param('id').isInt({ min: 1 })], async (re
   inFlight.add(workout.id);
   try {
     const user = User.findById(req.user.id);
-    const { feedback, model, style } = await generateFeedback(apiKey, user, workout, CoachStyle.get(req.user.id));
+    const { feedback, model, style } = await generateFeedback(apiKey, user, workout, CoachStyle.get(req.user.id), currentModel(req.user.id));
     const saved = WorkoutFeedback.save({
       workout_id: workout.id,
       user_id: req.user.id,

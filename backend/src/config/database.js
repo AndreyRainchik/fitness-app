@@ -652,6 +652,13 @@ function ensureCoachSchema() {
     // Column already exists
   }
 
+  // The Claude model the coach uses: 'claude-haiku-5-5' or 'claude-sonnet-5-5'
+  try {
+    db.run("ALTER TABLE users ADD COLUMN coach_model TEXT NOT NULL DEFAULT 'claude-haiku-5-5'");
+  } catch (e) {
+    // Column already exists
+  }
+
   // One feedback per workout; regenerating replaces it. workout_edited_at is
   // the workout's edited_at when the feedback was written, to tell when the
   // workout changed since.
