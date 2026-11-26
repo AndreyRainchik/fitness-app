@@ -16,6 +16,7 @@ import {
   summarizePRs, totals, trainingSummary,
 } from '../services/strengthOverview.js';
 import { Cardio } from '../models/index.js';
+import { assistedBodyweightLookup, isAssistedName } from '../services/assistedLoad.js';
 import { BestEfforts } from '../models/Analysis.js';
 
 const router = express.Router();
@@ -108,6 +109,23 @@ function dateRange(req) {
 const formulaSex = (sex) => (sex === 'F' ? 'F' : 'M');
 
 /**
+ * Working sets that can set an estimated-1RM PR: positive weight, or any
+ * weight on an assisted exercise (negative = assistance, 0 = bodyweight only).
+ */
+const PR_SET_WEIGHT = `(s.weight > 0 OR e.name LIKE '%assisted%')`;
+
+/** Flag a user's assisted-exercise sets and give each that day's bodyweight, for findPRs. */
+function withAssistedBodyweight(userId, sets) {
+  const lookup = assistedBodyweightLookup(userId);
+  return sets.map((set) => (isAssistedName(set.exercise)
+    ? { ...set, assisted: true, bodyweight: lookup.bodyweightOn(set.date) }
+    : set));
+}
+
+/** Volume of a working set: assistance (negative weight) counts as no weight, not less than none. */
+const SET_VOLUME = 'MAX(s.weight, 0) * s.reps';
+
+/**
  * Bodyweight in pounds on a date: the latest weigh-in on or before it, else
  * the earliest weigh-in after it, else the profile bodyweight (0 if none).
  */
@@ -161,7 +179,11 @@ router.get('/lift-progression/:exerciseName', authenticateToken, (req, res) => {
     const units = user.units === 'kg' ? 'kg' : 'lbs';
     const sex = formulaSex(user.sex);
 
-    // Working sets that count toward a 1RM (no failed or empty sets)
+    // Working sets that count toward a 1RM (no failed or empty sets).
+    // Assisted exercises count every weight (negative = assistance) and are
+    // estimated with the bodyweight on the day.
+    const assisted = isAssistedName(exerciseName);
+    const assistedBodyweight = assistedBodyweightLookup(userId);
     const workoutSets = all(
       `SELECT 
         w.id as workout_id,
@@ -174,11 +196,11 @@ router.get('/lift-progression/:exerciseName', authenticateToken, (req, res) => {
          AND s.exercise_id = ?
          AND s.is_warmup = 0
          AND s.reps > 0
-         AND s.weight > 0
+         AND (s.weight > 0 OR ? = 1)
          AND w.date >= ? 
          AND w.date <= ?
        ORDER BY w.date ASC, s.id ASC`,
-      [userId, exerciseId, startDateStr, endDateStr]
+      [userId, exerciseId, assisted ? 1 : 0, startDateStr, endDateStr]
     );
     
     if (workoutSets.length === 0) {
@@ -208,14 +230,15 @@ router.get('/lift-progression/:exerciseName', authenticateToken, (req, res) => {
     const bodyweightByDate = new Map();
     const progression = [];
     workoutMap.forEach((workout) => {
-      const bestSet = getBestWorkingSet(workout.sets);
+      const loadBodyweight = assisted ? assistedBodyweight.bodyweightOn(workout.date) : 0;
+      const bestSet = getBestWorkingSet(workout.sets, loadBodyweight);
       if (!bestSet) return;
 
       if (!bodyweightByDate.has(workout.date)) {
         bodyweightByDate.set(workout.date, bodyweightLbsOn(userId, workout.date, user));
       }
       const bodyweightLbs = bodyweightByDate.get(workout.date);
-      const estimated1RM = estimate1RM(bestSet.weight, bestSet.reps);
+      const estimated1RM = bestSet.estimated1RM;
       const estimated1RMLbs = convertToLbs(estimated1RM, units);
 
       const wilksScore = calculateWilks(estimated1RMLbs / 2.20462, bodyweightLbs / 2.20462, sex);
@@ -559,7 +582,7 @@ router.get('/dashboard-summary', authenticateToken, (req, res) => {
     // Weekly volume (working sets only) for the chart
     const firstChartWeek = thisWeekStart - (weeks - 1) * 7 * DAY_MS;
     const volumeRows = all(
-      `SELECT w.date, w.id as workout_id, SUM(CASE WHEN s.is_warmup = 0 THEN s.weight * s.reps ELSE 0 END) as volume,
+      `SELECT w.date, w.id as workout_id, SUM(CASE WHEN s.is_warmup = 0 THEN ${SET_VOLUME} ELSE 0 END) as volume,
               SUM(CASE WHEN s.is_warmup = 0 THEN 1 ELSE 0 END) as sets
        FROM workouts w LEFT JOIN sets s ON s.workout_id = w.id
        WHERE w.user_id = ? AND w.date >= ?
@@ -596,11 +619,11 @@ router.get('/dashboard-summary', authenticateToken, (req, res) => {
        FROM sets s
        JOIN workouts w ON s.workout_id = w.id
        JOIN exercises e ON s.exercise_id = e.id
-       WHERE w.user_id = ? AND s.is_warmup = 0 AND s.reps > 0 AND s.weight > 0
+       WHERE w.user_id = ? AND s.is_warmup = 0 AND s.reps > 0 AND ${PR_SET_WEIGHT}
        ORDER BY w.date ASC, s.id ASC`,
       [userId]
     );
-    const recentPRs = findPRs(allSets, thirtyDaysAgo)
+    const recentPRs = findPRs(withAssistedBodyweight(userId, allSets), thirtyDaysAgo)
       .sort((a, b) => b.date.localeCompare(a.date) || Number(a.firstTime) - Number(b.firstTime))
       .slice(0, 6);
 
@@ -755,7 +778,7 @@ router.get('/overview', authenticateToken, (req, res) => {
        FROM sets s
        JOIN workouts w ON s.workout_id = w.id
        JOIN exercises e ON s.exercise_id = e.id
-       WHERE w.user_id = ? AND s.is_warmup = 0 AND s.reps > 0 AND s.weight > 0 AND w.date <= ?
+       WHERE w.user_id = ? AND s.is_warmup = 0 AND s.reps > 0 AND ${PR_SET_WEIGHT} AND w.date <= ?
        ORDER BY w.date ASC, s.id ASC`,
       [userId, today]
     );
@@ -787,7 +810,7 @@ router.get('/overview', authenticateToken, (req, res) => {
     };
 
     const volumeRows = all(
-      `SELECT w.id, SUM(s.weight * s.reps) as volume
+      `SELECT w.id, SUM(${SET_VOLUME}) as volume
        FROM workouts w JOIN sets s ON s.workout_id = w.id
        WHERE w.user_id = ? AND w.date >= ? AND w.date <= ? AND s.is_warmup = 0
        GROUP BY w.id`,
@@ -796,7 +819,7 @@ router.get('/overview', authenticateToken, (req, res) => {
     const volumeByWorkout = new Map(volumeRows.map((r) => [r.id, r.volume || 0]));
     const summary = trainingSummary(Cardio.sessionsSince(userId, previous.start), volumeByWorkout, windows, weeks);
 
-    const prs = findPRs(sets, previous.start);
+    const prs = findPRs(withAssistedBodyweight(userId, sets), previous.start);
     const muscleRows = all(
       `SELECT e.primary_muscle_group, e.secondary_muscle_groups
        FROM sets s

@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { all } from '../config/database.js';
 import { estimate1RM } from '../utils/strengthCalculations.js';
+import { assistedBodyweightLookup } from './assistedLoad.js';
 
 /**
  * The AI coach: feedback on one workout, written by Claude with the user's own
@@ -40,7 +41,7 @@ const SYSTEM_PROMPT = `You are an experienced strength and conditioning coach re
 Give feedback the athlete can act on: what went well, what to watch or improve, and what to do next time. Base every point on the numbers you were given: compare against their previous sessions of the same exercise when that history is there, and mention personal bests. Name exercises and numbers specifically ("Bench press: 3x5 at 185, up 5 from last week") rather than speaking in generalities.
 
 Rules:
-- Weights are in the athlete's unit, given with the data. Negative weights are machine assistance (more negative means more help), so a smaller assistance number is progress.
+- Weights are in the athlete's unit, given with the data. Negative weights are machine assistance (more negative means more help), so a smaller assistance number is progress. Estimated 1RMs of assisted exercises use their bodyweight and are on the same scale: negative is assistance still needed for one rep, positive is weight they could add for one rep.
 - Warm-up sets are marked; judge the working sets.
 - RPE, when logged, is rate of perceived exertion out of 10.
 - Don't invent data you weren't given. If something useful is missing (no RPE, no history), work with what's there; mention it at most once.
@@ -92,7 +93,7 @@ function describeSet(s) {
 }
 
 /** The most recent earlier session of an exercise, and the best e1RM before this workout. */
-function exerciseHistory(userId, exerciseId, workout) {
+function exerciseHistory(userId, exerciseId, exerciseName, workout, bodyweights) {
   const earlier = all(
     `SELECT w.id AS workout_id, w.date, s.weight, s.reps, s.rpe, s.is_warmup
      FROM sets s JOIN workouts w ON w.id = s.workout_id
@@ -104,8 +105,10 @@ function exerciseHistory(userId, exerciseId, workout) {
   if (earlier.length === 0) return null;
   const lastId = earlier[0].workout_id;
   const lastSets = earlier.filter((s) => s.workout_id === lastId && !s.is_warmup);
-  const working = earlier.filter((s) => !s.is_warmup);
-  const best = working.length ? Math.max(...working.map((s) => estimate1RM(s.weight, s.reps))) : null;
+  const working = earlier.filter((s) => !s.is_warmup && s.reps > 0);
+  const best = working.length
+    ? Math.max(...working.map((s) => estimate1RM(s.weight, s.reps, bodyweights.bodyweightFor(exerciseName, s.date))))
+    : null;
   return {
     last_date: earlier[0].date,
     last_working_sets: lastSets.map(describeSet),
@@ -163,15 +166,17 @@ export function buildWorkoutContext(user, workout) {
     byExercise.get(s.exercise_id).sets.push(s);
   }
   if (byExercise.size > 0) {
+    const bodyweights = assistedBodyweightLookup(user.id);
     context.exercises = [...byExercise.entries()].map(([exerciseId, ex]) => {
-      const working = ex.sets.filter((s) => !s.is_warmup);
-      const best = working.length ? Math.max(...working.map((s) => estimate1RM(s.weight, s.reps))) : null;
+      const working = ex.sets.filter((s) => !s.is_warmup && s.reps > 0);
+      const bodyweight = bodyweights.bodyweightFor(ex.name, workout.date);
+      const best = working.length ? Math.max(...working.map((s) => estimate1RM(s.weight, s.reps, bodyweight))) : null;
       return {
         exercise: ex.name,
         primary_muscle: ex.muscle,
         sets: ex.sets.map(describeSet),
         best_estimated_1rm_today: round(best),
-        history: exerciseHistory(user.id, exerciseId, workout),
+        history: exerciseHistory(user.id, exerciseId, ex.name, workout, bodyweights),
       };
     });
   }
