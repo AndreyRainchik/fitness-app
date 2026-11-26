@@ -951,8 +951,31 @@ export const hevyAPI = {
   }),
 };
 
+/**
+ * AI coach API calls (see backend/src/routes/coach.js)
+ */
+export const coachAPI = {
+  /** { connected, provider?, key_hint?, connected_at?, key_readable? } */
+  getStatus: () => apiCall('/coach/status'),
+
+  /** Saves the Anthropic API key after Anthropic accepts it */
+  connect: (apiKey) => apiCall('/coach/connection', {
+    method: 'PUT',
+    body: JSON.stringify({ api_key: apiKey }),
+  }),
+
+  disconnect: () => apiCall('/coach/connection', { method: 'DELETE' }),
+
+  /** { feedback: { summary, highlights, improvements, next_session } | null, model?, created_at?, stale? } */
+  getFeedback: (workoutId) => apiCall(`/coach/workouts/${workoutId}/feedback`),
+
+  /** Writes new feedback (replacing any saved), same shape as getFeedback */
+  generateFeedback: (workoutId) => apiCall(`/coach/workouts/${workoutId}/feedback`, { method: 'POST' }),
+};
+
 export default {
   hevy: hevyAPI,
+  coach: coachAPI,
   auth: authAPI,
   exercises: exercisesAPI,
   workouts: workoutsAPI,

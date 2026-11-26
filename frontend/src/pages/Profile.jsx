@@ -11,7 +11,8 @@ import StravaConnectionCard from '../components/Strava/StravaConnectionCard';
 import HeartRateSettings from '../components/Profile/HeartRateSettings';
 import HevyWeightSyncCard from '../components/Hevy/HevyWeightSyncCard';
 import MyExercises from '../components/Profile/MyExercises';
-import { hevyAPI, stravaAPI } from '../services/api';
+import AiCoachConnectionCard from '../components/Coach/AiCoachConnectionCard';
+import { coachAPI, hevyAPI, stravaAPI } from '../services/api';
 import Layout from '../components/Layout/Layout';
 import { Button, EmptyState, LoadingState, PageHeader, Tabs } from '../components/ui';
 
@@ -25,27 +26,30 @@ const TABS = [
   { id: 'integrations', label: 'Integrations' },
 ];
 
-/** Connected services: Strava and Hevy. */
+/** Connected services: Strava, Hevy and the AI coach. */
 function IntegrationsTab() {
   const [hevy, setHevy] = useState(null);
   const [strava, setStrava] = useState(null);
+  const [coach, setCoach] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    Promise.all([hevyAPI.getStatus(), stravaAPI.getStatus()])
-      .then(([hevyStatus, stravaStatus]) => {
+    Promise.all([hevyAPI.getStatus(), stravaAPI.getStatus(), coachAPI.getStatus()])
+      .then(([hevyStatus, stravaStatus, coachStatus]) => {
         setHevy(hevyStatus);
         setStrava(stravaStatus);
+        setCoach(coachStatus);
       })
       .catch((err) => setError(err.message || 'Could not load integrations'));
   }, []);
 
   if (error) return <EmptyState tone="error" title="Couldn't load integrations" description={error} />;
-  if (!hevy || !strava) return <LoadingState label="Loading integrations..." />;
+  if (!hevy || !strava || !coach) return <LoadingState label="Loading integrations..." />;
   return (
     <div className="space-y-6">
       <StravaConnectionCard status={strava} onChange={setStrava} />
       <HevyConnectionCard status={hevy} onChange={setHevy} showImportLink />
+      <AiCoachConnectionCard status={coach} onChange={setCoach} />
     </div>
   );
 }

@@ -48,6 +48,7 @@ export async function initDatabase() {
       ensureExerciseOwnerSchema();
       splitBackMuscleGroup();
       ensurePlateUnitsSchema();
+      ensureCoachSchema();
       enableForeignKeys();
       saveDatabase();
     } else {
@@ -62,6 +63,7 @@ export async function initDatabase() {
       ensureAuthSchema();
       ensureExerciseOwnerSchema();
       ensurePlateUnitsSchema();
+      ensureCoachSchema();
       seedExercises();
       enableForeignKeys();
       saveDatabase();
@@ -624,6 +626,40 @@ function ensurePlateUnitsSchema() {
     else units = userUnits === 'kg' ? 'kg' : 'lbs';
     db.run('UPDATE plate_inventory_presets SET units = ? WHERE id = ?', [units, id]);
   }
+}
+
+/**
+ * Tables for the AI coach: each user's AI provider key (stored encrypted) and
+ * the feedback generated for each workout, kept so it isn't generated again on
+ * every view. Safe to run on every start.
+ */
+function ensureCoachSchema() {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS ai_connections (
+      user_id INTEGER PRIMARY KEY,
+      provider TEXT NOT NULL DEFAULT 'anthropic',
+      api_key_encrypted TEXT NOT NULL,
+      key_hint TEXT,
+      connected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // One feedback per workout; regenerating replaces it. workout_edited_at is
+  // the workout's edited_at when the feedback was written, to tell when the
+  // workout changed since.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS workout_feedback (
+      workout_id INTEGER PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      feedback TEXT NOT NULL,
+      model TEXT NOT NULL,
+      workout_edited_at TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
 }
 
 /**
