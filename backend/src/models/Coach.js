@@ -45,6 +45,17 @@ export class AiConnection {
   }
 }
 
+/** The voice the coach writes in, per user. */
+export class CoachStyle {
+  static get(user_id) {
+    return get('SELECT coach_style FROM users WHERE id = ?', [user_id])?.coach_style || 'normal';
+  }
+
+  static set(user_id, style) {
+    run('UPDATE users SET coach_style = ? WHERE id = ?', [style, user_id]);
+  }
+}
+
 /** The AI coach's feedback on a workout, one per workout. */
 export class WorkoutFeedback {
   static find(workout_id) {
@@ -60,13 +71,13 @@ export class WorkoutFeedback {
   }
 
   /** Saves (or replaces) the feedback for a workout. */
-  static save({ workout_id, user_id, feedback, model, workout_edited_at }) {
+  static save({ workout_id, user_id, feedback, model, style, workout_edited_at }) {
     run(
-      `INSERT INTO workout_feedback (workout_id, user_id, feedback, model, workout_edited_at, created_at)
-       VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-       ON CONFLICT(workout_id) DO UPDATE SET feedback = excluded.feedback, model = excluded.model,
+      `INSERT INTO workout_feedback (workout_id, user_id, feedback, model, style, workout_edited_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+       ON CONFLICT(workout_id) DO UPDATE SET feedback = excluded.feedback, model = excluded.model, style = excluded.style,
          workout_edited_at = excluded.workout_edited_at, created_at = excluded.created_at`,
-      [workout_id, user_id, JSON.stringify(feedback), model, workout_edited_at ?? null]
+      [workout_id, user_id, JSON.stringify(feedback), model, style, workout_edited_at ?? null]
     );
     return this.find(workout_id);
   }

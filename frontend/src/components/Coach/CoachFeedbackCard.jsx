@@ -53,6 +53,7 @@ function CoachFeedbackCard({ workoutId }) {
   };
 
   const loading = saved === undefined;
+  const styleLabel = (id) => status?.styles?.find((s) => s.id === id)?.label ?? null;
   const connected = status?.connected && status.key_readable !== false;
   const hasFeedback = Boolean(saved?.feedback);
 
@@ -68,7 +69,9 @@ function CoachFeedbackCard({ workoutId }) {
       <CardHeader
         icon={Sparkles}
         title="AI coach"
-        subtitle={hasFeedback && !generating ? `Written ${formatTimestamp(saved.created_at)}` : 'Feedback on this session from Claude'}
+        subtitle={hasFeedback && !generating
+          ? `Written ${formatTimestamp(saved.created_at)}${styleLabel(saved.style) ? ` · ${styleLabel(saved.style)}` : ''}`
+          : 'Feedback on this session from Claude'}
         action={action}
       />
 

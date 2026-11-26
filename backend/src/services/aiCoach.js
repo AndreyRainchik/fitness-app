@@ -28,7 +28,29 @@ Rules:
 - RPE, when logged, is rate of perceived exertion out of 10.
 - Don't invent data you weren't given. If something useful is missing (no RPE, no history), work with what's there; mention it at most once.
 - No medical advice or diagnosis. If the notes mention pain or injury, suggest they get it checked by a professional and keep the rest of the feedback conservative.
-- Keep each point to one or two sentences, plain text, no markdown. Speak to the athlete directly ("you").`;
+- Keep each point to one or two sentences, plain text, no markdown. Speak to the athlete directly ("you").
+- Write in the style given in the user's message. The style changes only the tone: the facts, the targets and the rules above stay the same.`;
+
+/**
+ * The voices the coach can write in. Only the tone changes: the facts, the
+ * targets and the safety rules in SYSTEM_PROMPT are the same in every style.
+ */
+export const COACH_STYLES = {
+  normal: {
+    label: 'Normal',
+    prompt: 'Tone: clear, friendly and professional, like a good coach who respects the athlete\'s time. No emojis.',
+  },
+  tough_love: {
+    label: 'Tough love',
+    prompt: `Tone: tough love. Blunt and demanding, in short sentences. Give credit only where it was earned, and call out missed reps and sloppy habits directly. The toughness is about standards, never about the athlete as a person: don't insult, mock or belittle them or their body. Never tell them to push through pain or ignore an injury; being tough about recovery and getting things checked is part of the style. No emojis.`,
+  },
+  kawaii: {
+    label: 'Kawaii anime girlfriend',
+    prompt: `Tone: a cheerful, affectionate kawaii anime girlfriend cheering the athlete on. Use cute expressions ("~", "hehe", "mou") and an occasional kaomoji such as (≧◡≦), and start some points with an emoji (💖 🌸 ✨ 🎀 ⭐). Keep it wholesome: sweet and supportive, never sexual, suggestive, jealous or possessive. Concern about pain or injury should be gentle but still clear. The numbers and advice must be exactly as specific and accurate as in a plain coaching review.`,
+  },
+};
+
+export const DEFAULT_COACH_STYLE = 'normal';
 
 const FEEDBACK_SCHEMA = {
   type: 'object',
@@ -184,9 +206,10 @@ export async function checkApiKey(apiKey) {
 }
 
 /** Feedback for a workout: { summary, highlights, improvements, next_session }. Throws CoachError. */
-export async function generateFeedback(apiKey, user, workout) {
+export async function generateFeedback(apiKey, user, workout, styleKey = DEFAULT_COACH_STYLE) {
   const client = new Anthropic({ apiKey, timeout: 90_000 });
   const context = buildWorkoutContext(user, workout);
+  const style = COACH_STYLES[styleKey] ?? COACH_STYLES[DEFAULT_COACH_STYLE];
 
   let response;
   try {
@@ -200,7 +223,8 @@ export async function generateFeedback(apiKey, user, workout) {
       },
       messages: [{
         role: 'user',
-        content: `Here is the session to review, with my recent history:\n\n${JSON.stringify(context, null, 2)}`,
+        // The style goes here, after the fixed system prompt, so the system prompt stays the same for every user
+        content: `Style for this review. ${style.prompt}\n\nHere is the session to review, with my recent history:\n\n${JSON.stringify(context, null, 2)}`,
       }],
     });
   } catch (error) {
@@ -220,5 +244,5 @@ export async function generateFeedback(apiKey, user, workout) {
   } catch {
     throw new CoachError('The coach answered in an unexpected format. Try regenerating.', { status: 502 });
   }
-  return { feedback, model: response.model || COACH_MODEL };
+  return { feedback, model: response.model || COACH_MODEL, style: COACH_STYLES[styleKey] ? styleKey : DEFAULT_COACH_STYLE };
 }

@@ -955,7 +955,7 @@ export const hevyAPI = {
  * AI coach API calls (see backend/src/routes/coach.js)
  */
 export const coachAPI = {
-  /** { connected, provider?, key_hint?, connected_at?, key_readable? } */
+  /** { connected, provider?, key_hint?, connected_at?, key_readable?, style, styles: [{ id, label }] } */
   getStatus: () => apiCall('/coach/status'),
 
   /** Saves the Anthropic API key after Anthropic accepts it */
@@ -966,7 +966,13 @@ export const coachAPI = {
 
   disconnect: () => apiCall('/coach/connection', { method: 'DELETE' }),
 
-  /** { feedback: { summary, highlights, improvements, next_session } | null, model?, created_at?, stale? } */
+  /** style: one of the ids in getStatus().styles */
+  setStyle: (style) => apiCall('/coach/style', {
+    method: 'PUT',
+    body: JSON.stringify({ style }),
+  }),
+
+  /** { feedback: { summary, highlights, improvements, next_session } | null, model?, style?, created_at?, stale? } */
   getFeedback: (workoutId) => apiCall(`/coach/workouts/${workoutId}/feedback`),
 
   /** Writes new feedback (replacing any saved), same shape as getFeedback */
