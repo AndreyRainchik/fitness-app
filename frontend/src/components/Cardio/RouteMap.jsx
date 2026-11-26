@@ -14,6 +14,9 @@ const themeColor = (name) => `rgb(${getComputedStyle(document.documentElement).g
  * The route on an OpenStreetMap map. `points` is [[lat, lng], ...]. Tiles
  * load from openstreetmap.org (and are dimmed in the dark theme by CSS).
  * On phones one finger scrolls the page; two fingers move the map.
+ * The map element is `isolate` so Leaflet's own z-indexes (panes 400-700,
+ * controls 1000) stay inside it instead of covering the app's fixed popups,
+ * header and nav.
  */
 function RouteMap({ points }) {
   const element = useRef(null);
@@ -50,7 +53,7 @@ function RouteMap({ points }) {
       <div className="px-5 pt-5">
         <CardHeader title="Route" icon={MapIcon} />
       </div>
-      <div ref={element} className="h-72 w-full sm:h-96" role="img" aria-label="Map of the route" />
+      <div ref={element} className="isolate h-72 w-full sm:h-96" role="img" aria-label="Map of the route" />
     </Card>
   );
 }
